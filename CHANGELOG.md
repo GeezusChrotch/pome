@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.10
+
+- Accumulate repeated blind position presses instead of reusing a briefly stale position.
+- Queue rapid blind commands per accessory and refresh from Itsyhome after 30 seconds idle.
+
 ## 2.0.9
 
 - Add blind controls for Open, Close, Up, Down, Slow Up/Down, and Fast Up/Down.

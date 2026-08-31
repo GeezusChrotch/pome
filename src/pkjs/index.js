@@ -2,6 +2,9 @@ var DEFAULT_BASE_URL = "";
 var MAX_ITEMS = 64;
 var ROOM_LIGHT_COMMAND_DELAY_MS = 700;
 var ROOM_LIGHT_MAX_ATTEMPTS = 2;
+var BLIND_POSITION_CACHE_TTL_MS = 30000;
+var BLIND_POSITION_CACHE = {};
+var BLIND_ACTION_QUEUES = {};
 
 var COMMAND_LOAD_FAVORITES = 1;
 var COMMAND_LOAD_SCENES = 2;
@@ -662,6 +665,39 @@ function blindPosition(response) {
   return null;
 }
 
+function cachedBlindPosition(target) {
+  var cached = BLIND_POSITION_CACHE[target];
+  if (!cached) return null;
+  if (Date.now() - cached.updatedAt > BLIND_POSITION_CACHE_TTL_MS) {
+    delete BLIND_POSITION_CACHE[target];
+    return null;
+  }
+  return cached.position;
+}
+
+function rememberBlindPosition(target, position) {
+  BLIND_POSITION_CACHE[target] = {position: position, updatedAt: Date.now()};
+}
+
+function enqueueBlindAction(target, operation) {
+  var queue = BLIND_ACTION_QUEUES[target] || [];
+  BLIND_ACTION_QUEUES[target] = queue;
+  queue.push(operation);
+  if (queue.length > 1) return;
+
+  function runNext() {
+    if (!queue.length) {
+      delete BLIND_ACTION_QUEUES[target];
+      return;
+    }
+    queue[0](function() {
+      queue.shift();
+      runNext();
+    });
+  }
+  runNext();
+}
+
 function setBlindPosition(room, name, action, type, serviceId) {
   if (type !== "blinds") {
     sendError(new Error("Position is only available for blinds"));
@@ -685,41 +721,57 @@ function setBlindPosition(room, name, action, type, serviceId) {
   }
 
   var target = encodedDeviceTarget(room, name, serviceId);
-  function applyPosition(position) {
-    var clamped = Math.max(0, Math.min(100, Math.round(position)));
-    apiGet("/position/" + clamped + "/" + target, function(error, response) {
+  enqueueBlindAction(target, function(done) {
+    function fail(error) {
+      delete BLIND_POSITION_CACHE[target];
+      sendError(error);
+      done();
+    }
+
+    function applyPosition(position) {
+      var clamped = Math.max(0, Math.min(100, Math.round(position)));
+      rememberBlindPosition(target, clamped);
+      apiGet("/position/" + clamped + "/" + target, function(error, response) {
+        if (error) {
+          fail(error);
+          return;
+        }
+        if (response && response.status === "error") {
+          fail(new Error(response.message || "Position failed"));
+          return;
+        }
+        send({"STATUS": "Position set to " + clamped + "%"});
+        done();
+      });
+    }
+
+    if (selected.position !== undefined) {
+      applyPosition(selected.position);
+      return;
+    }
+
+    var cachedPosition = cachedBlindPosition(target);
+    if (cachedPosition !== null) {
+      applyPosition(cachedPosition + selected.delta);
+      return;
+    }
+
+    apiGet("/info/" + target, function(error, response) {
       if (error) {
-        sendError(error);
+        fail(error);
         return;
       }
       if (response && response.status === "error") {
-        sendError(new Error(response.message || "Position failed"));
+        fail(new Error(response.message || "Position unavailable"));
         return;
       }
-      send({"STATUS": "Position set to " + clamped + "%"});
+      var position = blindPosition(response);
+      if (position === null) {
+        fail(new Error("Blind position unavailable"));
+        return;
+      }
+      applyPosition(position + selected.delta);
     });
-  }
-
-  if (selected.position !== undefined) {
-    applyPosition(selected.position);
-    return;
-  }
-
-  apiGet("/info/" + target, function(error, response) {
-    if (error) {
-      sendError(error);
-      return;
-    }
-    if (response && response.status === "error") {
-      sendError(new Error(response.message || "Position unavailable"));
-      return;
-    }
-    var position = blindPosition(response);
-    if (position === null) {
-      sendError(new Error("Blind position unavailable"));
-      return;
-    }
-    applyPosition(position + selected.delta);
   });
 }
 

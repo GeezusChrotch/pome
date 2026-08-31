@@ -174,6 +174,8 @@ assert.ok(fanMessages[0].ERROR.indexOf("only available for fans") !== -1);
 function runBlindCase(action, currentPosition, expectedPosition) {
   var paths = [];
   var messages = [];
+  context.BLIND_POSITION_CACHE = {};
+  context.BLIND_ACTION_QUEUES = {};
   context.apiGet = function(path, callback) {
     paths.push(path);
     if (path === "/info/BLIND-UUID") {
@@ -203,6 +205,51 @@ runBlindCase(6, 42, 52);
 runBlindCase(7, 42, 32);
 runBlindCase(6, 97, 100);
 runBlindCase(7, 3, 0);
+
+var repeatedBlindPaths = [];
+var repeatedBlindMessages = [];
+context.BLIND_POSITION_CACHE = {};
+context.BLIND_ACTION_QUEUES = {};
+context.apiGet = function(path, callback) {
+  repeatedBlindPaths.push(path);
+  callback(null, path === "/info/BLIND-UUID"
+    ? {type: "blinds", state: {position: 42}}
+    : {status: "success"});
+};
+context.send = function(payload) { repeatedBlindMessages.push(payload); };
+context.setBlindPosition("Office", "Office Blinds", 2, "blinds", "BLIND-UUID");
+context.setBlindPosition("Office", "Office Blinds", 2, "blinds", "BLIND-UUID");
+assert.deepStrictEqual(repeatedBlindPaths, [
+  "/info/BLIND-UUID", "/position/47/BLIND-UUID", "/position/52/BLIND-UUID"
+]);
+assert.strictEqual(JSON.stringify(repeatedBlindMessages), JSON.stringify([
+  {STATUS: "Position set to 47%"}, {STATUS: "Position set to 52%"}
+]));
+
+var queuedBlindPaths = [];
+var queuedBlindCallbacks = [];
+var queuedBlindMessages = [];
+context.BLIND_POSITION_CACHE = {};
+context.BLIND_ACTION_QUEUES = {};
+context.apiGet = function(path, callback) {
+  queuedBlindPaths.push(path);
+  queuedBlindCallbacks.push(callback);
+};
+context.send = function(payload) { queuedBlindMessages.push(payload); };
+context.setBlindPosition("Office", "Office Blinds", 2, "blinds", "BLIND-UUID");
+context.setBlindPosition("Office", "Office Blinds", 2, "blinds", "BLIND-UUID");
+assert.deepStrictEqual(queuedBlindPaths, ["/info/BLIND-UUID"]);
+queuedBlindCallbacks.shift()(null, {type: "blinds", state: {position: 42}});
+assert.deepStrictEqual(queuedBlindPaths,
+  ["/info/BLIND-UUID", "/position/47/BLIND-UUID"]);
+queuedBlindCallbacks.shift()(null, {status: "success"});
+assert.deepStrictEqual(queuedBlindPaths, [
+  "/info/BLIND-UUID", "/position/47/BLIND-UUID", "/position/52/BLIND-UUID"
+]);
+queuedBlindCallbacks.shift()(null, {status: "success"});
+assert.strictEqual(JSON.stringify(queuedBlindMessages), JSON.stringify([
+  {STATUS: "Position set to 47%"}, {STATUS: "Position set to 52%"}
+]));
 
 var blindPaths = [];
 var blindMessages = [];
