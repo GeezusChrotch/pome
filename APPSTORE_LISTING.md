@@ -14,7 +14,7 @@
 
 Pome puts Apple Home controls on a Pebble Time or Pebble Time 2.
 
-Browse favorites, scenes, rooms, devices, and read-only sensors from your wrist. Lights include toggle, 25/50/75/100% brightness presets, and six colors chosen with the iPhone color wheel. Each room has an All Lights control with paced commands and retries. Other compatible accessories can be toggled. Names are alphabetized with redundant room prefixes hidden, while sensitive scene names require confirmation.
+Browse favorites, scenes, rooms, devices, and read-only sensors from your wrist. Lights include toggle, 25/50/75/100% brightness presets, and six colors chosen with the iPhone color wheel. Each room has an All Lights control with paced commands and retries. Other compatible accessories can be toggled. Devices are grouped by type and alphabetized within each group, with redundant room prefixes hidden, while sensitive scene names require confirmation.
 
 Pome uses PebbleKit JS on the paired phone to contact Itsyhome running on your Mac. Itsyhome bridges Apple Home/HomeKit to an HTTP webhook server. Pome has no account, analytics, hosted backend, or cloud relay; it talks only to the URL you configure.
 
@@ -55,7 +55,7 @@ Never use Tailscale Funnel or router port-forwarding for this server. Pome and I
 ## Suggested screenshots for each platform
 
 1. Pome launcher icon and main navigation.
-2. A room showing Sensors, Scenes, All Lights, and alphabetized devices.
+2. A room showing Sensors, Scenes, All Lights, and type-grouped alphabetical devices.
 3. A read-only sensor submenu with live values.
 4. A room-scene submenu showing active state.
 5. A light's Toggle, Brightness, and Color controls.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.8
+
+- Group room devices by type: lights, fans, switches, outlets/plugs, then other types.
+- Keep device names alphabetical within each type group.
+
 ## 2.0.7
 
 - Invert device icons to white alongside the text when a menu row is selected.

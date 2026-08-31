@@ -63,6 +63,20 @@ assert.strictEqual(context.displayNameInRoom("bathroom: Sensor", "Bathroom"), "S
 assert.strictEqual(context.displayNameInRoom("Bathroom", "Bathroom"), "Bathroom");
 assert.strictEqual(context.displayNameInRoom("BathroomScale", "Bathroom"), "BathroomScale");
 
+var orderedDevices = [
+  {name: "Office Zebra Plug", type: "outlet"},
+  {name: "Office Alpha Switch", type: "switch"},
+  {name: "Office Zebra Light", type: "light"},
+  {name: "Office Alpha Fan", type: "fan"},
+  {name: "Office Alpha Light", type: "light"},
+  {name: "Office Alpha Plug", type: "outlet"},
+  {name: "Office Blinds", type: "blinds"}
+].sort(context.compareByDeviceTypeAndRoomName("Office"));
+assert.deepStrictEqual(orderedDevices.map(function(item) { return item.name; }), [
+  "Office Alpha Light", "Office Zebra Light", "Office Alpha Fan",
+  "Office Alpha Switch", "Office Alpha Plug", "Office Zebra Plug", "Office Blinds"
+]);
+
 function runCase(lights, invoke, expectedPaths, expectedStatus) {
   var paths = [];
   var messages = [];

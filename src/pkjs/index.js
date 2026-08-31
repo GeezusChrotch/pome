@@ -50,6 +50,14 @@ var TOGGLE_SAFE_TYPES = {
   "air-purifier": true
 };
 
+var DEVICE_TYPE_ORDER = {
+  "light": 0,
+  "fan": 1,
+  "switch": 2,
+  "outlet": 3,
+  "plug": 3
+};
+
 function isSensor(item) {
   return item && typeof item.type === "string" && /-sensor$/.test(item.type);
 }
@@ -85,6 +93,24 @@ function compareByRoomName(room) {
       {name: displayNameInRoom(left.name, room)},
       {name: displayNameInRoom(right.name, room)}
     );
+  };
+}
+
+function compareByDeviceTypeAndRoomName(room) {
+  var nameComparator = compareByRoomName(room);
+  return function(left, right) {
+    var leftRank = Object.prototype.hasOwnProperty.call(DEVICE_TYPE_ORDER, left.type) ?
+      DEVICE_TYPE_ORDER[left.type] : 4;
+    var rightRank = Object.prototype.hasOwnProperty.call(DEVICE_TYPE_ORDER, right.type) ?
+      DEVICE_TYPE_ORDER[right.type] : 4;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    if (leftRank === 4) {
+      var leftType = left.type || "";
+      var rightType = right.type || "";
+      if (leftType < rightType) return -1;
+      if (leftType > rightType) return 1;
+    }
+    return nameComparator(left, right);
   };
 }
 
@@ -415,7 +441,7 @@ function loadDevices(room) {
         var sensors = configuredSections().sensors ?
           items.filter(isSensor).sort(roomNameComparator).slice(0, MAX_ITEMS) : [];
         var devices = items.filter(function(item) { return !isSensor(item); })
-          .sort(roomNameComparator).slice(0, MAX_ITEMS);
+          .sort(compareByDeviceTypeAndRoomName(room)).slice(0, MAX_ITEMS);
         var roomScenes = sceneError || !Array.isArray(allScenes) ? [] : allScenes.filter(
           function(scene) { return sceneBelongsToRoom(scene, room); }
         ).sort(compareByName).slice(0, MAX_ITEMS);

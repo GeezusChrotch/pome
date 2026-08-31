@@ -50,7 +50,8 @@ webhook server should remain private.
 - Favorites, global scenes, and rooms, each individually configurable
 - Direct opening when only one main section is enabled
 - Sensors first and room-specific scenes second inside each room
-- Alphabetical devices with redundant room-name prefixes hidden for display
+- Devices grouped by type (lights, fans, switches, then outlets) and alphabetized
+  within each group, with redundant room-name prefixes hidden for display
 - Read-only temperature, humidity, contact, motion, occupancy, and leak values
 - Light toggle, brightness presets at 25/50/75/100%, and six configurable colors
 - Room-wide All Lights toggle, brightness, and color with pacing and retries
