@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.7
+
+- Invert device icons to white alongside the text when a menu row is selected.
+
 ## 2.0.6
 
 - Add small Pebble-native icons for lights, fans, switches, outlets, blinds, locks,

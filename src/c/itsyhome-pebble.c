@@ -83,6 +83,15 @@ static GBitmap *s_icon_lock;
 static GBitmap *s_icon_climate;
 static GBitmap *s_icon_garage;
 static GBitmap *s_icon_generic;
+static GBitmap *s_icon_light_selected;
+static GBitmap *s_icon_fan_selected;
+static GBitmap *s_icon_switch_selected;
+static GBitmap *s_icon_outlet_selected;
+static GBitmap *s_icon_blinds_selected;
+static GBitmap *s_icon_lock_selected;
+static GBitmap *s_icon_climate_selected;
+static GBitmap *s_icon_garage_selected;
+static GBitmap *s_icon_generic_selected;
 
 static HomeItem s_favorites[MAX_ITEMS];
 static HomeItem s_scenes[MAX_ITEMS];
@@ -169,23 +178,31 @@ static bool type_supports_light_controls(const char *type) {
   return strcmp(type, "light") == 0 || strcmp(type, "light-group") == 0;
 }
 
-static GBitmap *icon_for_device_type(const char *type) {
+static GBitmap *icon_for_device_type(const char *type, bool highlighted) {
   if (strcmp(type, "light") == 0 || strcmp(type, "light-group") == 0) {
-    return s_icon_light;
+    return highlighted ? s_icon_light_selected : s_icon_light;
   }
-  if (strcmp(type, "fan") == 0) return s_icon_fan;
-  if (strcmp(type, "switch") == 0) return s_icon_switch;
-  if (strcmp(type, "outlet") == 0) return s_icon_outlet;
-  if (strcmp(type, "blinds") == 0) return s_icon_blinds;
-  if (strcmp(type, "lock") == 0) return s_icon_lock;
-  if (strcmp(type, "garage-door") == 0) return s_icon_garage;
+  if (strcmp(type, "fan") == 0) return highlighted ? s_icon_fan_selected : s_icon_fan;
+  if (strcmp(type, "switch") == 0) {
+    return highlighted ? s_icon_switch_selected : s_icon_switch;
+  }
+  if (strcmp(type, "outlet") == 0) {
+    return highlighted ? s_icon_outlet_selected : s_icon_outlet;
+  }
+  if (strcmp(type, "blinds") == 0) {
+    return highlighted ? s_icon_blinds_selected : s_icon_blinds;
+  }
+  if (strcmp(type, "lock") == 0) return highlighted ? s_icon_lock_selected : s_icon_lock;
+  if (strcmp(type, "garage-door") == 0) {
+    return highlighted ? s_icon_garage_selected : s_icon_garage;
+  }
   if (strcmp(type, "thermostat") == 0 || strcmp(type, "heater-cooler") == 0 ||
       strcmp(type, "humidifier") == 0 || strcmp(type, "dehumidifier") == 0 ||
       strcmp(type, "humidifier-dehumidifier") == 0 ||
       strcmp(type, "air-purifier") == 0) {
-    return s_icon_climate;
+    return highlighted ? s_icon_climate_selected : s_icon_climate;
   }
-  return s_icon_generic;
+  return highlighted ? s_icon_generic_selected : s_icon_generic;
 }
 
 static uint16_t light_count(void) {
@@ -397,7 +414,9 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   if (lights > 0 && cell_index->row == all_lights_row) {
     static char subtitle[24];
     snprintf(subtitle, sizeof(subtitle), "%u light%s", lights, lights == 1 ? "" : "s");
-    menu_cell_basic_draw(ctx, cell_layer, "All Lights", subtitle, s_icon_light);
+    menu_cell_basic_draw(ctx, cell_layer, "All Lights", subtitle,
+                         icon_for_device_type("light-group",
+                                              menu_cell_layer_is_highlighted(cell_layer)));
     return;
   }
 
@@ -419,7 +438,8 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   menu_cell_basic_draw(ctx, cell_layer,
                        display_name_in_room(s_device_display_names[device_index], display_name,
                                             sizeof(display_name)),
-                       subtitle, icon_for_device_type(item->type));
+                       subtitle, icon_for_device_type(
+                         item->type, menu_cell_layer_is_highlighted(cell_layer)));
 }
 
 static uint16_t sensor_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
@@ -988,6 +1008,15 @@ static void init(void) {
   s_icon_climate = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_CLIMATE);
   s_icon_garage = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GARAGE);
   s_icon_generic = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GENERIC);
+  s_icon_light_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_LIGHT_SELECTED);
+  s_icon_fan_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_FAN_SELECTED);
+  s_icon_switch_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_SWITCH_SELECTED);
+  s_icon_outlet_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_OUTLET_SELECTED);
+  s_icon_blinds_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_BLINDS_SELECTED);
+  s_icon_lock_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_LOCK_SELECTED);
+  s_icon_climate_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_CLIMATE_SELECTED);
+  s_icon_garage_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GARAGE_SELECTED);
+  s_icon_generic_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GENERIC_SELECTED);
 
   s_root_window = window_create();
   s_list_window = window_create();
@@ -1050,6 +1079,15 @@ static void deinit(void) {
   window_destroy(s_device_window);
   window_destroy(s_list_window);
   window_destroy(s_root_window);
+  gbitmap_destroy(s_icon_generic_selected);
+  gbitmap_destroy(s_icon_garage_selected);
+  gbitmap_destroy(s_icon_climate_selected);
+  gbitmap_destroy(s_icon_lock_selected);
+  gbitmap_destroy(s_icon_blinds_selected);
+  gbitmap_destroy(s_icon_outlet_selected);
+  gbitmap_destroy(s_icon_switch_selected);
+  gbitmap_destroy(s_icon_fan_selected);
+  gbitmap_destroy(s_icon_light_selected);
   gbitmap_destroy(s_icon_generic);
   gbitmap_destroy(s_icon_garage);
   gbitmap_destroy(s_icon_climate);
