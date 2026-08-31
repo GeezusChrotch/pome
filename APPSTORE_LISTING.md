@@ -6,8 +6,9 @@
 - Category: Utilities
 - Source code URL: https://github.com/GeezusChrotch/pome
 - Support URL: https://github.com/GeezusChrotch/pome/issues
-- Large icon source: `resources/images/pome-icon.png`
-- Small/watch icon source: `resources/images/pome-menu-icon.png`
+- Large appstore icon: `appstore-assets/pome-icon-large.png` (144×144)
+- Small appstore icon: `appstore-assets/pome-icon-small.png` (80×80)
+- Watch launcher icon: `resources/images/pome-menu-icon.png` (25×25)
 
 ## Description (maximum 1,600 characters)
 

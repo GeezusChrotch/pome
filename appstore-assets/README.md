@@ -6,5 +6,7 @@ inventory.
 
 - `basalt_*.png`: Pebble Time screenshots
 - `emery_*.png`: Pebble Time 2 screenshots
-- `pome-icon.png`: large store icon
-- `pome-menu-icon.png`: small store/watch icon
+- `pome-icon-small.png`: 80×80 appstore icon
+- `pome-icon-large.png`: 144×144 appstore icon
+- `pome-menu-icon.png`: 25×25 watch launcher icon
+- `pome-icon.png`: high-resolution icon source
