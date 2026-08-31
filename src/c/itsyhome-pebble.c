@@ -5,6 +5,7 @@
 #define MAX_NAME_LENGTH 64
 #define MAX_TYPE_LENGTH 24
 #define MAX_VALUE_LENGTH 32
+#define MAX_ID_LENGTH 40
 #define COLOR_COUNT 6
 
 typedef enum {
@@ -78,6 +79,8 @@ static HomeItem s_favorites[MAX_ITEMS];
 static HomeItem s_scenes[MAX_ITEMS];
 static HomeItem s_rooms[MAX_ITEMS];
 static HomeItem s_devices[MAX_ITEMS];
+static char s_device_display_names[MAX_ITEMS][MAX_NAME_LENGTH];
+static char s_device_ids[MAX_ITEMS][MAX_ID_LENGTH];
 static HomeItem s_room_scenes[MAX_ITEMS];
 static SensorItem s_sensors[MAX_ITEMS];
 static ColorChoice s_colors[COLOR_COUNT] = {
@@ -97,6 +100,7 @@ static uint16_t s_room_scene_count;
 static ItemKind s_current_kind = ITEM_KIND_FAVORITE;
 static char s_selected_room[MAX_NAME_LENGTH];
 static char s_selected_device[MAX_NAME_LENGTH];
+static char s_selected_device_id[MAX_ID_LENGTH];
 static char s_selected_device_type[MAX_TYPE_LENGTH];
 static char s_pending_scene[MAX_NAME_LENGTH];
 static PresetKind s_preset_kind;
@@ -190,8 +194,8 @@ static const char *display_name_in_room(const char *name, char *buffer, size_t s
   return buffer;
 }
 
-static void send_command(Command command, const char *name, const char *room,
-                         const char *type) {
+static void send_command_with_id(Command command, const char *name, const char *room,
+                                 const char *type, const char *id) {
   DictionaryIterator *out = NULL;
   AppMessageResult result = app_message_outbox_begin(&out);
   if (result != APP_MSG_OK || !out) {
@@ -204,8 +208,14 @@ static void send_command(Command command, const char *name, const char *room,
   if (name) dict_write_cstring(out, MESSAGE_KEY_ITEM_NAME, name);
   if (room) dict_write_cstring(out, MESSAGE_KEY_ITEM_ROOM, room);
   if (type) dict_write_cstring(out, MESSAGE_KEY_ITEM_TYPE, type);
+  if (id && id[0]) dict_write_cstring(out, MESSAGE_KEY_ITEM_ID, id);
   dict_write_end(out);
   app_message_outbox_send();
+}
+
+static void send_command(Command command, const char *name, const char *room,
+                         const char *type) {
+  send_command_with_id(command, name, room, type, NULL);
 }
 
 static void run_scene(const char *name) {
@@ -369,13 +379,18 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   const char *subtitle;
   if (!item->reachable) {
     subtitle = "Unavailable";
+  } else if (strcmp(item->type, "light") == 0) {
+    subtitle = "Toggle, level, color";
+  } else if (strcmp(item->type, "fan") == 0) {
+    subtitle = "Toggle and speed";
   } else if (type_is_toggle_safe(item->type)) {
     subtitle = "Select to toggle";
   } else {
     subtitle = item->type[0] ? item->type : "Read only";
   }
   menu_cell_basic_draw(ctx, cell_layer,
-                       display_name_in_room(item->name, display_name, sizeof(display_name)),
+                       display_name_in_room(s_device_display_names[device_index], display_name,
+                                            sizeof(display_name)),
                        subtitle, NULL);
 }
 
@@ -487,6 +502,9 @@ static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
     dict_write_cstring(out, MESSAGE_KEY_ITEM_NAME, s_selected_device);
     dict_write_cstring(out, MESSAGE_KEY_ITEM_ROOM, s_selected_room);
     dict_write_cstring(out, MESSAGE_KEY_ITEM_TYPE, s_selected_device_type);
+    if (s_selected_device_id[0]) {
+      dict_write_cstring(out, MESSAGE_KEY_ITEM_ID, s_selected_device_id);
+    }
     dict_write_uint16(out, MESSAGE_KEY_ITEM_HUE, color->hue);
     dict_write_uint8(out, MESSAGE_KEY_ITEM_SATURATION, color->saturation);
     dict_write_end(out);
@@ -504,6 +522,9 @@ static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
     dict_write_cstring(out, MESSAGE_KEY_ITEM_NAME, s_selected_device);
     dict_write_cstring(out, MESSAGE_KEY_ITEM_ROOM, s_selected_room);
     dict_write_cstring(out, MESSAGE_KEY_ITEM_TYPE, s_selected_device_type);
+    if (s_selected_device_id[0]) {
+      dict_write_cstring(out, MESSAGE_KEY_ITEM_ID, s_selected_device_id);
+    }
     dict_write_uint8(out, MESSAGE_KEY_ITEM_VALUE, levels[cell_index->row]);
     dict_write_end(out);
     app_message_outbox_send();
@@ -512,8 +533,8 @@ static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
 
 static void action_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   if (cell_index->row == 0) {
-    send_command(COMMAND_TOGGLE_DEVICE, s_selected_device, s_selected_room,
-                 s_selected_device_type);
+    send_command_with_id(COMMAND_TOGGLE_DEVICE, s_selected_device, s_selected_room,
+                         s_selected_device_type, s_selected_device_id);
   } else if (type_supports_light_controls(s_selected_device_type)) {
     s_preset_kind = cell_index->row == 2 ? PRESET_COLOR : PRESET_BRIGHTNESS;
     window_stack_push(s_preset_window, true);
@@ -565,6 +586,7 @@ static void device_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
   if (light_count() > 0 && cell_index->row == all_lights_row) {
     snprintf(s_selected_device, sizeof(s_selected_device), "All Lights");
     snprintf(s_selected_device_type, sizeof(s_selected_device_type), "light-group");
+    s_selected_device_id[0] = '\0';
     window_stack_push(s_action_window, true);
     return;
   }
@@ -578,9 +600,12 @@ static void device_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
   if (strcmp(item->type, "light") == 0 || strcmp(item->type, "fan") == 0) {
     snprintf(s_selected_device, sizeof(s_selected_device), "%s", item->name);
     snprintf(s_selected_device_type, sizeof(s_selected_device_type), "%s", item->type);
+    snprintf(s_selected_device_id, sizeof(s_selected_device_id), "%s",
+             s_device_ids[device_index]);
     window_stack_push(s_action_window, true);
   } else {
-    send_command(COMMAND_TOGGLE_DEVICE, item->name, s_selected_room, item->type);
+    send_command_with_id(COMMAND_TOGGLE_DEVICE, item->name, s_selected_room,
+                         item->type, s_device_ids[device_index]);
   }
 }
 
@@ -684,7 +709,9 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
     }
     if (kind == ITEM_KIND_SENSOR && index < MAX_ITEMS) {
       SensorItem *sensor = &s_sensors[index];
-      snprintf(sensor->name, sizeof(sensor->name), "%s", name_tuple->value->cstring);
+      Tuple *display_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_DISPLAY_NAME);
+      snprintf(sensor->name, sizeof(sensor->name), "%s",
+               display_tuple ? display_tuple->value->cstring : name_tuple->value->cstring);
       Tuple *type_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_TYPE);
       snprintf(sensor->type, sizeof(sensor->type), "%s",
                type_tuple ? type_tuple->value->cstring : "");
@@ -721,6 +748,14 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       Tuple *type_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_TYPE);
       snprintf(items[index].type, sizeof(items[index].type), "%s",
                type_tuple ? type_tuple->value->cstring : "");
+      if (kind == ITEM_KIND_DEVICE) {
+        Tuple *display_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_DISPLAY_NAME);
+        snprintf(s_device_display_names[index], sizeof(s_device_display_names[index]), "%s",
+                 display_tuple ? display_tuple->value->cstring : name_tuple->value->cstring);
+        Tuple *id_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_ID);
+        snprintf(s_device_ids[index], sizeof(s_device_ids[index]), "%s",
+                 id_tuple ? id_tuple->value->cstring : "");
+      }
       Tuple *active_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_ACTIVE);
       items[index].active = active_tuple ? active_tuple->value->int8 != 0 : false;
       Tuple *reachable_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_REACHABLE);

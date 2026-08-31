@@ -36,6 +36,27 @@ assert.ok(configurationHtml.indexOf(">Setup instructions</a>") !== -1);
 assert.ok(configurationHtml.indexOf("https://github.com/GeezusChrotch/pome#setup") !== -1);
 assert.ok(configurationHtml.indexOf("tailscale serve --bg") === -1);
 
+var duplicateItems = [
+  {name: "Studio Fan", type: "fan", room: "Studio", state: {speed: 100}},
+  {name: "Studio Fan", type: "light", room: "Studio", state: {on: true}}
+];
+context.apiGet = function(path, callback) {
+  assert.strictEqual(path, "/debug/Studio%20Fan");
+  callback(null, [
+    {serviceTypeLabel: "fan", serviceId: "FAN-UUID", room: "Studio"},
+    {serviceTypeLabel: "light", serviceId: "LIGHT-UUID", room: "Studio"}
+  ]);
+};
+var enrichmentFinished = false;
+context.enrichDuplicateServices(duplicateItems, "Studio", function() {
+  enrichmentFinished = true;
+});
+assert.strictEqual(enrichmentFinished, true);
+assert.strictEqual(duplicateItems[0].serviceId, "FAN-UUID");
+assert.strictEqual(duplicateItems[0].pomeDisplayName, "Studio Fan (Fan)");
+assert.strictEqual(duplicateItems[1].serviceId, "LIGHT-UUID");
+assert.strictEqual(duplicateItems[1].pomeDisplayName, "Studio Fan (Light)");
+
 assert.strictEqual(context.displayNameInRoom("Bathroom Globe", "Bathroom"), "Globe");
 assert.strictEqual(context.displayNameInRoom("Bathroom - Vanity", "Bathroom"), "Vanity");
 assert.strictEqual(context.displayNameInRoom("bathroom: Sensor", "Bathroom"), "Sensor");
@@ -117,6 +138,18 @@ context.send = function(payload) { fanMessages.push(payload); };
 context.setSpeed("Living Room", "Ceiling Fan", 75, "fan");
 assert.deepStrictEqual(fanPaths, ["/speed/75/Living%20Room/Ceiling%20Fan"]);
 assert.strictEqual(JSON.stringify(fanMessages), JSON.stringify([{STATUS: "Speed set"}]));
+
+fanPaths = [];
+fanMessages = [];
+context.setSpeed("Studio", "Studio Fan", 100, "fan", "FAN-UUID");
+assert.deepStrictEqual(fanPaths, ["/speed/100/FAN-UUID"]);
+assert.strictEqual(JSON.stringify(fanMessages), JSON.stringify([{STATUS: "Speed set"}]));
+
+fanPaths = [];
+fanMessages = [];
+context.toggleDevice("Holiday", "Holiday Festivus", "switch", "SWITCH-UUID");
+assert.deepStrictEqual(fanPaths, ["/toggle/SWITCH-UUID"]);
+assert.strictEqual(JSON.stringify(fanMessages), JSON.stringify([{STATUS: "Device toggled"}]));
 
 fanPaths = [];
 fanMessages = [];

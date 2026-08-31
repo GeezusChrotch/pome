@@ -300,6 +300,10 @@ function sendItems(items, kind, done) {
       "ITEM_TYPE": (item.type || "").substring(0, 23),
       "ITEM_REACHABLE": item.reachable === false ? 0 : 1
     };
+    if (item.serviceId) payload.ITEM_ID = item.serviceId.substring(0, 39);
+    if (item.pomeDisplayName) {
+      payload.ITEM_DISPLAY_NAME = item.pomeDisplayName.substring(0, 63);
+    }
     if (kind === ITEM_KIND_SENSOR) {
       payload.ITEM_VALUE = (item.displayValue || "Unknown").substring(0, 31);
     }
@@ -307,6 +311,63 @@ function sendItems(items, kind, done) {
     send(payload, sendNext);
   }
   sendNext();
+}
+
+function duplicateTypeLabel(type) {
+  return String(type || "Device").split("-").map(function(part) {
+    return part ? part.charAt(0).toUpperCase() + part.slice(1) : part;
+  }).join(" ");
+}
+
+function enrichDuplicateServices(items, room, done) {
+  var groups = {};
+  items.forEach(function(item) {
+    if (!item || typeof item.name !== "string") return;
+    var key = item.name.toLowerCase();
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+  });
+  var duplicates = Object.keys(groups).map(function(key) { return groups[key]; })
+    .filter(function(group) { return group.length > 1; });
+  var groupIndex = 0;
+
+  function nextGroup() {
+    if (groupIndex >= duplicates.length) {
+      done();
+      return;
+    }
+    var group = duplicates[groupIndex++];
+    var typeCounts = {};
+    group.forEach(function(item) {
+      typeCounts[item.type] = (typeCounts[item.type] || 0) + 1;
+    });
+    var typeIndexes = {};
+    group.forEach(function(item) {
+      typeIndexes[item.type] = (typeIndexes[item.type] || 0) + 1;
+      var suffix = duplicateTypeLabel(item.type);
+      if (typeCounts[item.type] > 1) suffix += " " + typeIndexes[item.type];
+      item.pomeDisplayName = item.name + " (" + suffix + ")";
+    });
+
+    apiGet("/debug/" + encodeURIComponent(group[0].name), function(error, response) {
+      var details = error ? [] : (Array.isArray(response) ? response : [response]);
+      var used = {};
+      group.forEach(function(item) {
+        for (var index = 0; index < details.length; index += 1) {
+          var detail = details[index] || {};
+          if (used[index] || detail.serviceTypeLabel !== item.type ||
+              (detail.room && room && detail.room.toLowerCase() !== room.toLowerCase())) {
+            continue;
+          }
+          if (typeof detail.serviceId === "string") item.serviceId = detail.serviceId;
+          used[index] = true;
+          break;
+        }
+      });
+      nextGroup();
+    });
+  }
+  nextGroup();
 }
 
 function loadList(path, kind) {
@@ -348,34 +409,41 @@ function loadDevices(room) {
       return;
     }
 
-    apiGet("/list/scenes", function(sceneError, allScenes) {
-      var roomNameComparator = compareByRoomName(room);
-      var sensors = configuredSections().sensors ?
-        items.filter(isSensor).sort(roomNameComparator).slice(0, MAX_ITEMS) : [];
-      var devices = items.filter(function(item) { return !isSensor(item); })
-        .sort(roomNameComparator).slice(0, MAX_ITEMS);
-      var roomScenes = sceneError || !Array.isArray(allScenes) ? [] : allScenes.filter(
-        function(scene) { return sceneBelongsToRoom(scene, room); }
-      ).sort(compareByName).slice(0, MAX_ITEMS);
+    enrichDuplicateServices(items, room, function() {
+      apiGet("/list/scenes", function(sceneError, allScenes) {
+        var roomNameComparator = compareByRoomName(room);
+        var sensors = configuredSections().sensors ?
+          items.filter(isSensor).sort(roomNameComparator).slice(0, MAX_ITEMS) : [];
+        var devices = items.filter(function(item) { return !isSensor(item); })
+          .sort(roomNameComparator).slice(0, MAX_ITEMS);
+        var roomScenes = sceneError || !Array.isArray(allScenes) ? [] : allScenes.filter(
+          function(scene) { return sceneBelongsToRoom(scene, room); }
+        ).sort(compareByName).slice(0, MAX_ITEMS);
 
-      sensors.forEach(function(sensor) {
-        sensor.displayValue = sensorValue(sensor, sensor);
-      });
-
-      function sendRoomContents() {
-        sendItems(sensors, ITEM_KIND_SENSOR, function() {
-          sendItems(roomScenes, ITEM_KIND_ROOM_SCENE, function() {
-            sendItems(devices, ITEM_KIND_DEVICE);
-          });
+        sensors.forEach(function(sensor) {
+          sensor.displayValue = sensorValue(sensor, sensor);
         });
-      }
 
-      sendRoomContents();
+        function sendRoomContents() {
+          sendItems(sensors, ITEM_KIND_SENSOR, function() {
+            sendItems(roomScenes, ITEM_KIND_ROOM_SCENE, function() {
+              sendItems(devices, ITEM_KIND_DEVICE);
+            });
+          });
+        }
+
+        sendRoomContents();
+      });
     });
   });
 }
 
-function toggleDevice(room, name, type) {
+function encodedDeviceTarget(room, name, serviceId) {
+  return serviceId ? encodeURIComponent(serviceId) :
+    encodeURIComponent(room) + "/" + encodeURIComponent(name);
+}
+
+function toggleDevice(room, name, type, serviceId) {
   if (type === "light-group") {
     controlRoomLights(room, "toggle");
     return;
@@ -384,7 +452,7 @@ function toggleDevice(room, name, type) {
     sendError(new Error("Device is read only"));
     return;
   }
-  apiGet("/toggle/" + encodeURIComponent(room) + "/" + encodeURIComponent(name),
+  apiGet("/toggle/" + encodedDeviceTarget(room, name, serviceId),
     function(error, response) {
       if (error) {
         sendError(error);
@@ -408,15 +476,17 @@ function roomLights(room, callback) {
       callback(new Error("Unexpected Itsyhome list"));
       return;
     }
-    var lights = items.filter(function(item) {
-      return item && item.type === "light" && item.reachable !== false &&
-        typeof item.name === "string";
+    enrichDuplicateServices(items, room, function() {
+      var lights = items.filter(function(item) {
+        return item && item.type === "light" && item.reachable !== false &&
+          typeof item.name === "string";
+      });
+      if (lights.length === 0) {
+        callback(new Error("No reachable lights"));
+        return;
+      }
+      callback(null, lights);
     });
-    if (lights.length === 0) {
-      callback(new Error("No reachable lights"));
-      return;
-    }
-    callback(null, lights);
   });
 }
 
@@ -464,31 +534,30 @@ function controlRoomLights(room, action, value, saturation) {
       sendError(error);
       return;
     }
-    var encodedRoom = encodeURIComponent(room);
     if (action === "toggle") {
       var anyOn = lights.some(function(light) {
         return light.state && light.state.on === true;
       });
       var powerAction = anyOn ? "off" : "on";
       runLightCommands(lights, function(light) {
-        return "/" + powerAction + "/" + encodedRoom + "/" +
-          encodeURIComponent(light.name);
+        return "/" + powerAction + "/" +
+          encodedDeviceTarget(room, light.name, light.serviceId);
       }, anyOn ? "All lights off" : "All lights on");
     } else if (action === "brightness") {
       runLightCommands(lights, function(light) {
-        return "/brightness/" + value + "/" + encodedRoom + "/" +
-          encodeURIComponent(light.name);
+        return "/brightness/" + value + "/" +
+          encodedDeviceTarget(room, light.name, light.serviceId);
       }, "Room brightness set");
     } else if (action === "color") {
       runLightCommands(lights, function(light) {
-        return "/color/" + value + "/" + saturation + "/" + encodedRoom + "/" +
-          encodeURIComponent(light.name);
+        return "/color/" + value + "/" + saturation + "/" +
+          encodedDeviceTarget(room, light.name, light.serviceId);
       }, "Room color set");
     }
   });
 }
 
-function setBrightness(room, name, value, type) {
+function setBrightness(room, name, value, type, serviceId) {
   if (type === "light-group") {
     controlRoomLights(room, "brightness", value);
     return;
@@ -497,8 +566,8 @@ function setBrightness(room, name, value, type) {
     sendError(new Error("Brightness is only available for lights"));
     return;
   }
-  apiGet("/brightness/" + value + "/" + encodeURIComponent(room) + "/" +
-    encodeURIComponent(name), function(error, response) {
+  apiGet("/brightness/" + value + "/" + encodedDeviceTarget(room, name, serviceId),
+    function(error, response) {
       if (error) {
         sendError(error);
         return;
@@ -511,7 +580,7 @@ function setBrightness(room, name, value, type) {
     });
 }
 
-function setColor(room, name, hue, saturation, type) {
+function setColor(room, name, hue, saturation, type, serviceId) {
   if (type === "light-group") {
     controlRoomLights(room, "color", hue, saturation);
     return;
@@ -520,8 +589,8 @@ function setColor(room, name, hue, saturation, type) {
     sendError(new Error("Color is only available for lights"));
     return;
   }
-  apiGet("/color/" + hue + "/" + saturation + "/" + encodeURIComponent(room) +
-    "/" + encodeURIComponent(name), function(error, response) {
+  apiGet("/color/" + hue + "/" + saturation + "/" +
+    encodedDeviceTarget(room, name, serviceId), function(error, response) {
       if (error) {
         sendError(error);
         return;
@@ -534,13 +603,13 @@ function setColor(room, name, hue, saturation, type) {
     });
 }
 
-function setSpeed(room, name, value, type) {
+function setSpeed(room, name, value, type, serviceId) {
   if (type !== "fan") {
     sendError(new Error("Speed is only available for fans"));
     return;
   }
-  apiGet("/speed/" + value + "/" + encodeURIComponent(room) + "/" +
-    encodeURIComponent(name), function(error, response) {
+  apiGet("/speed/" + value + "/" + encodedDeviceTarget(room, name, serviceId),
+    function(error, response) {
       if (error) {
         sendError(error);
         return;
@@ -652,19 +721,19 @@ Pebble.addEventListener("appmessage", function(event) {
       loadDevices(payload.ITEM_ROOM);
       break;
     case COMMAND_TOGGLE_DEVICE:
-      toggleDevice(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_TYPE);
+      toggleDevice(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_TYPE, payload.ITEM_ID);
       break;
     case COMMAND_SET_BRIGHTNESS:
       setBrightness(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_VALUE,
-        payload.ITEM_TYPE);
+        payload.ITEM_TYPE, payload.ITEM_ID);
       break;
     case COMMAND_SET_COLOR:
       setColor(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_HUE,
-        payload.ITEM_SATURATION, payload.ITEM_TYPE);
+        payload.ITEM_SATURATION, payload.ITEM_TYPE, payload.ITEM_ID);
       break;
     case COMMAND_SET_SPEED:
       setSpeed(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_VALUE,
-        payload.ITEM_TYPE);
+        payload.ITEM_TYPE, payload.ITEM_ID);
       break;
     case COMMAND_LOAD_COLORS:
       sendColorChoices();

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.5
+
+- Resolve same-named multi-service accessories by their exact Itsyhome service UUID.
+- Label ambiguous rows by type so fan, light, and switch services are visibly distinct.
+- Fix fan speed and switch commands that previously failed or targeted the wrong service.
+
 ## 2.0.4
 
 - Add fan speed control with 25/50/75/100% presets.
