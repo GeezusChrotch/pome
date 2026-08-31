@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.2
+
+- Replace the expanded setup walkthrough in phone settings with one concise link.
+
 ## 2.0.1
 
 - Add a complete URL-finding guide directly to Pome's phone settings.

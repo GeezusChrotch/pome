@@ -32,13 +32,9 @@ context.apiGet("/status", function(error) { setupError = error; });
 assert.strictEqual(setupError.message, "Set up in phone app");
 
 var configurationHtml = decodeURIComponent(context.configurationPage().split(",")[1]);
-assert.ok(configurationHtml.indexOf("How to find your URL") !== -1);
-assert.ok(configurationHtml.indexOf("Settings &gt; Webhooks/CLI") !== -1);
-assert.ok(configurationHtml.indexOf(
-  "tailscale serve --bg --https=10443 localhost:8423") !== -1);
-assert.ok(configurationHtml.indexOf("tailscale serve status") !== -1);
-assert.ok(configurationHtml.indexOf("do not use Tailscale Funnel") !== -1);
+assert.ok(configurationHtml.indexOf(">Setup instructions</a>") !== -1);
 assert.ok(configurationHtml.indexOf("https://github.com/GeezusChrotch/pome#setup") !== -1);
+assert.ok(configurationHtml.indexOf("tailscale serve --bg") === -1);
 
 assert.strictEqual(context.displayNameInRoom("Bathroom Globe", "Bathroom"), "Globe");
 assert.strictEqual(context.displayNameInRoom("Bathroom - Vanity", "Bathroom"), "Vanity");

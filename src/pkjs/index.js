@@ -551,8 +551,7 @@ function configurationPage() {
     checked(selectedSections.sensors) + '>Sensors inside rooms</label></div>';
   var html = '<!doctype html><html><meta name="viewport" content="width=device-width">' +
     '<style>body{font:17px -apple-system;margin:24px;background:#f2f2f7;color:#111}' +
-    'h1{font-size:28px}h2{font-size:20px;margin-top:28px}h3{font-size:17px;margin:18px 0 6px}' +
-    'label{display:block;font-weight:600}' +
+    'h1{font-size:28px}h2{font-size:20px;margin-top:28px}label{display:block;font-weight:600}' +
     'label span{float:right;color:#777;font-weight:400}input{box-sizing:border-box;width:100%;' +
     'padding:14px;margin:8px 0 18px;' +
     'border:1px solid #bbb;border-radius:10px;background:white;font-size:16px}' +
@@ -560,32 +559,12 @@ function configurationPage() {
     '.toggle{background:white;border:1px solid #bbb;border-radius:10px;padding:14px;' +
     'margin:8px 0}.toggle label{font-weight:500}.toggle input{width:auto;margin:0 12px 0 0}' +
     'button{width:100%;padding:14px;border:0;border-radius:10px;background:#34a853;color:white;' +
-    'font-size:18px;font-weight:600}p{color:#666;font-size:14px}.setup{background:white;' +
-    'border:1px solid #bbb;border-radius:10px;padding:0 14px 12px;margin:0 0 22px}' +
-    '.setup summary{font-weight:700;padding:14px 0;cursor:pointer}.setup p,.setup li{color:#444;' +
-    'font-size:14px;line-height:1.45}.setup ol{padding-left:22px}.setup code{display:block;' +
-    'overflow-wrap:anywhere;background:#eee;border-radius:6px;padding:8px;margin:7px 0;' +
-    'font-size:12px}.setup a{color:#0878d1}.warning{color:#b42318!important;font-weight:600}</style>' +
+    'font-size:18px;font-weight:600}p{color:#666;font-size:14px}a{color:#0878d1}</style>' +
     '<h1>Pome</h1><label>Itsyhome server URL</label><input id="url" ' +
     'placeholder="https://your-mac.tailnet.ts.net:10443" value="' + current + '">' +
     '<p>Enter your Itsyhome webhook URL. Use a private Tailscale HTTPS URL for home and ' +
     'away access, or a local HTTP URL for LAN-only use.</p>' +
-    '<details class="setup" open><summary>How to find your URL</summary>' +
-    '<h3>1. Start Itsyhome</h3><ol><li>Install <a href="https://itsyhome.app/macos">' +
-    'Itsyhome for macOS</a>.</li><li>In Itsyhome, open Settings &gt; Webhooks/CLI, ' +
-    'enable the server, and leave its port at 8423.</li></ol>' +
-    '<h3>2. Choose a connection</h3><p><strong>Only at home:</strong> Find the Mac\'s ' +
-    'IPv4 address in System Settings &gt; Network, then enter:</p>' +
-    '<code>http://MAC-IP:8423</code><p>The iPhone must be on the same Wi-Fi network.</p>' +
-    '<p><strong>Home and away with Tailscale:</strong> Install Tailscale on the Mac and ' +
-    'iPhone, sign both into the same tailnet, then run these commands in Terminal on the Mac:</p>' +
-    '<code>tailscale serve --bg --https=10443 localhost:8423<br>' +
-    'tailscale serve status</code><p>Copy the reported ' +
-    '<strong>https://…ts.net:10443</strong> URL into the field above. Keep Itsyhome ' +
-    'running on the Mac and Tailscale connected on the iPhone.</p>' +
-    '<p class="warning">Keep it private: do not use Tailscale Funnel or router port forwarding.</p>' +
-    '<p><a href="https://github.com/GeezusChrotch/pome#setup">Open the complete setup guide</a></p>' +
-    '</details>' +
+    '<p><a href="https://github.com/GeezusChrotch/pome#setup">Setup instructions</a></p>' +
     '<h2>Show in Pome</h2><p>With one main section enabled, Pome opens it directly.</p>' +
     sectionFields + '<h2>Light colors</h2>' +
     '<p>Tap a swatch to open the iPhone color wheel.</p>' + colorFields +
