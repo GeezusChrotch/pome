@@ -1,7 +1,7 @@
 {
   "name": "pome",
   "author": "Joshua Bessom",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
@@ -47,6 +47,51 @@
           "name": "POME_MENU_ICON",
           "file": "images/pome-menu-icon.png",
           "menuIcon": true
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_LIGHT",
+          "file": "images/device-light.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_FAN",
+          "file": "images/device-fan.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_SWITCH",
+          "file": "images/device-switch.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_OUTLET",
+          "file": "images/device-outlet.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_BLINDS",
+          "file": "images/device-blinds.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_LOCK",
+          "file": "images/device-lock.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_CLIMATE",
+          "file": "images/device-climate.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_GARAGE",
+          "file": "images/device-garage.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "DEVICE_GENERIC",
+          "file": "images/device-generic.png"
         }
       ]
     }

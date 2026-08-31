@@ -74,6 +74,15 @@ static MenuLayer *s_action_menu;
 static MenuLayer *s_preset_menu;
 static TextLayer *s_confirm_title;
 static TextLayer *s_confirm_hint;
+static GBitmap *s_icon_light;
+static GBitmap *s_icon_fan;
+static GBitmap *s_icon_switch;
+static GBitmap *s_icon_outlet;
+static GBitmap *s_icon_blinds;
+static GBitmap *s_icon_lock;
+static GBitmap *s_icon_climate;
+static GBitmap *s_icon_garage;
+static GBitmap *s_icon_generic;
 
 static HomeItem s_favorites[MAX_ITEMS];
 static HomeItem s_scenes[MAX_ITEMS];
@@ -158,6 +167,25 @@ static bool type_is_toggle_safe(const char *type) {
 
 static bool type_supports_light_controls(const char *type) {
   return strcmp(type, "light") == 0 || strcmp(type, "light-group") == 0;
+}
+
+static GBitmap *icon_for_device_type(const char *type) {
+  if (strcmp(type, "light") == 0 || strcmp(type, "light-group") == 0) {
+    return s_icon_light;
+  }
+  if (strcmp(type, "fan") == 0) return s_icon_fan;
+  if (strcmp(type, "switch") == 0) return s_icon_switch;
+  if (strcmp(type, "outlet") == 0) return s_icon_outlet;
+  if (strcmp(type, "blinds") == 0) return s_icon_blinds;
+  if (strcmp(type, "lock") == 0) return s_icon_lock;
+  if (strcmp(type, "garage-door") == 0) return s_icon_garage;
+  if (strcmp(type, "thermostat") == 0 || strcmp(type, "heater-cooler") == 0 ||
+      strcmp(type, "humidifier") == 0 || strcmp(type, "dehumidifier") == 0 ||
+      strcmp(type, "humidifier-dehumidifier") == 0 ||
+      strcmp(type, "air-purifier") == 0) {
+    return s_icon_climate;
+  }
+  return s_icon_generic;
 }
 
 static uint16_t light_count(void) {
@@ -369,7 +397,7 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   if (lights > 0 && cell_index->row == all_lights_row) {
     static char subtitle[24];
     snprintf(subtitle, sizeof(subtitle), "%u light%s", lights, lights == 1 ? "" : "s");
-    menu_cell_basic_draw(ctx, cell_layer, "All Lights", subtitle, NULL);
+    menu_cell_basic_draw(ctx, cell_layer, "All Lights", subtitle, s_icon_light);
     return;
   }
 
@@ -384,14 +412,14 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   } else if (strcmp(item->type, "fan") == 0) {
     subtitle = "Toggle and speed";
   } else if (type_is_toggle_safe(item->type)) {
-    subtitle = "Select to toggle";
+    subtitle = NULL;
   } else {
     subtitle = item->type[0] ? item->type : "Read only";
   }
   menu_cell_basic_draw(ctx, cell_layer,
                        display_name_in_room(s_device_display_names[device_index], display_name,
                                             sizeof(display_name)),
-                       subtitle, NULL);
+                       subtitle, icon_for_device_type(item->type));
 }
 
 static uint16_t sensor_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
@@ -951,6 +979,16 @@ static void confirm_window_unload(Window *window) {
 }
 
 static void init(void) {
+  s_icon_light = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_LIGHT);
+  s_icon_fan = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_FAN);
+  s_icon_switch = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_SWITCH);
+  s_icon_outlet = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_OUTLET);
+  s_icon_blinds = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_BLINDS);
+  s_icon_lock = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_LOCK);
+  s_icon_climate = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_CLIMATE);
+  s_icon_garage = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GARAGE);
+  s_icon_generic = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GENERIC);
+
   s_root_window = window_create();
   s_list_window = window_create();
   s_device_window = window_create();
@@ -1012,6 +1050,15 @@ static void deinit(void) {
   window_destroy(s_device_window);
   window_destroy(s_list_window);
   window_destroy(s_root_window);
+  gbitmap_destroy(s_icon_generic);
+  gbitmap_destroy(s_icon_garage);
+  gbitmap_destroy(s_icon_climate);
+  gbitmap_destroy(s_icon_lock);
+  gbitmap_destroy(s_icon_blinds);
+  gbitmap_destroy(s_icon_outlet);
+  gbitmap_destroy(s_icon_switch);
+  gbitmap_destroy(s_icon_fan);
+  gbitmap_destroy(s_icon_light);
 }
 
 int main(void) {

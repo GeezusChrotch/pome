@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.6
+
+- Add small Pebble-native icons for lights, fans, switches, outlets, blinds, locks,
+  climate devices, garage doors, and other device types.
+- Remove the redundant "Select to toggle" subtitle from toggle-only devices.
+
 ## 2.0.5
 
 - Resolve same-named multi-service accessories by their exact Itsyhome service UUID.
