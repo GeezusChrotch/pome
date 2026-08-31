@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.4
+
+- Add fan speed control with 25/50/75/100% presets.
+- Keep fans limited to Toggle and Speed while switches and outlets remain toggle-only.
+
 ## 2.0.3
 
 - Restrict brightness and color menus and commands to lights and All Lights groups.

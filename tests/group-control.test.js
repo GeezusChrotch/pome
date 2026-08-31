@@ -107,6 +107,23 @@ assert.strictEqual(rejectedMessages.length, 2);
 assert.ok(rejectedMessages[0].ERROR.indexOf("only available for lights") !== -1);
 assert.ok(rejectedMessages[1].ERROR.indexOf("only available for lights") !== -1);
 
+var fanPaths = [];
+var fanMessages = [];
+context.apiGet = function(path, callback) {
+  fanPaths.push(path);
+  callback(null, {status: "ok"});
+};
+context.send = function(payload) { fanMessages.push(payload); };
+context.setSpeed("Living Room", "Ceiling Fan", 75, "fan");
+assert.deepStrictEqual(fanPaths, ["/speed/75/Living%20Room/Ceiling%20Fan"]);
+assert.strictEqual(JSON.stringify(fanMessages), JSON.stringify([{STATUS: "Speed set"}]));
+
+fanPaths = [];
+fanMessages = [];
+context.setSpeed("Office", "Desk Switch", 75, "switch");
+assert.deepStrictEqual(fanPaths, []);
+assert.ok(fanMessages[0].ERROR.indexOf("only available for fans") !== -1);
+
 var retryPaths = [];
 var retryMessages = [];
 var firstLightAttempts = 0;

@@ -17,6 +17,7 @@ typedef enum {
   COMMAND_SET_BRIGHTNESS = 7,
   COMMAND_SET_COLOR = 8,
   COMMAND_LOAD_COLORS = 9,
+  COMMAND_SET_SPEED = 10,
 } Command;
 
 typedef enum {
@@ -48,6 +49,12 @@ typedef struct {
   char value[MAX_VALUE_LENGTH];
   bool reachable;
 } SensorItem;
+
+typedef enum {
+  PRESET_BRIGHTNESS,
+  PRESET_COLOR,
+  PRESET_SPEED,
+} PresetKind;
 
 static Window *s_root_window;
 static Window *s_list_window;
@@ -92,7 +99,7 @@ static char s_selected_room[MAX_NAME_LENGTH];
 static char s_selected_device[MAX_NAME_LENGTH];
 static char s_selected_device_type[MAX_TYPE_LENGTH];
 static char s_pending_scene[MAX_NAME_LENGTH];
-static bool s_preset_is_color;
+static PresetKind s_preset_kind;
 static bool s_loading;
 static bool s_device_loading;
 static bool s_show_favorites = true;
@@ -430,12 +437,16 @@ static void device_draw_header(GContext *ctx, const Layer *cell_layer,
 
 static uint16_t action_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                     void *context) {
+  if (strcmp(s_selected_device_type, "fan") == 0) return 2;
   return type_supports_light_controls(s_selected_device_type) ? 3 : 1;
 }
 
 static void action_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                             void *context) {
-  static const char *labels[] = {"Toggle", "Brightness", "Color"};
+  static const char *light_labels[] = {"Toggle", "Brightness", "Color"};
+  static const char *fan_labels[] = {"Toggle", "Speed"};
+  const char **labels = strcmp(s_selected_device_type, "fan") == 0
+                         ? fan_labels : light_labels;
   menu_cell_basic_draw(ctx, cell_layer, labels[cell_index->row], NULL, NULL);
 }
 
@@ -446,24 +457,26 @@ static void action_draw_header(GContext *ctx, const Layer *cell_layer,
 
 static uint16_t preset_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                     void *context) {
-  return s_preset_is_color ? COLOR_COUNT : 4;
+  return s_preset_kind == PRESET_COLOR ? COLOR_COUNT : 4;
 }
 
 static void preset_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                             void *context) {
   static const char *brightness_labels[] = {"25%", "50%", "75%", "100%"};
-  const char *label = s_preset_is_color ? s_colors[cell_index->row].name
-                                        : brightness_labels[cell_index->row];
+  const char *label = s_preset_kind == PRESET_COLOR ? s_colors[cell_index->row].name
+                                                    : brightness_labels[cell_index->row];
   menu_cell_basic_draw(ctx, cell_layer, label, NULL, NULL);
 }
 
 static void preset_draw_header(GContext *ctx, const Layer *cell_layer,
                                uint16_t section_index, void *context) {
-  menu_cell_basic_header_draw(ctx, cell_layer, s_preset_is_color ? "Color" : "Brightness");
+  const char *title = s_preset_kind == PRESET_COLOR ? "Color"
+                      : s_preset_kind == PRESET_SPEED ? "Speed" : "Brightness";
+  menu_cell_basic_header_draw(ctx, cell_layer, title);
 }
 
 static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
-  if (s_preset_is_color) {
+  if (s_preset_kind == PRESET_COLOR) {
     ColorChoice *color = &s_colors[cell_index->row];
     DictionaryIterator *out = NULL;
     if (app_message_outbox_begin(&out) != APP_MSG_OK || !out) {
@@ -485,7 +498,9 @@ static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
       vibes_short_pulse();
       return;
     }
-    dict_write_uint8(out, MESSAGE_KEY_COMMAND, COMMAND_SET_BRIGHTNESS);
+    dict_write_uint8(out, MESSAGE_KEY_COMMAND,
+                     s_preset_kind == PRESET_SPEED ? COMMAND_SET_SPEED
+                                                   : COMMAND_SET_BRIGHTNESS);
     dict_write_cstring(out, MESSAGE_KEY_ITEM_NAME, s_selected_device);
     dict_write_cstring(out, MESSAGE_KEY_ITEM_ROOM, s_selected_room);
     dict_write_cstring(out, MESSAGE_KEY_ITEM_TYPE, s_selected_device_type);
@@ -500,7 +515,10 @@ static void action_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
     send_command(COMMAND_TOGGLE_DEVICE, s_selected_device, s_selected_room,
                  s_selected_device_type);
   } else if (type_supports_light_controls(s_selected_device_type)) {
-    s_preset_is_color = cell_index->row == 2;
+    s_preset_kind = cell_index->row == 2 ? PRESET_COLOR : PRESET_BRIGHTNESS;
+    window_stack_push(s_preset_window, true);
+  } else if (strcmp(s_selected_device_type, "fan") == 0) {
+    s_preset_kind = PRESET_SPEED;
     window_stack_push(s_preset_window, true);
   } else {
     vibes_short_pulse();
@@ -557,7 +575,7 @@ static void device_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
     vibes_short_pulse();
     return;
   }
-  if (strcmp(item->type, "light") == 0) {
+  if (strcmp(item->type, "light") == 0 || strcmp(item->type, "fan") == 0) {
     snprintf(s_selected_device, sizeof(s_selected_device), "%s", item->name);
     snprintf(s_selected_device_type, sizeof(s_selected_device_type), "%s", item->type);
     window_stack_push(s_action_window, true);
@@ -659,7 +677,9 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       Tuple *saturation_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_SATURATION);
       s_colors[index].hue = hue_tuple ? hue_tuple->value->uint16 : 0;
       s_colors[index].saturation = saturation_tuple ? saturation_tuple->value->uint8 : 0;
-      if (s_preset_menu && s_preset_is_color) menu_layer_reload_data(s_preset_menu);
+      if (s_preset_menu && s_preset_kind == PRESET_COLOR) {
+        menu_layer_reload_data(s_preset_menu);
+      }
       return;
     }
     if (kind == ITEM_KIND_SENSOR && index < MAX_ITEMS) {

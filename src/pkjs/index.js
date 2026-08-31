@@ -12,6 +12,7 @@ var COMMAND_TOGGLE_DEVICE = 6;
 var COMMAND_SET_BRIGHTNESS = 7;
 var COMMAND_SET_COLOR = 8;
 var COMMAND_LOAD_COLORS = 9;
+var COMMAND_SET_SPEED = 10;
 
 var ITEM_KIND_FAVORITE = 1;
 var ITEM_KIND_SCENE = 2;
@@ -533,6 +534,25 @@ function setColor(room, name, hue, saturation, type) {
     });
 }
 
+function setSpeed(room, name, value, type) {
+  if (type !== "fan") {
+    sendError(new Error("Speed is only available for fans"));
+    return;
+  }
+  apiGet("/speed/" + value + "/" + encodeURIComponent(room) + "/" +
+    encodeURIComponent(name), function(error, response) {
+      if (error) {
+        sendError(error);
+        return;
+      }
+      if (response && response.status === "error") {
+        sendError(new Error(response.message || "Speed failed"));
+        return;
+      }
+      send({"STATUS": "Speed set"});
+    });
+}
+
 function configurationPage() {
   var current = baseUrl().replace(/&/g, "&amp;").replace(/\"/g, "&quot;");
   var selectedColors = configuredColors();
@@ -641,6 +661,10 @@ Pebble.addEventListener("appmessage", function(event) {
     case COMMAND_SET_COLOR:
       setColor(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_HUE,
         payload.ITEM_SATURATION, payload.ITEM_TYPE);
+      break;
+    case COMMAND_SET_SPEED:
+      setSpeed(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_VALUE,
+        payload.ITEM_TYPE);
       break;
     case COMMAND_LOAD_COLORS:
       sendColorChoices();
