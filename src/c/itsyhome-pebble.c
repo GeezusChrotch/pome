@@ -19,6 +19,7 @@ typedef enum {
   COMMAND_SET_COLOR = 8,
   COMMAND_LOAD_COLORS = 9,
   COMMAND_SET_SPEED = 10,
+  COMMAND_SET_POSITION = 11,
 } Command;
 
 typedef enum {
@@ -430,6 +431,8 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
     subtitle = "Toggle, level, color";
   } else if (strcmp(item->type, "fan") == 0) {
     subtitle = "Toggle and speed";
+  } else if (strcmp(item->type, "blinds") == 0) {
+    subtitle = NULL;
   } else if (type_is_toggle_safe(item->type)) {
     subtitle = NULL;
   } else {
@@ -500,6 +503,7 @@ static void device_draw_header(GContext *ctx, const Layer *cell_layer,
 
 static uint16_t action_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                     void *context) {
+  if (strcmp(s_selected_device_type, "blinds") == 0) return 8;
   if (strcmp(s_selected_device_type, "fan") == 0) return 2;
   return type_supports_light_controls(s_selected_device_type) ? 3 : 1;
 }
@@ -508,8 +512,13 @@ static void action_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
                             void *context) {
   static const char *light_labels[] = {"Toggle", "Brightness", "Color"};
   static const char *fan_labels[] = {"Toggle", "Speed"};
-  const char **labels = strcmp(s_selected_device_type, "fan") == 0
-                         ? fan_labels : light_labels;
+  static const char *blind_labels[] = {
+    "Open", "Close", "Up", "Down", "Slow Up", "Slow Down", "Fast Up", "Fast Down"
+  };
+  const char **labels = strcmp(s_selected_device_type, "blinds") == 0
+                         ? blind_labels
+                         : strcmp(s_selected_device_type, "fan") == 0
+                           ? fan_labels : light_labels;
   menu_cell_basic_draw(ctx, cell_layer, labels[cell_index->row], NULL, NULL);
 }
 
@@ -580,7 +589,23 @@ static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
 }
 
 static void action_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
-  if (cell_index->row == 0) {
+  if (strcmp(s_selected_device_type, "blinds") == 0) {
+    DictionaryIterator *out = NULL;
+    if (app_message_outbox_begin(&out) != APP_MSG_OK || !out) {
+      vibes_short_pulse();
+      return;
+    }
+    dict_write_uint8(out, MESSAGE_KEY_COMMAND, COMMAND_SET_POSITION);
+    dict_write_cstring(out, MESSAGE_KEY_ITEM_NAME, s_selected_device);
+    dict_write_cstring(out, MESSAGE_KEY_ITEM_ROOM, s_selected_room);
+    dict_write_cstring(out, MESSAGE_KEY_ITEM_TYPE, s_selected_device_type);
+    if (s_selected_device_id[0]) {
+      dict_write_cstring(out, MESSAGE_KEY_ITEM_ID, s_selected_device_id);
+    }
+    dict_write_uint8(out, MESSAGE_KEY_ITEM_VALUE, cell_index->row);
+    dict_write_end(out);
+    app_message_outbox_send();
+  } else if (cell_index->row == 0) {
     send_command_with_id(COMMAND_TOGGLE_DEVICE, s_selected_device, s_selected_room,
                          s_selected_device_type, s_selected_device_id);
   } else if (type_supports_light_controls(s_selected_device_type)) {
@@ -641,11 +666,12 @@ static void device_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
   uint16_t device_index = cell_index->row - all_lights_row -
                           (light_count() > 0 ? 1 : 0);
   HomeItem *item = &s_devices[device_index];
-  if (!item->reachable || !type_is_toggle_safe(item->type)) {
+  bool is_blind = strcmp(item->type, "blinds") == 0;
+  if (!item->reachable || (!type_is_toggle_safe(item->type) && !is_blind)) {
     vibes_short_pulse();
     return;
   }
-  if (strcmp(item->type, "light") == 0 || strcmp(item->type, "fan") == 0) {
+  if (strcmp(item->type, "light") == 0 || strcmp(item->type, "fan") == 0 || is_blind) {
     snprintf(s_selected_device, sizeof(s_selected_device), "%s", item->name);
     snprintf(s_selected_device_type, sizeof(s_selected_device_type), "%s", item->type);
     snprintf(s_selected_device_id, sizeof(s_selected_device_id), "%s",

@@ -6,6 +6,7 @@ accessories exposed by [Itsyhome for macOS](https://itsyhome.app/macos).
 Browse favorites, scenes, rooms, devices, and read-only sensors from your wrist.
 Lights include toggle, brightness, and configurable color controls. Each room also
 gets an **All Lights** control that safely paces commands across its reachable bulbs.
+Blinds include absolute open/close controls and 1%, 5%, and 10% position steps.
 
 Pome is an independent community project and is not affiliated with Apple,
 Itsyhome, Tailscale, or Pebble.
@@ -55,6 +56,7 @@ webhook server should remain private.
 - Read-only temperature, humidity, contact, motion, occupancy, and leak values
 - Light toggle, brightness presets at 25/50/75/100%, and six configurable colors
 - Room-wide All Lights toggle, brightness, and color with pacing and retries
+- Blind open/close plus slow (1%), regular (5%), and fast (10%) up/down controls
 - Confirmation for scene names suggesting doors, garages, gates, alarms, or disarm
 - Full original Itsyhome names retained for every command
 

@@ -13,6 +13,7 @@ var COMMAND_SET_BRIGHTNESS = 7;
 var COMMAND_SET_COLOR = 8;
 var COMMAND_LOAD_COLORS = 9;
 var COMMAND_SET_SPEED = 10;
+var COMMAND_SET_POSITION = 11;
 
 var ITEM_KIND_FAVORITE = 1;
 var ITEM_KIND_SCENE = 2;
@@ -648,6 +649,80 @@ function setSpeed(room, name, value, type, serviceId) {
     });
 }
 
+function blindPosition(response) {
+  var items = Array.isArray(response) ? response : [response];
+  for (var i = 0; i < items.length; i += 1) {
+    var item = items[i];
+    if (!item || !item.state) continue;
+    var rawPosition = item.state.position;
+    if (rawPosition === null || rawPosition === undefined || rawPosition === "") continue;
+    var position = Number(rawPosition);
+    if (isFinite(position)) return position;
+  }
+  return null;
+}
+
+function setBlindPosition(room, name, action, type, serviceId) {
+  if (type !== "blinds") {
+    sendError(new Error("Position is only available for blinds"));
+    return;
+  }
+
+  var actions = [
+    {position: 100},
+    {position: 0},
+    {delta: 5},
+    {delta: -5},
+    {delta: 1},
+    {delta: -1},
+    {delta: 10},
+    {delta: -10}
+  ];
+  var selected = actions[Number(action)];
+  if (!selected) {
+    sendError(new Error("Unknown blind action"));
+    return;
+  }
+
+  var target = encodedDeviceTarget(room, name, serviceId);
+  function applyPosition(position) {
+    var clamped = Math.max(0, Math.min(100, Math.round(position)));
+    apiGet("/position/" + clamped + "/" + target, function(error, response) {
+      if (error) {
+        sendError(error);
+        return;
+      }
+      if (response && response.status === "error") {
+        sendError(new Error(response.message || "Position failed"));
+        return;
+      }
+      send({"STATUS": "Position set to " + clamped + "%"});
+    });
+  }
+
+  if (selected.position !== undefined) {
+    applyPosition(selected.position);
+    return;
+  }
+
+  apiGet("/info/" + target, function(error, response) {
+    if (error) {
+      sendError(error);
+      return;
+    }
+    if (response && response.status === "error") {
+      sendError(new Error(response.message || "Position unavailable"));
+      return;
+    }
+    var position = blindPosition(response);
+    if (position === null) {
+      sendError(new Error("Blind position unavailable"));
+      return;
+    }
+    applyPosition(position + selected.delta);
+  });
+}
+
 function configurationPage() {
   var current = baseUrl().replace(/&/g, "&amp;").replace(/\"/g, "&quot;");
   var selectedColors = configuredColors();
@@ -759,6 +834,10 @@ Pebble.addEventListener("appmessage", function(event) {
       break;
     case COMMAND_SET_SPEED:
       setSpeed(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_VALUE,
+        payload.ITEM_TYPE, payload.ITEM_ID);
+      break;
+    case COMMAND_SET_POSITION:
+      setBlindPosition(payload.ITEM_ROOM, payload.ITEM_NAME, payload.ITEM_VALUE,
         payload.ITEM_TYPE, payload.ITEM_ID);
       break;
     case COMMAND_LOAD_COLORS:

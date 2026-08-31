@@ -171,6 +171,47 @@ context.setSpeed("Office", "Desk Switch", 75, "switch");
 assert.deepStrictEqual(fanPaths, []);
 assert.ok(fanMessages[0].ERROR.indexOf("only available for fans") !== -1);
 
+function runBlindCase(action, currentPosition, expectedPosition) {
+  var paths = [];
+  var messages = [];
+  context.apiGet = function(path, callback) {
+    paths.push(path);
+    if (path === "/info/BLIND-UUID") {
+      callback(null, {name: "Office Blinds", type: "blinds",
+        state: {position: currentPosition}});
+    } else {
+      callback(null, {status: "success"});
+    }
+  };
+  context.send = function(payload) { messages.push(payload); };
+  context.setBlindPosition("Office", "Office Blinds", action, "blinds", "BLIND-UUID");
+  var expectedPaths = action < 2
+    ? ["/position/" + expectedPosition + "/BLIND-UUID"]
+    : ["/info/BLIND-UUID", "/position/" + expectedPosition + "/BLIND-UUID"];
+  assert.deepStrictEqual(paths, expectedPaths);
+  assert.strictEqual(JSON.stringify(messages),
+    JSON.stringify([{STATUS: "Position set to " + expectedPosition + "%"}]));
+}
+
+runBlindCase(0, 42, 100);
+runBlindCase(1, 42, 0);
+runBlindCase(2, 42, 47);
+runBlindCase(3, 42, 37);
+runBlindCase(4, 42, 43);
+runBlindCase(5, 42, 41);
+runBlindCase(6, 42, 52);
+runBlindCase(7, 42, 32);
+runBlindCase(6, 97, 100);
+runBlindCase(7, 3, 0);
+
+var blindPaths = [];
+var blindMessages = [];
+context.apiGet = function(path) { blindPaths.push(path); };
+context.send = function(payload) { blindMessages.push(payload); };
+context.setBlindPosition("Office", "Desk Switch", 0, "switch", "SWITCH-UUID");
+assert.deepStrictEqual(blindPaths, []);
+assert.ok(blindMessages[0].ERROR.indexOf("only available for blinds") !== -1);
+
 var retryPaths = [];
 var retryMessages = [];
 var firstLightAttempts = 0;

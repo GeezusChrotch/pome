@@ -45,7 +45,7 @@ var server = http.createServer(function(request, response) {
     json(response, livingRoom);
   } else if (path.indexOf("/info/") === 0) {
     json(response, []);
-  } else if (/^\/(toggle|on|off|brightness|color|speed|scene)\//.test(path)) {
+  } else if (/^\/(toggle|on|off|brightness|color|speed|position|scene)\//.test(path)) {
     json(response, {status: "success"});
   } else if (path === "/status") {
     json(response, {status: "success", rooms: rooms.length, devices: livingRoom.length});

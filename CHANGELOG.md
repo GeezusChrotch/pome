@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.9
+
+- Add blind controls for Open, Close, Up, Down, Slow Up/Down, and Fast Up/Down.
+- Use 1% slow steps, 5% regular steps, and 10% fast steps from the current position.
+- Target blinds by their exact Itsyhome service UUID when available.
+
 ## 2.0.8
 
 - Group room devices by type: lights, fans, switches, outlets/plugs, then other types.
