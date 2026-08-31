@@ -1,0 +1,52 @@
+{
+  "name": "pome",
+  "author": "Joshua Bessom",
+  "version": "2.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Pome",
+    "uuid": "a6ab011e-d26a-4437-98c5-92f26ca38eb4",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "capabilities": ["configurable"],
+    "targetPlatforms": [
+      "basalt",
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": {
+      "COMMAND": 0,
+      "STATUS": 1,
+      "ITEM_KIND": 2,
+      "ITEM_INDEX": 3,
+      "ITEM_NAME": 4,
+      "ITEM_ACTIVE": 5,
+      "LIST_DONE": 6,
+      "ERROR": 7,
+      "ITEM_TYPE": 8,
+      "ITEM_ROOM": 9,
+      "ITEM_REACHABLE": 10,
+      "ITEM_VALUE": 11,
+      "ITEM_HUE": 12,
+      "ITEM_SATURATION": 13,
+      "SHOW_FAVORITES": 14,
+      "SHOW_SCENES": 15,
+      "SHOW_ROOMS": 16,
+      "SHOW_SENSORS": 17
+    },
+    "resources": {
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "POME_MENU_ICON",
+          "file": "images/pome-menu-icon.png",
+          "menuIcon": true
+        }
+      ]
+    }
+  }
+}

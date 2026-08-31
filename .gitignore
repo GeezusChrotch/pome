@@ -1,0 +1,6 @@
+build/
+.DS_Store
+.lock-waf_*
+*.log
+*.pbw
+appstore-assets/drafts/
