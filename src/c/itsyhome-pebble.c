@@ -145,6 +145,10 @@ static bool type_is_toggle_safe(const char *type) {
   return false;
 }
 
+static bool type_supports_light_controls(const char *type) {
+  return strcmp(type, "light") == 0 || strcmp(type, "light-group") == 0;
+}
+
 static uint16_t light_count(void) {
   uint16_t count = 0;
   for (uint16_t i = 0; i < s_device_count; i++) {
@@ -426,7 +430,7 @@ static void device_draw_header(GContext *ctx, const Layer *cell_layer,
 
 static uint16_t action_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                     void *context) {
-  return 3;
+  return type_supports_light_controls(s_selected_device_type) ? 3 : 1;
 }
 
 static void action_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
@@ -495,9 +499,11 @@ static void action_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
   if (cell_index->row == 0) {
     send_command(COMMAND_TOGGLE_DEVICE, s_selected_device, s_selected_room,
                  s_selected_device_type);
-  } else {
+  } else if (type_supports_light_controls(s_selected_device_type)) {
     s_preset_is_color = cell_index->row == 2;
     window_stack_push(s_preset_window, true);
+  } else {
+    vibes_short_pulse();
   }
 }
 

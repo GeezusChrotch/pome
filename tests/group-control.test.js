@@ -96,6 +96,17 @@ runCase(mixedLights, function() {
   "/color/35/100/Living%20Room/Ceiling%20Two"
 ], "Room color set");
 
+var rejectedPaths = [];
+var rejectedMessages = [];
+context.apiGet = function(path) { rejectedPaths.push(path); };
+context.send = function(payload) { rejectedMessages.push(payload); };
+context.setBrightness("Office", "Desk Switch", 75, "switch");
+context.setColor("Office", "Desk Switch", 35, 100, "switch");
+assert.deepStrictEqual(rejectedPaths, []);
+assert.strictEqual(rejectedMessages.length, 2);
+assert.ok(rejectedMessages[0].ERROR.indexOf("only available for lights") !== -1);
+assert.ok(rejectedMessages[1].ERROR.indexOf("only available for lights") !== -1);
+
 var retryPaths = [];
 var retryMessages = [];
 var firstLightAttempts = 0;

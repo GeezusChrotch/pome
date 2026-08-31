@@ -492,6 +492,10 @@ function setBrightness(room, name, value, type) {
     controlRoomLights(room, "brightness", value);
     return;
   }
+  if (type !== "light") {
+    sendError(new Error("Brightness is only available for lights"));
+    return;
+  }
   apiGet("/brightness/" + value + "/" + encodeURIComponent(room) + "/" +
     encodeURIComponent(name), function(error, response) {
       if (error) {
@@ -509,6 +513,10 @@ function setBrightness(room, name, value, type) {
 function setColor(room, name, hue, saturation, type) {
   if (type === "light-group") {
     controlRoomLights(room, "color", hue, saturation);
+    return;
+  }
+  if (type !== "light") {
+    sendError(new Error("Color is only available for lights"));
     return;
   }
   apiGet("/color/" + hue + "/" + saturation + "/" + encodeURIComponent(room) +

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.3
+
+- Restrict brightness and color menus and commands to lights and All Lights groups.
+- Keep switches, outlets, fans, and other toggle-safe accessories toggle-only.
+
 ## 2.0.2
 
 - Replace the expanded setup walkthrough in phone settings with one concise link.
