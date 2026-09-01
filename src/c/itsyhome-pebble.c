@@ -1116,7 +1116,14 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
     if (theme_text) s_theme_text.argb = theme_text->value->uint8;
     if (theme_selection) s_theme_selection.argb = theme_selection->value->uint8;
     if (theme_selection_text) s_theme_selection_text.argb = theme_selection_text->value->uint8;
-    if (theme_font) s_theme_font = theme_font->value->uint8 <= 4 ? theme_font->value->uint8 : 0;
+    if (theme_font) {
+      uint8_t requested_font = (uint8_t)theme_font->value->int32;
+#if defined(PBL_PLATFORM_EMERY)
+      s_theme_font = requested_font <= 9 ? requested_font : 0;
+#else
+      s_theme_font = requested_font <= 4 ? requested_font : 0;
+#endif
+    }
     if (theme_size) {
       uint8_t requested_size = theme_size->value->uint8;
       s_theme_size = requested_size >= 14 && requested_size <= 30 ? requested_size : 24;

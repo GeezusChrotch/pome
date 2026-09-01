@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.1
+
+- Make the phone preview use the Time 2 watch's exact 200×228-pixel content geometry.
+- Preview font sizes at their real requested pixel size and match watch row heights.
+- Remove preview-only bolding that was not applied on the watch.
+- Simulate Pebble's corrected 64-color display palette instead of showing raw RGB colors.
+- Accept the five bundled Time 2 font IDs instead of silently falling back to Gothic.
+- Make Apply Current Preview send edited colors directly instead of reloading and restoring the saved theme first.
+
 ## 2.3.0
 
 - Add a Time 2 enhanced typography edition within the same Pome package.

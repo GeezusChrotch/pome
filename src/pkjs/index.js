@@ -1584,13 +1584,15 @@ function configurationPage() {
     'p{color:#666;font-size:14px}a{color:#0878d1}.tabs{display:grid;grid-template-columns:1fr 1fr;' +
     'background:#dedee3;border-radius:11px;padding:3px;margin-bottom:22px}.tabs button{padding:9px;background:transparent;' +
     'color:#555;font-size:15px}.tabs button.active{background:white;color:#111;box-shadow:0 1px 3px #aaa}' +
-    '.panel{display:none}.panel.active{display:block}.preview-shell{width:200px;height:228px;margin:4px auto 24px;' +
-    'padding:22px 12px;border:8px solid #252525;border-radius:24px;background:#fff;overflow:hidden;' +
-    'box-shadow:0 8px 22px #bbb}.preview-title{font-weight:bold;font-size:14px;margin-bottom:8px;opacity:.75}' +
-    '.preview-row{height:47px;padding:5px 7px;display:flex;align-items:center;border-radius:2px;overflow:hidden}' +
-    '.preview-row.selected{font-weight:600}.preview-icon{width:25px;margin-right:7px;text-align:center;font-size:19px}' +
-    '.preview-text{min-width:0}.preview-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-    '.preview-sub{font-size:12px;opacity:.72}.theme-card{background:#fff;border:1px solid #bbb;border-radius:12px;' +
+    '.panel{display:none}.panel.active{display:block}.preview-shell{width:216px;height:244px;margin:4px auto 24px;' +
+    'padding:0;border:8px solid #252525;border-radius:24px;background:#fff;overflow:hidden;' +
+    'box-shadow:0 8px 22px #bbb}.preview-title{height:16px;line-height:16px;padding:0 6px;' +
+    'font:700 14px Arial,sans-serif;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.preview-row{height:47px;padding:0 3px 0 6px;display:flex;align-items:center;overflow:hidden}' +
+    '.preview-icon{width:25px;margin-right:4px;text-align:center;font-size:19px;flex:0 0 auto}' +
+    '.preview-text{min-width:0}.preview-name{line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.preview-sub{font:14px/16px Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.theme-card{background:#fff;border:1px solid #bbb;border-radius:12px;' +
     'padding:14px;margin:10px 0 20px}.help{background:#fff7df;border:1px solid #e3bd5c;border-radius:12px;' +
     'padding:13px;color:#604500;font-size:14px;line-height:1.35}.save-main{margin-top:28px}.apply{background:#0878d1}</style>' +
     '<div class="wrap"><h1>Pome</h1><div class="tabs"><button type="button" id="setupTab" class="active" ' +
@@ -1618,7 +1620,7 @@ function configurationPage() {
     '<div class="preview-sub">4 scenes</div></div></div></div>' +
     '<div class="theme-card"><label>Saved themes</label><select id="savedTheme" onchange="loadTheme()"></select>' +
     '<p>Selecting a theme previews it. Apply sends the selected theme to the watch immediately.</p>' +
-    '<div class="button-row"><button type="button" class="apply" onclick="applySaved()">Apply to Watch</button>' +
+    '<div class="button-row"><button type="button" class="apply" onclick="applyCurrent()">Apply Current Preview</button>' +
     '<button type="button" class="danger" onclick="deleteTheme()">Delete</button></div></div>' +
     '<label>Font color</label><input type="color" id="themeText">' +
     '<label>Background color</label><input type="color" id="themeBackground">' +
@@ -1636,9 +1638,18 @@ function configurationPage() {
     'byId(\'themesTab\').className=name===\'themes\'?\'active\':\'\';' +
     'byId(\'setupPanel\').className=name===\'setup\'?\'panel active\':\'panel\';' +
     'byId(\'themesPanel\').className=name===\'themes\'?\'panel active\':\'panel\';}' +
-    'function pebbleHex(hex){var result=\'#\';for(var i=1;i<7;i+=2){var value=parseInt(hex.slice(i,i+2),16);' +
-    'var channel=Math.round(value*3/255)*85;var part=channel.toString(16);result+=(part.length<2?\'0\':\'\')+part;}' +
-    'return result;}' +
+    'var watchColors=[' +
+    '\'#000000\',\'#001e41\',\'#004387\',\'#0068ca\',\'#2b4a2c\',\'#27514f\',\'#16638d\',\'#007dce\',' +
+    '\'#5e9860\',\'#5c9b72\',\'#57a5a2\',\'#4cb4db\',\'#8ee391\',\'#8ee69e\',\'#8aebc0\',\'#84f5f1\',' +
+    '\'#4a161b\',\'#482748\',\'#40488a\',\'#2f6bcc\',\'#564e36\',\'#545454\',\'#4f6790\',\'#4180d0\',' +
+    '\'#759a64\',\'#759d76\',\'#71a6a4\',\'#69b5dd\',\'#9ee594\',\'#9de7a0\',\'#9becc2\',\'#95f6f2\',' +
+    '\'#99353f\',\'#983e5a\',\'#955694\',\'#8f74d2\',\'#9d5b4d\',\'#9d6064\',\'#9a7099\',\'#9587d5\',' +
+    '\'#afa072\',\'#aea382\',\'#ababab\',\'#a7bae2\',\'#c9e89d\',\'#c9eaa7\',\'#c7f0c8\',\'#c3f9f7\',' +
+    '\'#e35462\',\'#e25874\',\'#e16aa3\',\'#de83dc\',\'#e66e6b\',\'#e6727c\',\'#e37fa7\',\'#e194df\',' +
+    '\'#f1aa86\',\'#f1ad93\',\'#efb5b8\',\'#ecc3eb\',\'#ffeeab\',\'#fff1b5\',\'#fff6d3\',\'#ffffff\'];' +
+    'function watchHex(hex){var levels=[];for(var i=1;i<7;i+=2)' +
+    'levels.push(Math.round(parseInt(hex.slice(i,i+2),16)*3/255));' +
+    'return watchColors[levels[0]*16+levels[1]*4+levels[2]];}' +
     'function contrast(hex){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),' +
     'b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>=150?\'#000000\':\'#ffffff\';}' +
     'var fontSizes=' + JSON.stringify(pageFontSizes) + ';' +
@@ -1656,7 +1667,7 @@ function configurationPage() {
     'byId(\'themeSelection\').value=theme.selection;byId(\'themeFont\').value=theme.font;' +
     'updateSizes(theme.size);byId(\'themeIcons\').checked=theme.icons!==false;preview();}' +
     'function preview(){var theme=readTheme(),shell=byId(\'preview\'),rows=shell.querySelectorAll(\'.preview-row\');' +
-    'var background=pebbleHex(theme.background),text=pebbleHex(theme.text),selection=pebbleHex(theme.selection);' +
+    'var background=watchHex(theme.background),text=watchHex(theme.text),selection=watchHex(theme.selection);' +
     'shell.style.background=background;shell.style.color=text;' +
     'var previewFonts={inter:\'Inter,Arial,sans-serif\',roboto:\'Roboto,Arial,sans-serif\',' +
     '\'open-sans\':\'Open Sans,Arial,sans-serif\',montserrat:\'Montserrat,Arial,sans-serif\',' +
@@ -1664,8 +1675,12 @@ function configurationPage() {
     '\'roboto-condensed\':\'Arial Narrow,Arial,sans-serif\'};' +
     'shell.style.fontFamily=previewFonts[theme.font]||\'Arial,sans-serif\';' +
     'shell.style.fontWeight=theme.font===\'gothic-bold\'||theme.font===\'droid-serif\'||' +
-    'theme.font===\'bitham-black\'?\'700\':\'400\';shell.style.fontSize=Math.max(12,theme.size-5)+\'px\';' +
-    'rows[0].style.background=selection;rows[0].style.color=contrast(selection);' +
+    'theme.font===\'bitham-black\'?\'700\':\'400\';shell.style.fontSize=theme.size+\'px\';' +
+    'var rowHeight=theme.size<=14?32:theme.size<=18?38:theme.size<=21?42:' +
+    'theme.size<=24?46:theme.size<=28?52:56;for(var r=0;r<rows.length;r++)rows[r].style.height=rowHeight+\'px\';' +
+    'var selectedText=watchHex(contrast(theme.selection)),title=shell.querySelector(\'.preview-title\');' +
+    'rows[0].style.background=selection;rows[0].style.color=selectedText;' +
+    'title.style.background=selection;title.style.color=selectedText;' +
     'var icons=shell.querySelectorAll(\'.preview-icon\');for(var i=0;i<icons.length;i++)' +
     'icons[i].style.display=theme.icons?\'inline-block\':\'none\';}' +
     'function refreshThemes(selected){var menu=byId(\'savedTheme\');menu.innerHTML=\'<option value="">Choose a saved theme</option>\';' +
@@ -1674,7 +1689,7 @@ function configurationPage() {
     'if(savedThemes[i].name===selected)menu.value=String(i);}}' +
     'function loadTheme(){var index=parseInt(byId(\'savedTheme\').value,10);if(!isNaN(index)&&savedThemes[index])' +
     'applyTheme(savedThemes[index]);}' +
-    'function applySaved(){loadTheme();if(byId(\'savedTheme\').value!==\'\')save();}' +
+    'function applyCurrent(){save();}' +
     'function saveTheme(){var theme=readTheme();if(!theme.name){alert(\'Name your theme first.\');return;}' +
     'var found=-1,customCount=0;for(var i=0;i<savedThemes.length;i++){' +
     'if(!savedThemes[i].builtIn)customCount++;if(savedThemes[i].name.toLowerCase()===theme.name.toLowerCase())found=i;}' +

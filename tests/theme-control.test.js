@@ -8,6 +8,7 @@ var watchSource = fs.readFileSync("src/c/itsyhome-pebble.c", "utf8");
 assert.ok(watchSource.indexOf("marquee_selection_changed") !== -1);
 assert.ok(watchSource.indexOf("graphics_text_layout_get_content_size") !== -1);
 assert.ok(watchSource.indexOf("s_marquee_offset") !== -1);
+assert.ok(watchSource.indexOf("requested_font <= 9") !== -1);
 
 var stored = {};
 var handlers = {};
@@ -69,7 +70,9 @@ assert.ok(configurationHtml.indexOf("Background color") !== -1);
 assert.ok(configurationHtml.indexOf("Selection color") !== -1);
 assert.ok(configurationHtml.indexOf("Show device icons") !== -1);
 assert.ok(configurationHtml.indexOf("Save Theme &amp; Apply to Watch") !== -1);
-assert.ok(configurationHtml.indexOf("Apply to Watch") !== -1);
+assert.ok(configurationHtml.indexOf("Apply Current Preview") !== -1);
+assert.ok(configurationHtml.indexOf("function applyCurrent(){save();}") !== -1);
+assert.ok(configurationHtml.indexOf("function applySaved(){loadTheme()") === -1);
 assert.ok(configurationHtml.indexOf("Roboto Condensed") !== -1);
 assert.ok(configurationHtml.indexOf("Droid Serif Bold") !== -1);
 assert.ok(configurationHtml.indexOf("Bitham Black") !== -1);
@@ -79,7 +82,10 @@ assert.ok(configurationHtml.indexOf('<option value="30">30 pt</option>') !== -1)
 assert.ok(configurationHtml.indexOf("Pome Amber • Built-in") === -1);
 assert.ok(configurationHtml.indexOf("builtIn?' • Built-in'") !== -1);
 assert.ok(configurationHtml.indexOf("Built-in themes can’t be deleted") !== -1);
-assert.ok(configurationHtml.indexOf("function pebbleHex") !== -1);
+assert.ok(configurationHtml.indexOf("function watchHex") !== -1);
+assert.ok(configurationHtml.indexOf("width:216px;height:244px") !== -1);
+assert.ok(configurationHtml.indexOf("shell.style.fontSize=theme.size+'px'") !== -1);
+assert.ok(configurationHtml.indexOf("levels[0]*16+levels[1]*4+levels[2]") !== -1);
 assert.ok(configurationHtml.indexOf("return_to=([^&]*)") !== -1);
 assert.ok(configurationHtml.indexOf("if(value&&!/^https?") !== -1);
 
