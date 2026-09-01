@@ -79,6 +79,12 @@ assert.strictEqual(result.intent.entity.type, "light-group");
 assert.strictEqual(result.intent.entity.room, "Bathroom");
 assert.strictEqual(result.intent.hue, 35);
 
+result = parse("Turn bathroom rainbow");
+assert.strictEqual(result.intent.action, "rainbow");
+assert.strictEqual(result.intent.entity.type, "light-group");
+assert.strictEqual(result.intent.entity.room, "Bathroom");
+
+assert.ok(context.parseVoiceCommand("Turn rainbow", catalog).error);
 assert.ok(context.parseVoiceCommand("Turn bathroom on", catalog).error);
 
 result = parse("Set the lounge lights to 50 percent");

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.2
+
+- Add a hidden room-wide voice color effect for reachable lights.
+
 ## 2.4.1
 
 - Let natural room-plus-color phrases such as "Turn bathroom amber" target that room's All Lights group.

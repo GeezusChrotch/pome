@@ -836,7 +836,7 @@ function runLightCommands(lights, pathForLight, successStatus) {
       finish();
       return;
     }
-    var path = pathForLight(lights[index]);
+    var path = pathForLight(lights[index], index);
     var attempts = 0;
     function attempt() {
       attempts += 1;
@@ -886,6 +886,16 @@ function controlRoomLights(room, action, value, saturation) {
         return "/color/" + value + "/" + saturation + "/" +
           encodedDeviceTarget(room, light.name, light.serviceId);
       }, "Room color set");
+    } else if (action === "rainbow") {
+      lights.sort(function(left, right) {
+        return (normalizeVoice(left.name) + " " + (left.serviceId || "")).localeCompare(
+          normalizeVoice(right.name) + " " + (right.serviceId || ""));
+      });
+      runLightCommands(lights, function(light, index) {
+        var hue = Math.round(index * 360 / lights.length) % 360;
+        return "/color/" + hue + "/100/" +
+          encodedDeviceTarget(room, light.name, light.serviceId);
+      }, "Room rainbow set");
     }
   });
 }
@@ -1359,6 +1369,19 @@ function parseVoiceCommand(transcription, catalog) {
     return {intent: {action: "scene", scene: scene.name}, prompt: "Scene\n" + scene.name};
   }
 
+  if (voicePhraseContains(text, "rainbow")) {
+    var rainbowRoom = findVoiceRoom(text, catalog);
+    var rainbowGroups = rainbowRoom ? catalog.entities.filter(function(candidate) {
+      return candidate.reachable !== false && candidate.type === "light-group" &&
+        normalizeVoice(candidate.room) === normalizeVoice(rainbowRoom);
+    }) : [];
+    if (rainbowGroups.length === 1) {
+      return {intent: {action: "rainbow", entity: rainbowGroups[0]},
+        prompt: voicePrompt(rainbowGroups[0], "Rainbow")};
+    }
+    return {error: "I couldn't match that room"};
+  }
+
   var query = /^(?:what is|whats|show|check|read|is)\b/.test(text);
   var color = voiceColor(text);
   var found = findVoiceEntity(text, catalog);
@@ -1519,6 +1542,8 @@ function executeVoiceIntent(intent) {
   } else if (intent.action === "color") {
     setColor(entity.room, entity.name, intent.hue, intent.saturation, entity.type,
       entity.serviceId);
+  } else if (intent.action === "rainbow") {
+    controlRoomLights(entity.room, "rainbow");
   } else if (intent.action === "speed") {
     setSpeed(entity.room, entity.name, intent.value, entity.type, entity.serviceId);
   } else if (intent.action === "blind") {

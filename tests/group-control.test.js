@@ -141,6 +141,19 @@ runCase(mixedLights, function() {
   "/color/35/100/Living%20Room/Ceiling%20Two"
 ], "Room color set");
 
+runCase([
+  {name: "Vanity", type: "light", reachable: true},
+  {name: "Shower", type: "light", reachable: true},
+  {name: "Ceiling", type: "light", reachable: true}
+], function() {
+  context.controlRoomLights("Bathroom", "rainbow");
+}, [
+  "/info/Bathroom",
+  "/color/0/100/Bathroom/Ceiling",
+  "/color/120/100/Bathroom/Shower",
+  "/color/240/100/Bathroom/Vanity"
+], "Room rainbow set");
+
 var rejectedPaths = [];
 var rejectedMessages = [];
 context.apiGet = function(path) { rejectedPaths.push(path); };
