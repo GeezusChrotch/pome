@@ -153,7 +153,7 @@ static GColor s_theme_text = GColorBlack;
 static GColor s_theme_selection = GColorBlack;
 static GColor s_theme_selection_text = GColorWhite;
 static uint8_t s_theme_font;
-static uint8_t s_theme_size = 1;
+static uint8_t s_theme_size = 24;
 static bool s_theme_icons = true;
 
 static void show_scene_confirmation(const char *name);
@@ -237,23 +237,28 @@ static GBitmap *icon_for_device_type(const char *type, bool highlighted) {
 }
 
 static GFont theme_title_font(void) {
-  if (s_theme_font == 2) {
-    if (s_theme_size == 0) return fonts_get_system_font(FONT_KEY_BITHAM_18_LIGHT_SUBSET);
-    if (s_theme_size == 2) return fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
-    return fonts_get_system_font(FONT_KEY_DROID_SERIF_28_BOLD);
-  }
+  if (s_theme_font == 2) return fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21);
+  if (s_theme_font == 3) return fonts_get_system_font(FONT_KEY_DROID_SERIF_28_BOLD);
+  if (s_theme_font == 4) return fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
   if (s_theme_font == 1) {
-    if (s_theme_size == 0) return fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-    if (s_theme_size == 2) return fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
+    if (s_theme_size <= 14) return fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+    if (s_theme_size <= 18) return fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+    if (s_theme_size >= 28) return fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
     return fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   }
-  if (s_theme_size == 0) return fonts_get_system_font(FONT_KEY_GOTHIC_18);
-  if (s_theme_size == 2) return fonts_get_system_font(FONT_KEY_GOTHIC_28);
+  if (s_theme_size <= 14) return fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  if (s_theme_size <= 18) return fonts_get_system_font(FONT_KEY_GOTHIC_18);
+  if (s_theme_size >= 28) return fonts_get_system_font(FONT_KEY_GOTHIC_28);
   return fonts_get_system_font(FONT_KEY_GOTHIC_24);
 }
 
 static int16_t theme_cell_height(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
-  return s_theme_size == 0 ? 38 : s_theme_size == 2 ? 54 : 46;
+  if (s_theme_size <= 14) return 32;
+  if (s_theme_size <= 18) return 38;
+  if (s_theme_size <= 21) return 42;
+  if (s_theme_size <= 24) return 46;
+  if (s_theme_size <= 28) return 52;
+  return 56;
 }
 
 static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *title,
@@ -274,16 +279,18 @@ static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *
 
   int16_t title_y;
   if (subtitle && subtitle[0]) {
-    title_y = s_theme_size == 0 ? -3 : -5;
+    title_y = s_theme_size <= 18 ? -3 : -5;
   } else {
-    int16_t approximate_height = s_theme_size == 0 ? 24 : s_theme_size == 2 ? 36 : 30;
+    int16_t approximate_height = s_theme_size <= 14 ? 20 : s_theme_size <= 18 ? 24 :
+                                 s_theme_size <= 24 ? 30 : 36;
     title_y = (bounds.size.h - approximate_height) / 2 - 2;
   }
   graphics_draw_text(ctx, title, theme_title_font(),
     GRect(text_x, title_y, bounds.size.w - text_x - 3, bounds.size.h),
     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   if (subtitle && subtitle[0]) {
-    int16_t subtitle_y = s_theme_size == 0 ? 18 : s_theme_size == 2 ? 30 : 24;
+    int16_t subtitle_y = s_theme_size <= 14 ? 14 : s_theme_size <= 18 ? 18 :
+                           s_theme_size <= 24 ? 24 : 30;
     graphics_draw_text(ctx, subtitle, fonts_get_system_font(FONT_KEY_GOTHIC_14),
       GRect(text_x, subtitle_y, bounds.size.w - text_x - 3, 18),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
@@ -955,8 +962,11 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
     if (theme_text) s_theme_text.argb = theme_text->value->uint8;
     if (theme_selection) s_theme_selection.argb = theme_selection->value->uint8;
     if (theme_selection_text) s_theme_selection_text.argb = theme_selection_text->value->uint8;
-    if (theme_font) s_theme_font = theme_font->value->uint8 <= 2 ? theme_font->value->uint8 : 0;
-    if (theme_size) s_theme_size = theme_size->value->uint8 <= 2 ? theme_size->value->uint8 : 1;
+    if (theme_font) s_theme_font = theme_font->value->uint8 <= 4 ? theme_font->value->uint8 : 0;
+    if (theme_size) {
+      uint8_t requested_size = theme_size->value->uint8;
+      s_theme_size = requested_size >= 14 && requested_size <= 30 ? requested_size : 24;
+    }
     if (theme_icons) s_theme_icons = theme_icons->value->int8 != 0;
     apply_theme();
   }

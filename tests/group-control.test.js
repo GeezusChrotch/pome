@@ -36,7 +36,7 @@ assert.ok(configurationHtml.indexOf(">Setup instructions</a>") !== -1);
 assert.ok(configurationHtml.indexOf("https://github.com/GeezusChrotch/pome#setup") !== -1);
 assert.ok(configurationHtml.indexOf("tailscale serve --bg") === -1);
 assert.ok(configurationHtml.indexOf("id=\"themesTab\"") !== -1);
-assert.ok(configurationHtml.indexOf("Save this theme") !== -1);
+assert.ok(configurationHtml.indexOf("Save Theme &amp; Apply to Watch") !== -1);
 
 var duplicateItems = [
   {name: "Studio Fan", type: "fan", room: "Studio", state: {speed: 100}},

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.1
+
+- Make **Save Theme & Apply to Watch** persist the named theme and send it immediately,
+  without requiring a second hidden save action.
+- Add in-page instructions and separate, explicit setup and theme actions.
+- Add Gothic, Gothic Bold, Roboto Condensed, Droid Serif Bold, and Bitham Black,
+  with every point size each Pebble system font actually supports.
+- Allow themes to save independently of server setup and support the emulator return path.
+- Migrate themes created by 2.2.0 to the expanded font-size format.
+
 ## 2.2.0
 
 - Add a dedicated Themes tab to Pome's phone settings with a live Pebble preview.

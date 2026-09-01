@@ -46,12 +46,24 @@ var DEFAULT_THEME = {
   background: "#ffffff",
   selection: "#000000",
   font: "gothic",
-  size: "medium",
+  size: 24,
   icons: true
 };
 
-var THEME_FONTS = {gothic: 0, "gothic-bold": 1, serif: 2};
-var THEME_SIZES = {small: 0, medium: 1, large: 2};
+var THEME_FONTS = {
+  gothic: 0,
+  "gothic-bold": 1,
+  "roboto-condensed": 2,
+  "droid-serif": 3,
+  "bitham-black": 4
+};
+var THEME_FONT_SIZES = {
+  gothic: [14, 18, 24, 28],
+  "gothic-bold": [14, 18, 24, 28],
+  "roboto-condensed": [21],
+  "droid-serif": [28],
+  "bitham-black": [30]
+};
 
 var COLOR_PALETTE = DEFAULT_COLORS.concat([
   {name: "Orange", hue: 25, saturation: 100},
@@ -234,16 +246,22 @@ function validHexColor(value, fallback) {
 
 function normalizeTheme(theme) {
   var value = theme && typeof theme === "object" ? theme : {};
+  var font = value.font === "serif" ? "droid-serif" : value.font;
+  if (!Object.prototype.hasOwnProperty.call(THEME_FONTS, font)) font = DEFAULT_THEME.font;
+  var legacySizes = {small: 18, medium: 24, large: 28};
+  var size = Object.prototype.hasOwnProperty.call(legacySizes, value.size) ?
+    legacySizes[value.size] : parseInt(value.size, 10);
+  var sizes = THEME_FONT_SIZES[font];
+  if (sizes.indexOf(size) === -1) size = sizes.indexOf(DEFAULT_THEME.size) >= 0 ?
+    DEFAULT_THEME.size : sizes[0];
   return {
     name: typeof value.name === "string" && value.name.trim() ?
       value.name.trim().substring(0, 32) : DEFAULT_THEME.name,
     text: validHexColor(value.text, DEFAULT_THEME.text),
     background: validHexColor(value.background, DEFAULT_THEME.background),
     selection: validHexColor(value.selection, DEFAULT_THEME.selection),
-    font: Object.prototype.hasOwnProperty.call(THEME_FONTS, value.font) ?
-      value.font : DEFAULT_THEME.font,
-    size: Object.prototype.hasOwnProperty.call(THEME_SIZES, value.size) ?
-      value.size : DEFAULT_THEME.size,
+    font: font,
+    size: size,
     icons: value.icons !== false
   };
 }
@@ -335,7 +353,7 @@ function sendDisplaySettings(done) {
     "THEME_SELECTION": pebbleColor(theme.selection),
     "THEME_SELECTION_TEXT": pebbleColor(contrastingColor(theme.selection)),
     "THEME_FONT": THEME_FONTS[theme.font],
-    "THEME_SIZE": THEME_SIZES[theme.size],
+    "THEME_SIZE": theme.size,
     "THEME_ICONS": theme.icons ? 1 : 0
   }, done);
 }
@@ -1418,7 +1436,8 @@ function configurationPage() {
     '.preview-row.selected{font-weight:600}.preview-icon{width:25px;margin-right:7px;text-align:center;font-size:19px}' +
     '.preview-text{min-width:0}.preview-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     '.preview-sub{font-size:12px;opacity:.72}.theme-card{background:#fff;border:1px solid #bbb;border-radius:12px;' +
-    'padding:14px;margin:10px 0 20px}.save-main{margin-top:28px}</style>' +
+    'padding:14px;margin:10px 0 20px}.help{background:#fff7df;border:1px solid #e3bd5c;border-radius:12px;' +
+    'padding:13px;color:#604500;font-size:14px;line-height:1.35}.save-main{margin-top:28px}.apply{background:#0878d1}</style>' +
     '<div class="wrap"><h1>Pome</h1><div class="tabs"><button type="button" id="setupTab" class="active" ' +
     'onclick="tab(\'setup\')">Setup</button><button type="button" id="themesTab" ' +
     'onclick="tab(\'themes\')">Themes</button></div><section id="setupPanel" class="panel active">' +
@@ -1429,8 +1448,12 @@ function configurationPage() {
     '<p><a href="https://github.com/GeezusChrotch/pome#setup">Setup instructions</a></p>' +
     '<h2>Show in Pome</h2><p>With one main section enabled, Pome opens it directly.</p>' +
     sectionFields + '<h2>Light colors</h2>' +
-    '<p>Tap a swatch to open the iPhone color wheel.</p>' + colorFields + '</section>' +
-    '<section id="themesPanel" class="panel"><div id="preview" class="preview-shell">' +
+    '<p>Tap a swatch to open the iPhone color wheel.</p>' + colorFields +
+    '<button class="save-main" onclick="save()">Save setup</button></section>' +
+    '<section id="themesPanel" class="panel"><p class="help"><strong>How themes work:</strong> ' +
+    'Choose colors, a font, size, and icon style below. The preview updates immediately. ' +
+    'Tap <strong>Save Theme &amp; Apply to Watch</strong> to store it on your iPhone and send it to Pome.</p>' +
+    '<div id="preview" class="preview-shell">' +
     '<div class="preview-title">Living Room</div><div class="preview-row selected">' +
     '<span class="preview-icon">●</span><div class="preview-text"><div class="preview-name">Ceiling Light</div>' +
     '<div class="preview-sub">Toggle, level, color</div></div></div><div class="preview-row">' +
@@ -1438,20 +1461,21 @@ function configurationPage() {
     '<div class="preview-sub">Toggle, level, color</div></div></div><div class="preview-row">' +
     '<span class="preview-icon">✦</span><div class="preview-text"><div class="preview-name">Scenes</div>' +
     '<div class="preview-sub">4 scenes</div></div></div></div>' +
-    '<div class="theme-card"><label>Saved themes</label><select id="savedTheme"></select>' +
-    '<div class="button-row"><button type="button" class="secondary" onclick="loadTheme()">Load</button>' +
-    '<button type="button" class="danger" onclick="deleteTheme()">Delete</button></div>' +
-    '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
-    '<button type="button" onclick="saveTheme()">Save this theme</button></div>' +
+    '<div class="theme-card"><label>Saved themes</label><select id="savedTheme" onchange="loadTheme()"></select>' +
+    '<p>Selecting a theme previews it. Apply sends the selected theme to the watch immediately.</p>' +
+    '<div class="button-row"><button type="button" class="apply" onclick="applySaved()">Apply to Watch</button>' +
+    '<button type="button" class="danger" onclick="deleteTheme()">Delete</button></div></div>' +
     '<label>Font color</label><input type="color" id="themeText">' +
     '<label>Background color</label><input type="color" id="themeBackground">' +
     '<label>Selection color</label><input type="color" id="themeSelection">' +
     '<label>Font</label><select id="themeFont"><option value="gothic">Gothic</option>' +
-    '<option value="gothic-bold">Gothic Bold</option><option value="serif">Serif</option></select>' +
-    '<label>Font size</label><select id="themeSize"><option value="small">Small</option>' +
-    '<option value="medium">Medium</option><option value="large">Large</option></select>' +
+    '<option value="gothic-bold">Gothic Bold</option><option value="roboto-condensed">Roboto Condensed</option>' +
+    '<option value="droid-serif">Droid Serif Bold</option><option value="bitham-black">Bitham Black</option></select>' +
+    '<label>Font size</label><select id="themeSize"></select>' +
     '<div class="toggle"><label><input type="checkbox" id="themeIcons">Show device icons</label></div>' +
-    '</section><button class="save-main" onclick="save()">Save settings</button></div>' +
+    '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
+    '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
+    '</section></div>' +
     '<script>var names=' + JSON.stringify(namedColors) + ';var currentTheme=' + themeJson +
     ';var savedThemes=' + themesJson +
     ';function byId(id){return document.getElementById(id);}function tab(name){' +
@@ -1464,20 +1488,27 @@ function configurationPage() {
     'return result;}' +
     'function contrast(hex){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),' +
     'b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>=150?\'#000000\':\'#ffffff\';}' +
+    'var fontSizes={gothic:[14,18,24,28],\'gothic-bold\':[14,18,24,28],' +
+    '\'roboto-condensed\':[21],\'droid-serif\':[28],\'bitham-black\':[30]};' +
+    'function updateSizes(requested){var font=byId(\'themeFont\').value,sizes=fontSizes[font]||[24];' +
+    'var menu=byId(\'themeSize\'),wanted=parseInt(requested,10);menu.innerHTML=\'\';for(var i=0;i<sizes.length;i++){' +
+    'var option=document.createElement(\'option\');option.value=String(sizes[i]);option.textContent=sizes[i]+\' pt\';' +
+    'menu.appendChild(option);}menu.value=sizes.indexOf(wanted)>=0?String(wanted):String(sizes[0]);}' +
     'function readTheme(){return{name:byId(\'themeName\').value.trim()||\'Custom\',' +
     'text:byId(\'themeText\').value,background:byId(\'themeBackground\').value,' +
     'selection:byId(\'themeSelection\').value,font:byId(\'themeFont\').value,' +
-    'size:byId(\'themeSize\').value,icons:byId(\'themeIcons\').checked};}' +
+    'size:parseInt(byId(\'themeSize\').value,10),icons:byId(\'themeIcons\').checked};}' +
     'function applyTheme(theme){currentTheme=theme;byId(\'themeName\').value=theme.name||\'\';' +
     'byId(\'themeText\').value=theme.text;byId(\'themeBackground\').value=theme.background;' +
     'byId(\'themeSelection\').value=theme.selection;byId(\'themeFont\').value=theme.font;' +
-    'byId(\'themeSize\').value=theme.size;byId(\'themeIcons\').checked=theme.icons!==false;preview();}' +
+    'updateSizes(theme.size);byId(\'themeIcons\').checked=theme.icons!==false;preview();}' +
     'function preview(){var theme=readTheme(),shell=byId(\'preview\'),rows=shell.querySelectorAll(\'.preview-row\');' +
     'var background=pebbleHex(theme.background),text=pebbleHex(theme.text),selection=pebbleHex(theme.selection);' +
     'shell.style.background=background;shell.style.color=text;' +
-    'shell.style.fontFamily=theme.font===\'serif\'?\'Georgia,serif\':\'Arial,sans-serif\';' +
-    'shell.style.fontWeight=theme.font===\'gothic-bold\'?\'700\':\'400\';' +
-    'shell.style.fontSize=theme.size===\'small\'?\'16px\':theme.size===\'large\'?\'22px\':\'19px\';' +
+    'shell.style.fontFamily=theme.font===\'droid-serif\'?\'Georgia,serif\':' +
+    'theme.font===\'roboto-condensed\'?\'Arial Narrow,Arial,sans-serif\':\'Arial,sans-serif\';' +
+    'shell.style.fontWeight=theme.font===\'gothic-bold\'||theme.font===\'droid-serif\'||' +
+    'theme.font===\'bitham-black\'?\'700\':\'400\';shell.style.fontSize=Math.max(12,theme.size-5)+\'px\';' +
     'rows[0].style.background=selection;rows[0].style.color=contrast(selection);' +
     'var icons=shell.querySelectorAll(\'.preview-icon\');for(var i=0;i<icons.length;i++)' +
     'icons[i].style.display=theme.icons?\'inline-block\':\'none\';}' +
@@ -1486,12 +1517,14 @@ function configurationPage() {
     'option.textContent=savedThemes[i].name;menu.appendChild(option);if(savedThemes[i].name===selected)menu.value=String(i);}}' +
     'function loadTheme(){var index=parseInt(byId(\'savedTheme\').value,10);if(!isNaN(index)&&savedThemes[index])' +
     'applyTheme(savedThemes[index]);}' +
+    'function applySaved(){loadTheme();if(byId(\'savedTheme\').value!==\'\')save();}' +
     'function saveTheme(){var theme=readTheme();if(!theme.name){alert(\'Name your theme first.\');return;}' +
     'var found=-1;for(var i=0;i<savedThemes.length;i++)if(savedThemes[i].name.toLowerCase()===theme.name.toLowerCase())found=i;' +
     'if(found>=0)savedThemes[found]=theme;else{if(savedThemes.length>=20){alert(\'Pome can save up to 20 themes.\');return;}' +
-    'savedThemes.push(theme);}currentTheme=theme;refreshThemes(theme.name);preview();}' +
+    'savedThemes.push(theme);}currentTheme=theme;refreshThemes(theme.name);save();}' +
     'function deleteTheme(){var index=parseInt(byId(\'savedTheme\').value,10);if(isNaN(index)||!savedThemes[index])return;' +
-    'savedThemes.splice(index,1);refreshThemes(\'\');}' +
+    'if(!confirm(\'Delete \"\'+savedThemes[index].name+\'\"?\'))return;savedThemes.splice(index,1);' +
+    'refreshThemes(\'\');save();}' +
     ';function color(hex,index){var r=parseInt(hex.slice(1,3),16)/255;' +
     'var g=parseInt(hex.slice(3,5),16)/255;var b=parseInt(hex.slice(5,7),16)/255;' +
     'var max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min,h=0;' +
@@ -1500,7 +1533,7 @@ function configurationPage() {
     'var key=hex.toLowerCase();return{name:names[key]||("Custom "+(index+1)),' +
     'hue:Math.round(h),saturation:Math.round(s*100)};}function save(){' +
     'var value=document.getElementById(\'url\').value.replace(/\\/+$/,\'\');' +
-    'if(!/^https?:\\/\\//i.test(value)){alert(\'Enter a complete http:// or https:// URL.\');' +
+    'if(value&&!/^https?:\\/\\//i.test(value)){alert(\'Enter a complete http:// or https:// URL.\');' +
     'return;}' +
     'var sections={favorites:document.getElementById(\'favorites\').checked,' +
     'scenes:document.getElementById(\'scenes\').checked,' +
@@ -1509,12 +1542,13 @@ function configurationPage() {
     'if(!sections.favorites&&!sections.scenes&&!sections.rooms){' +
     'alert(\'Choose at least one of Favorites, Scenes, or Rooms.\');return;}var colors=[];' +
     'for(var i=0;i<6;i++){colors.push(color(document.getElementById(\'c\'+i).value,i));}' +
-    'location.href=\'pebblejs://close#\'+' +
-    'encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,' +
-    'theme:readTheme(),themes:savedThemes}));}' +
-    'var controls=[\'themeText\',\'themeBackground\',\'themeSelection\',\'themeFont\',' +
-    '\'themeSize\',\'themeIcons\'];for(var j=0;j<controls.length;j++){' +
+    'var response=encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,' +
+    'theme:readTheme(),themes:savedThemes}));var match=location.search.match(/[?&]return_to=([^&]*)/);' +
+    'location.href=(match?decodeURIComponent(match[1]):\'pebblejs://close#\')+response;}' +
+    'var controls=[\'themeText\',\'themeBackground\',\'themeSelection\',\'themeSize\',\'themeIcons\'];' +
+    'for(var j=0;j<controls.length;j++){' +
     'byId(controls[j]).addEventListener(\'change\',preview);byId(controls[j]).addEventListener(\'input\',preview);}' +
+    'byId(\'themeFont\').addEventListener(\'change\',function(){updateSizes(null);preview();});' +
     'refreshThemes(\'\');applyTheme(currentTheme);</script></html>';
   return "data:text/html;charset=utf-8," + encodeURIComponent(html);
 }

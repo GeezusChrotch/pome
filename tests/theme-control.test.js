@@ -42,7 +42,7 @@ assert.strictEqual(context.contrastingColor("#14213d"), "#ffffff");
 var defaults = context.configuredTheme();
 assert.strictEqual(defaults.name, "Classic");
 assert.strictEqual(defaults.font, "gothic");
-assert.strictEqual(defaults.size, "medium");
+assert.strictEqual(defaults.size, 24);
 assert.strictEqual(defaults.icons, true);
 
 var configurationHtml = decodeURIComponent(context.configurationPage().split(",")[1]);
@@ -57,8 +57,15 @@ assert.ok(configurationHtml.indexOf("Font color") !== -1);
 assert.ok(configurationHtml.indexOf("Background color") !== -1);
 assert.ok(configurationHtml.indexOf("Selection color") !== -1);
 assert.ok(configurationHtml.indexOf("Show device icons") !== -1);
-assert.ok(configurationHtml.indexOf("Save this theme") !== -1);
+assert.ok(configurationHtml.indexOf("Save Theme &amp; Apply to Watch") !== -1);
+assert.ok(configurationHtml.indexOf("Apply to Watch") !== -1);
+assert.ok(configurationHtml.indexOf("Roboto Condensed") !== -1);
+assert.ok(configurationHtml.indexOf("Droid Serif Bold") !== -1);
+assert.ok(configurationHtml.indexOf("Bitham Black") !== -1);
+assert.ok(configurationHtml.indexOf("gothic:[14,18,24,28]") !== -1);
 assert.ok(configurationHtml.indexOf("function pebbleHex") !== -1);
+assert.ok(configurationHtml.indexOf("return_to=([^&]*)") !== -1);
+assert.ok(configurationHtml.indexOf("if(value&&!/^https?") !== -1);
 
 var customTheme = {
   name: "Amber Night",
@@ -66,7 +73,7 @@ var customTheme = {
   background: "#14213d",
   selection: "#fca311",
   font: "gothic-bold",
-  size: "large",
+  size: 28,
   icons: false
 };
 handlers.webviewclosed({
@@ -90,7 +97,7 @@ assert.strictEqual(sent[0].THEME_BACKGROUND, context.pebbleColor(customTheme.bac
 assert.strictEqual(sent[0].THEME_TEXT, context.pebbleColor(customTheme.text));
 assert.strictEqual(sent[0].THEME_SELECTION, context.pebbleColor(customTheme.selection));
 assert.strictEqual(sent[0].THEME_FONT, 1);
-assert.strictEqual(sent[0].THEME_SIZE, 2);
+assert.strictEqual(sent[0].THEME_SIZE, 28);
 assert.strictEqual(sent[0].THEME_ICONS, 0);
 
 handlers.showConfiguration();
