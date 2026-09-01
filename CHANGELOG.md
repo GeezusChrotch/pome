@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.1
+
+- Label Voice as requiring Pebble Time 2 on the original Pebble Time.
+- Replace the original Time's unexplained vibration with a clear information screen.
+
 ## 2.1.0
 
 - Add Voice as the first Pome menu item with native Pebble dictation.

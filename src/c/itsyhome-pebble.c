@@ -67,6 +67,7 @@ typedef enum {
   CONFIRM_VOICE,
   CONFIRM_VOICE_WORKING,
   CONFIRM_VOICE_RESULT,
+  CONFIRM_INFO,
 } ConfirmMode;
 
 static Window *s_root_window;
@@ -149,7 +150,12 @@ static char s_device_error[40];
 static char s_status[48] = "Connecting...";
 
 static void show_scene_confirmation(const char *name);
+static void show_voice_info(const char *text);
 static void start_voice(void);
+
+static bool voice_supported_platform(void) {
+  return PBL_PLATFORM_TYPE_CURRENT == PlatformTypeEmery;
+}
 
 static void set_status(const char *text) {
   snprintf(s_status, sizeof(s_status), "%s", text ? text : "");
@@ -318,6 +324,10 @@ static void dictation_callback(DictationSession *session, DictationSessionStatus
 }
 
 static void start_voice(void) {
+  if (!voice_supported_platform()) {
+    show_voice_info("Voice requires\nPebble Time 2");
+    return;
+  }
   if (!s_dictation_session) {
     s_dictation_session = dictation_session_create(MAX_VOICE_LENGTH, dictation_callback, NULL);
   }
@@ -413,7 +423,9 @@ static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
                           void *context) {
   uint16_t visible_count = visible_root_count();
   if (cell_index->row == 0) {
-    menu_cell_basic_draw(ctx, cell_layer, "Voice", "Speak a command", NULL);
+    menu_cell_basic_draw(ctx, cell_layer, "Voice",
+                         voice_supported_platform() ? "Speak a command" : "Requires Time 2",
+                         NULL);
   } else if (cell_index->row <= visible_count) {
     ItemKind kind = root_kind_at(cell_index->row - 1);
     menu_cell_basic_draw(ctx, cell_layer, root_kind_label(kind),
@@ -734,6 +746,12 @@ static void show_voice_result(const char *text) {
   s_confirm_mode = CONFIRM_VOICE_RESULT;
   if (s_confirm_title) text_layer_set_text(s_confirm_title, s_confirm_text);
   if (s_confirm_hint) text_layer_set_text(s_confirm_hint, "SELECT to speak again\nBACK to close");
+}
+
+static void show_voice_info(const char *text) {
+  snprintf(s_confirm_text, sizeof(s_confirm_text), "%s", text);
+  s_confirm_mode = CONFIRM_INFO;
+  window_stack_push(s_confirm_window, true);
 }
 
 static void list_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
@@ -1142,8 +1160,9 @@ static void confirm_window_load(Window *window) {
   s_confirm_hint = text_layer_create(GRect(margin, bounds.size.h - 56,
                                             bounds.size.w - margin * 2, 42));
   text_layer_set_text(s_confirm_hint,
-    s_confirm_mode == CONFIRM_VOICE_RESULT ? "SELECT to speak again\nBACK to close"
-                                          : "SELECT to confirm\nBACK to cancel");
+    s_confirm_mode == CONFIRM_VOICE_RESULT ? "SELECT to speak again\nBACK to close" :
+    s_confirm_mode == CONFIRM_INFO ? "BACK to close" :
+                                    "SELECT to confirm\nBACK to cancel");
   text_layer_set_font(s_confirm_hint, fonts_get_system_font(FONT_KEY_GOTHIC_18));
   text_layer_set_text_alignment(s_confirm_hint, GTextAlignmentCenter);
   layer_add_child(root, text_layer_get_layer(s_confirm_hint));
