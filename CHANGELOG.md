@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.0
+
+- Add a dedicated Themes tab to Pome's phone settings with a live Pebble preview.
+- Customize menu font color, background color, selection color, font family, font size,
+  and device-icon visibility.
+- Save, load, replace, and delete up to 20 named themes.
+- Apply themes across watch menus, headers, selection states, and confirmation screens.
+
 ## 2.1.2
 
 - Run unambiguous safe voice commands immediately without a second confirmation.

@@ -40,6 +40,19 @@ var DEFAULT_COLORS = [
   {name: "White", hue: 0, saturation: 0}
 ];
 
+var DEFAULT_THEME = {
+  name: "Classic",
+  text: "#000000",
+  background: "#ffffff",
+  selection: "#000000",
+  font: "gothic",
+  size: "medium",
+  icons: true
+};
+
+var THEME_FONTS = {gothic: 0, "gothic-bold": 1, serif: 2};
+var THEME_SIZES = {small: 0, medium: 1, large: 2};
+
 var COLOR_PALETTE = DEFAULT_COLORS.concat([
   {name: "Orange", hue: 25, saturation: 100},
   {name: "Yellow", hue: 55, saturation: 100},
@@ -214,6 +227,62 @@ function configuredSections() {
   return sections;
 }
 
+function validHexColor(value, fallback) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ?
+    value.toLowerCase() : fallback;
+}
+
+function normalizeTheme(theme) {
+  var value = theme && typeof theme === "object" ? theme : {};
+  return {
+    name: typeof value.name === "string" && value.name.trim() ?
+      value.name.trim().substring(0, 32) : DEFAULT_THEME.name,
+    text: validHexColor(value.text, DEFAULT_THEME.text),
+    background: validHexColor(value.background, DEFAULT_THEME.background),
+    selection: validHexColor(value.selection, DEFAULT_THEME.selection),
+    font: Object.prototype.hasOwnProperty.call(THEME_FONTS, value.font) ?
+      value.font : DEFAULT_THEME.font,
+    size: Object.prototype.hasOwnProperty.call(THEME_SIZES, value.size) ?
+      value.size : DEFAULT_THEME.size,
+    icons: value.icons !== false
+  };
+}
+
+function configuredTheme() {
+  try {
+    return normalizeTheme(JSON.parse(localStorage.getItem("pomeTheme") || "null"));
+  } catch (error) {
+    console.log("Invalid saved theme: " + error.message);
+    return normalizeTheme(DEFAULT_THEME);
+  }
+}
+
+function configuredThemes() {
+  try {
+    var saved = JSON.parse(localStorage.getItem("pomeThemes") || "[]");
+    if (Array.isArray(saved)) return saved.slice(0, 20).map(normalizeTheme);
+  } catch (error) {
+    console.log("Invalid saved themes: " + error.message);
+  }
+  return [];
+}
+
+function pebbleColor(hex) {
+  var color = validHexColor(hex, "#000000");
+  var red = Math.round(parseInt(color.slice(1, 3), 16) * 3 / 255);
+  var green = Math.round(parseInt(color.slice(3, 5), 16) * 3 / 255);
+  var blue = Math.round(parseInt(color.slice(5, 7), 16) * 3 / 255);
+  return 0xc0 | (red << 4) | (green << 2) | blue;
+}
+
+function contrastingColor(hex) {
+  var color = validHexColor(hex, "#000000");
+  var red = parseInt(color.slice(1, 3), 16);
+  var green = parseInt(color.slice(3, 5), 16);
+  var blue = parseInt(color.slice(5, 7), 16);
+  return (red * 299 + green * 587 + blue * 114) / 1000 >= 150 ? "#000000" : "#ffffff";
+}
+
 function hsvToHex(hue, saturation) {
   var h = ((hue % 360) + 360) % 360;
   var s = Math.max(0, Math.min(100, saturation)) / 100;
@@ -255,11 +324,19 @@ function send(payload, onSuccess) {
 
 function sendDisplaySettings(done) {
   var sections = configuredSections();
+  var theme = configuredTheme();
   send({
     "SHOW_FAVORITES": sections.favorites ? 1 : 0,
     "SHOW_SCENES": sections.scenes ? 1 : 0,
     "SHOW_ROOMS": sections.rooms ? 1 : 0,
-    "SHOW_SENSORS": sections.sensors ? 1 : 0
+    "SHOW_SENSORS": sections.sensors ? 1 : 0,
+    "THEME_BACKGROUND": pebbleColor(theme.background),
+    "THEME_TEXT": pebbleColor(theme.text),
+    "THEME_SELECTION": pebbleColor(theme.selection),
+    "THEME_SELECTION_TEXT": pebbleColor(contrastingColor(theme.selection)),
+    "THEME_FONT": THEME_FONTS[theme.font],
+    "THEME_SIZE": THEME_SIZES[theme.size],
+    "THEME_ICONS": theme.icons ? 1 : 0
   }, done);
 }
 
@@ -1293,6 +1370,8 @@ function configurationPage() {
   var current = baseUrl().replace(/&/g, "&amp;").replace(/\"/g, "&quot;");
   var selectedColors = configuredColors();
   var selectedSections = configuredSections();
+  var selectedTheme = configuredTheme();
+  var savedThemes = configuredThemes();
   var namedColors = {};
   COLOR_PALETTE.forEach(function(color) {
     namedColors[hsvToHex(color.hue, color.saturation)] = color.name;
@@ -1313,26 +1392,102 @@ function configurationPage() {
     checked(selectedSections.rooms) + '>Rooms</label></div>' +
     '<div class="toggle"><label><input type="checkbox" id="sensors"' +
     checked(selectedSections.sensors) + '>Sensors inside rooms</label></div>';
-  var html = '<!doctype html><html><meta name="viewport" content="width=device-width">' +
-    '<style>body{font:17px -apple-system;margin:24px;background:#f2f2f7;color:#111}' +
-    'h1{font-size:28px}h2{font-size:20px;margin-top:28px}label{display:block;font-weight:600}' +
+  var themeJson = JSON.stringify(selectedTheme).replace(/<\//g, "<\\/");
+  var themesJson = JSON.stringify(savedThemes).replace(/<\//g, "<\\/");
+  var html = '<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width">' +
+    '<style>*{box-sizing:border-box}body{font:17px -apple-system;margin:0;background:#f2f2f7;color:#111}' +
+    '.wrap{padding:20px 20px 32px;max-width:620px;margin:auto}h1{font-size:28px;margin:4px 0 16px}' +
+    'h2{font-size:20px;margin-top:28px}label{display:block;font-weight:600}' +
     'label span{float:right;color:#777;font-weight:400}input{box-sizing:border-box;width:100%;' +
     'padding:14px;margin:8px 0 18px;' +
     'border:1px solid #bbb;border-radius:10px;background:white;font-size:16px}' +
-    'input[type=color]{height:58px;padding:5px}' +
+    'input[type=color]{height:58px;padding:5px}select{width:100%;padding:13px;margin:8px 0 18px;' +
+    'border:1px solid #bbb;border-radius:10px;background:white;font-size:16px}' +
     '.toggle{background:white;border:1px solid #bbb;border-radius:10px;padding:14px;' +
     'margin:8px 0}.toggle label{font-weight:500}.toggle input{width:auto;margin:0 12px 0 0}' +
     'button{width:100%;padding:14px;border:0;border-radius:10px;background:#34a853;color:white;' +
-    'font-size:18px;font-weight:600}p{color:#666;font-size:14px}a{color:#0878d1}</style>' +
-    '<h1>Pome</h1><label>Itsyhome server URL</label><input id="url" ' +
+    'font-size:17px;font-weight:600}.secondary{background:#e5e5ea;color:#111}.danger{background:#fff;color:#c5221f;' +
+    'border:1px solid #d7d7dc}.button-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 20px}' +
+    'p{color:#666;font-size:14px}a{color:#0878d1}.tabs{display:grid;grid-template-columns:1fr 1fr;' +
+    'background:#dedee3;border-radius:11px;padding:3px;margin-bottom:22px}.tabs button{padding:9px;background:transparent;' +
+    'color:#555;font-size:15px}.tabs button.active{background:white;color:#111;box-shadow:0 1px 3px #aaa}' +
+    '.panel{display:none}.panel.active{display:block}.preview-shell{width:200px;height:228px;margin:4px auto 24px;' +
+    'padding:22px 12px;border:8px solid #252525;border-radius:24px;background:#fff;overflow:hidden;' +
+    'box-shadow:0 8px 22px #bbb}.preview-title{font-weight:bold;font-size:14px;margin-bottom:8px;opacity:.75}' +
+    '.preview-row{height:47px;padding:5px 7px;display:flex;align-items:center;border-radius:2px;overflow:hidden}' +
+    '.preview-row.selected{font-weight:600}.preview-icon{width:25px;margin-right:7px;text-align:center;font-size:19px}' +
+    '.preview-text{min-width:0}.preview-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.preview-sub{font-size:12px;opacity:.72}.theme-card{background:#fff;border:1px solid #bbb;border-radius:12px;' +
+    'padding:14px;margin:10px 0 20px}.save-main{margin-top:28px}</style>' +
+    '<div class="wrap"><h1>Pome</h1><div class="tabs"><button type="button" id="setupTab" class="active" ' +
+    'onclick="tab(\'setup\')">Setup</button><button type="button" id="themesTab" ' +
+    'onclick="tab(\'themes\')">Themes</button></div><section id="setupPanel" class="panel active">' +
+    '<label>Itsyhome server URL</label><input id="url" ' +
     'placeholder="https://your-mac.tailnet.ts.net:10443" value="' + current + '">' +
     '<p>Enter your Itsyhome webhook URL. Use a private Tailscale HTTPS URL for home and ' +
     'away access, or a local HTTP URL for LAN-only use.</p>' +
     '<p><a href="https://github.com/GeezusChrotch/pome#setup">Setup instructions</a></p>' +
     '<h2>Show in Pome</h2><p>With one main section enabled, Pome opens it directly.</p>' +
     sectionFields + '<h2>Light colors</h2>' +
-    '<p>Tap a swatch to open the iPhone color wheel.</p>' + colorFields +
-    '<button onclick="save()">Save</button><script>var names=' + JSON.stringify(namedColors) +
+    '<p>Tap a swatch to open the iPhone color wheel.</p>' + colorFields + '</section>' +
+    '<section id="themesPanel" class="panel"><div id="preview" class="preview-shell">' +
+    '<div class="preview-title">Living Room</div><div class="preview-row selected">' +
+    '<span class="preview-icon">●</span><div class="preview-text"><div class="preview-name">Ceiling Light</div>' +
+    '<div class="preview-sub">Toggle, level, color</div></div></div><div class="preview-row">' +
+    '<span class="preview-icon">◉</span><div class="preview-text"><div class="preview-name">Floor Lamp</div>' +
+    '<div class="preview-sub">Toggle, level, color</div></div></div><div class="preview-row">' +
+    '<span class="preview-icon">✦</span><div class="preview-text"><div class="preview-name">Scenes</div>' +
+    '<div class="preview-sub">4 scenes</div></div></div></div>' +
+    '<div class="theme-card"><label>Saved themes</label><select id="savedTheme"></select>' +
+    '<div class="button-row"><button type="button" class="secondary" onclick="loadTheme()">Load</button>' +
+    '<button type="button" class="danger" onclick="deleteTheme()">Delete</button></div>' +
+    '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
+    '<button type="button" onclick="saveTheme()">Save this theme</button></div>' +
+    '<label>Font color</label><input type="color" id="themeText">' +
+    '<label>Background color</label><input type="color" id="themeBackground">' +
+    '<label>Selection color</label><input type="color" id="themeSelection">' +
+    '<label>Font</label><select id="themeFont"><option value="gothic">Gothic</option>' +
+    '<option value="gothic-bold">Gothic Bold</option><option value="serif">Serif</option></select>' +
+    '<label>Font size</label><select id="themeSize"><option value="small">Small</option>' +
+    '<option value="medium">Medium</option><option value="large">Large</option></select>' +
+    '<div class="toggle"><label><input type="checkbox" id="themeIcons">Show device icons</label></div>' +
+    '</section><button class="save-main" onclick="save()">Save settings</button></div>' +
+    '<script>var names=' + JSON.stringify(namedColors) + ';var currentTheme=' + themeJson +
+    ';var savedThemes=' + themesJson +
+    ';function byId(id){return document.getElementById(id);}function tab(name){' +
+    'byId(\'setupTab\').className=name===\'setup\'?\'active\':\'\';' +
+    'byId(\'themesTab\').className=name===\'themes\'?\'active\':\'\';' +
+    'byId(\'setupPanel\').className=name===\'setup\'?\'panel active\':\'panel\';' +
+    'byId(\'themesPanel\').className=name===\'themes\'?\'panel active\':\'panel\';}' +
+    'function contrast(hex){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),' +
+    'b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>=150?\'#000000\':\'#ffffff\';}' +
+    'function readTheme(){return{name:byId(\'themeName\').value.trim()||\'Custom\',' +
+    'text:byId(\'themeText\').value,background:byId(\'themeBackground\').value,' +
+    'selection:byId(\'themeSelection\').value,font:byId(\'themeFont\').value,' +
+    'size:byId(\'themeSize\').value,icons:byId(\'themeIcons\').checked};}' +
+    'function applyTheme(theme){currentTheme=theme;byId(\'themeName\').value=theme.name||\'\';' +
+    'byId(\'themeText\').value=theme.text;byId(\'themeBackground\').value=theme.background;' +
+    'byId(\'themeSelection\').value=theme.selection;byId(\'themeFont\').value=theme.font;' +
+    'byId(\'themeSize\').value=theme.size;byId(\'themeIcons\').checked=theme.icons!==false;preview();}' +
+    'function preview(){var theme=readTheme(),shell=byId(\'preview\'),rows=shell.querySelectorAll(\'.preview-row\');' +
+    'shell.style.background=theme.background;shell.style.color=theme.text;' +
+    'shell.style.fontFamily=theme.font===\'serif\'?\'Georgia,serif\':\'Arial,sans-serif\';' +
+    'shell.style.fontWeight=theme.font===\'gothic-bold\'?\'700\':\'400\';' +
+    'shell.style.fontSize=theme.size===\'small\'?\'16px\':theme.size===\'large\'?\'22px\':\'19px\';' +
+    'rows[0].style.background=theme.selection;rows[0].style.color=contrast(theme.selection);' +
+    'var icons=shell.querySelectorAll(\'.preview-icon\');for(var i=0;i<icons.length;i++)' +
+    'icons[i].style.display=theme.icons?\'inline-block\':\'none\';}' +
+    'function refreshThemes(selected){var menu=byId(\'savedTheme\');menu.innerHTML=\'<option value="">Choose a saved theme</option>\';' +
+    'for(var i=0;i<savedThemes.length;i++){var option=document.createElement(\'option\');option.value=String(i);' +
+    'option.textContent=savedThemes[i].name;menu.appendChild(option);if(savedThemes[i].name===selected)menu.value=String(i);}}' +
+    'function loadTheme(){var index=parseInt(byId(\'savedTheme\').value,10);if(!isNaN(index)&&savedThemes[index])' +
+    'applyTheme(savedThemes[index]);}' +
+    'function saveTheme(){var theme=readTheme();if(!theme.name){alert(\'Name your theme first.\');return;}' +
+    'var found=-1;for(var i=0;i<savedThemes.length;i++)if(savedThemes[i].name.toLowerCase()===theme.name.toLowerCase())found=i;' +
+    'if(found>=0)savedThemes[found]=theme;else{if(savedThemes.length>=20){alert(\'Pome can save up to 20 themes.\');return;}' +
+    'savedThemes.push(theme);}currentTheme=theme;refreshThemes(theme.name);preview();}' +
+    'function deleteTheme(){var index=parseInt(byId(\'savedTheme\').value,10);if(isNaN(index)||!savedThemes[index])return;' +
+    'savedThemes.splice(index,1);refreshThemes(\'\');}' +
     ';function color(hex,index){var r=parseInt(hex.slice(1,3),16)/255;' +
     'var g=parseInt(hex.slice(3,5),16)/255;var b=parseInt(hex.slice(5,7),16)/255;' +
     'var max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min,h=0;' +
@@ -1351,8 +1506,12 @@ function configurationPage() {
     'alert(\'Choose at least one of Favorites, Scenes, or Rooms.\');return;}var colors=[];' +
     'for(var i=0;i<6;i++){colors.push(color(document.getElementById(\'c\'+i).value,i));}' +
     'location.href=\'pebblejs://close#\'+' +
-    'encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections}));}' +
-    '</script></html>';
+    'encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,' +
+    'theme:readTheme(),themes:savedThemes}));}' +
+    'var controls=[\'themeText\',\'themeBackground\',\'themeSelection\',\'themeFont\',' +
+    '\'themeSize\',\'themeIcons\'];for(var j=0;j<controls.length;j++){' +
+    'byId(controls[j]).addEventListener(\'change\',preview);byId(controls[j]).addEventListener(\'input\',preview);}' +
+    'refreshThemes(\'\');applyTheme(currentTheme);</script></html>';
   return "data:text/html;charset=utf-8," + encodeURIComponent(html);
 }
 
@@ -1436,6 +1595,12 @@ Pebble.addEventListener("webviewclosed", function(event) {
     }
     if (config.sections) {
       localStorage.setItem("pomeSections", JSON.stringify(config.sections));
+    }
+    if (config.theme) {
+      localStorage.setItem("pomeTheme", JSON.stringify(normalizeTheme(config.theme)));
+    }
+    if (Array.isArray(config.themes)) {
+      localStorage.setItem("pomeThemes", JSON.stringify(config.themes.slice(0, 20).map(normalizeTheme)));
     }
     VOICE_CATALOG = null;
     sendDisplaySettings(function() {

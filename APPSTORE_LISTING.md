@@ -18,6 +18,8 @@ Voice is the first menu item on dictation-capable watches. Say "Set Lounge TV," 
 
 Browse favorites, scenes, rooms, devices, and read-only sensors. Lights include toggle, brightness, six custom colors, and a paced All Lights control. Fans include speed, while blinds include open, close, position, and three movement steps. Devices are grouped by type and name with redundant room prefixes hidden.
 
+Make Pome your own from the Themes tab: preview and save named combinations of menu font, font size, background and selection colors, and optional device icons.
+
 Pome uses PebbleKit JS on the paired phone to contact Itsyhome on your Mac. It has no account, analytics, hosted backend, or cloud relay. Voice transcription is handled by the provider configured in the Pebble mobile app.
 
 Required setup:

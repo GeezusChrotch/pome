@@ -148,6 +148,13 @@ static bool s_auto_opened;
 static bool s_voice_pending;
 static char s_device_error[40];
 static char s_status[48] = "Connecting...";
+static GColor s_theme_background = GColorWhite;
+static GColor s_theme_text = GColorBlack;
+static GColor s_theme_selection = GColorBlack;
+static GColor s_theme_selection_text = GColorWhite;
+static uint8_t s_theme_font;
+static uint8_t s_theme_size = 1;
+static bool s_theme_icons = true;
 
 static void show_scene_confirmation(const char *name);
 static void show_voice_info(const char *text);
@@ -202,6 +209,7 @@ static bool type_supports_light_controls(const char *type) {
 }
 
 static GBitmap *icon_for_device_type(const char *type, bool highlighted) {
+  highlighted = highlighted && gcolor_equal(s_theme_selection_text, GColorWhite);
   if (strcmp(type, "light") == 0 || strcmp(type, "light-group") == 0) {
     return highlighted ? s_icon_light_selected : s_icon_light;
   }
@@ -226,6 +234,101 @@ static GBitmap *icon_for_device_type(const char *type, bool highlighted) {
     return highlighted ? s_icon_climate_selected : s_icon_climate;
   }
   return highlighted ? s_icon_generic_selected : s_icon_generic;
+}
+
+static GFont theme_title_font(void) {
+  if (s_theme_font == 2) {
+    if (s_theme_size == 0) return fonts_get_system_font(FONT_KEY_BITHAM_18_LIGHT_SUBSET);
+    if (s_theme_size == 2) return fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
+    return fonts_get_system_font(FONT_KEY_DROID_SERIF_28_BOLD);
+  }
+  if (s_theme_font == 1) {
+    if (s_theme_size == 0) return fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+    if (s_theme_size == 2) return fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
+    return fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  }
+  if (s_theme_size == 0) return fonts_get_system_font(FONT_KEY_GOTHIC_18);
+  if (s_theme_size == 2) return fonts_get_system_font(FONT_KEY_GOTHIC_28);
+  return fonts_get_system_font(FONT_KEY_GOTHIC_24);
+}
+
+static int16_t theme_cell_height(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
+  return s_theme_size == 0 ? 38 : s_theme_size == 2 ? 54 : 46;
+}
+
+static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *title,
+                            const char *subtitle, GBitmap *icon) {
+  GRect bounds = layer_get_bounds(cell_layer);
+  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
+  graphics_context_set_text_color(ctx, highlighted ? s_theme_selection_text : s_theme_text);
+
+  int16_t text_x = 6;
+  if (s_theme_icons && icon) {
+    GRect icon_bounds = gbitmap_get_bounds(icon);
+    int16_t icon_y = (bounds.size.h - icon_bounds.size.h) / 2;
+    graphics_context_set_compositing_mode(ctx, GCompOpSet);
+    graphics_draw_bitmap_in_rect(ctx, icon,
+      GRect(5, icon_y, icon_bounds.size.w, icon_bounds.size.h));
+    text_x = icon_bounds.size.w + 10;
+  }
+
+  int16_t title_y;
+  if (subtitle && subtitle[0]) {
+    title_y = s_theme_size == 0 ? -3 : -5;
+  } else {
+    int16_t approximate_height = s_theme_size == 0 ? 24 : s_theme_size == 2 ? 36 : 30;
+    title_y = (bounds.size.h - approximate_height) / 2 - 2;
+  }
+  graphics_draw_text(ctx, title, theme_title_font(),
+    GRect(text_x, title_y, bounds.size.w - text_x - 3, bounds.size.h),
+    GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  if (subtitle && subtitle[0]) {
+    int16_t subtitle_y = s_theme_size == 0 ? 18 : s_theme_size == 2 ? 30 : 24;
+    graphics_draw_text(ctx, subtitle, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+      GRect(text_x, subtitle_y, bounds.size.w - text_x - 3, 18),
+      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  }
+}
+
+static void theme_header_draw(GContext *ctx, const Layer *cell_layer, const char *title) {
+  GRect bounds = layer_get_bounds(cell_layer);
+  graphics_context_set_fill_color(ctx, s_theme_selection);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+  graphics_context_set_text_color(ctx, s_theme_selection_text);
+  graphics_draw_text(ctx, title, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
+    GRect(6, -2, bounds.size.w - 12, bounds.size.h + 2), GTextOverflowModeTrailingEllipsis,
+    GTextAlignmentLeft, NULL);
+}
+
+static void apply_theme_to_menu(MenuLayer *menu) {
+  if (!menu) return;
+  menu_layer_set_normal_colors(menu, s_theme_background, s_theme_text);
+  menu_layer_set_highlight_colors(menu, s_theme_selection, s_theme_selection_text);
+  menu_layer_reload_data(menu);
+}
+
+static void apply_theme(void) {
+  Window *windows[] = {s_root_window, s_list_window, s_device_window, s_sensor_window,
+                       s_room_scene_window, s_action_window, s_preset_window, s_confirm_window};
+  for (size_t i = 0; i < ARRAY_LENGTH(windows); i++) {
+    if (windows[i]) window_set_background_color(windows[i], s_theme_background);
+  }
+  apply_theme_to_menu(s_root_menu);
+  apply_theme_to_menu(s_list_menu);
+  apply_theme_to_menu(s_device_menu);
+  apply_theme_to_menu(s_sensor_menu);
+  apply_theme_to_menu(s_room_scene_menu);
+  apply_theme_to_menu(s_action_menu);
+  apply_theme_to_menu(s_preset_menu);
+  if (s_confirm_title) {
+    text_layer_set_background_color(s_confirm_title, GColorClear);
+    text_layer_set_text_color(s_confirm_title, s_theme_text);
+    text_layer_set_font(s_confirm_title, theme_title_font());
+  }
+  if (s_confirm_hint) {
+    text_layer_set_background_color(s_confirm_hint, GColorClear);
+    text_layer_set_text_color(s_confirm_hint, s_theme_text);
+  }
 }
 
 static uint16_t light_count(void) {
@@ -426,15 +529,14 @@ static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
                           void *context) {
   uint16_t visible_count = visible_root_count();
   if (cell_index->row == 0) {
-    menu_cell_basic_draw(ctx, cell_layer, "Voice",
-                         voice_supported_platform() ? "Speak a command" : "Requires Time 2",
-                         NULL);
+    theme_cell_draw(ctx, cell_layer, "Voice",
+                    voice_supported_platform() ? "Speak a command" : "Requires Time 2", NULL);
   } else if (cell_index->row <= visible_count) {
     ItemKind kind = root_kind_at(cell_index->row - 1);
-    menu_cell_basic_draw(ctx, cell_layer, root_kind_label(kind),
-                         s_loading ? "Loading..." : NULL, NULL);
+    theme_cell_draw(ctx, cell_layer, root_kind_label(kind),
+                    s_loading ? "Loading..." : NULL, NULL);
   } else {
-    menu_cell_basic_draw(ctx, cell_layer, "Refresh", s_status, NULL);
+    theme_cell_draw(ctx, cell_layer, "Refresh", s_status, NULL);
   }
 }
 
@@ -448,12 +550,12 @@ static void list_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
   HomeItem *item = &list_items()[cell_index->row];
   const char *subtitle = NULL;
   if (s_current_kind != ITEM_KIND_ROOM && item->active) subtitle = "Active";
-  menu_cell_basic_draw(ctx, cell_layer, item->name, subtitle, NULL);
+  theme_cell_draw(ctx, cell_layer, item->name, subtitle, NULL);
 }
 
 static void list_draw_header(GContext *ctx, const Layer *cell_layer,
                              uint16_t section_index, void *context) {
-  menu_cell_basic_header_draw(ctx, cell_layer, list_title());
+  theme_header_draw(ctx, cell_layer, list_title());
 }
 
 static int16_t list_get_header_height(MenuLayer *menu_layer, uint16_t section_index,
@@ -472,11 +574,11 @@ static uint16_t device_get_num_rows(MenuLayer *menu_layer, uint16_t section_inde
 static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                             void *context) {
   if (s_device_loading) {
-    menu_cell_basic_draw(ctx, cell_layer, "Loading...", NULL, NULL);
+    theme_cell_draw(ctx, cell_layer, "Loading...", NULL, NULL);
     return;
   }
   if (s_device_error[0]) {
-    menu_cell_basic_draw(ctx, cell_layer, s_device_error, NULL, NULL);
+    theme_cell_draw(ctx, cell_layer, s_device_error, NULL, NULL);
     return;
   }
 
@@ -484,7 +586,7 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
     static char subtitle[24];
     snprintf(subtitle, sizeof(subtitle), "%u reading%s", s_sensor_count,
              s_sensor_count == 1 ? "" : "s");
-    menu_cell_basic_draw(ctx, cell_layer, "Sensors", subtitle, NULL);
+    theme_cell_draw(ctx, cell_layer, "Sensors", subtitle, NULL);
     return;
   }
 
@@ -493,7 +595,7 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
     static char subtitle[24];
     snprintf(subtitle, sizeof(subtitle), "%u scene%s", s_room_scene_count,
              s_room_scene_count == 1 ? "" : "s");
-    menu_cell_basic_draw(ctx, cell_layer, "Scenes", subtitle, NULL);
+    theme_cell_draw(ctx, cell_layer, "Scenes", subtitle, NULL);
     return;
   }
 
@@ -502,9 +604,9 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   if (lights > 0 && cell_index->row == all_lights_row) {
     static char subtitle[24];
     snprintf(subtitle, sizeof(subtitle), "%u light%s", lights, lights == 1 ? "" : "s");
-    menu_cell_basic_draw(ctx, cell_layer, "All Lights", subtitle,
-                         icon_for_device_type("light-group",
-                                              menu_cell_layer_is_highlighted(cell_layer)));
+    theme_cell_draw(ctx, cell_layer, "All Lights", subtitle,
+                    icon_for_device_type("light-group",
+                                         menu_cell_layer_is_highlighted(cell_layer)));
     return;
   }
 
@@ -525,11 +627,11 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   } else {
     subtitle = item->type[0] ? item->type : "Read only";
   }
-  menu_cell_basic_draw(ctx, cell_layer,
-                       display_name_in_room(s_device_display_names[device_index], display_name,
-                                            sizeof(display_name)),
-                       subtitle, icon_for_device_type(
-                         item->type, menu_cell_layer_is_highlighted(cell_layer)));
+  theme_cell_draw(ctx, cell_layer,
+                  display_name_in_room(s_device_display_names[device_index], display_name,
+                                       sizeof(display_name)),
+                  subtitle, icon_for_device_type(
+                    item->type, menu_cell_layer_is_highlighted(cell_layer)));
 }
 
 static uint16_t sensor_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
@@ -542,14 +644,14 @@ static void sensor_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   SensorItem *sensor = &s_sensors[cell_index->row];
   static char display_name[MAX_NAME_LENGTH];
   const char *value = sensor->reachable ? sensor->value : "Unavailable";
-  menu_cell_basic_draw(ctx, cell_layer,
-                       display_name_in_room(sensor->name, display_name, sizeof(display_name)),
-                       value[0] ? value : "Unknown", NULL);
+  theme_cell_draw(ctx, cell_layer,
+                  display_name_in_room(sensor->name, display_name, sizeof(display_name)),
+                  value[0] ? value : "Unknown", NULL);
 }
 
 static void sensor_draw_header(GContext *ctx, const Layer *cell_layer,
                                uint16_t section_index, void *context) {
-  menu_cell_basic_header_draw(ctx, cell_layer, "Sensors");
+  theme_header_draw(ctx, cell_layer, "Sensors");
 }
 
 static uint16_t room_scene_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
@@ -560,16 +662,16 @@ static uint16_t room_scene_get_num_rows(MenuLayer *menu_layer, uint16_t section_
 static void room_scene_draw_row(GContext *ctx, const Layer *cell_layer,
                                 MenuIndex *cell_index, void *context) {
   if (s_room_scene_count == 0) {
-    menu_cell_basic_draw(ctx, cell_layer, "No scenes", NULL, NULL);
+    theme_cell_draw(ctx, cell_layer, "No scenes", NULL, NULL);
     return;
   }
   HomeItem *scene = &s_room_scenes[cell_index->row];
-  menu_cell_basic_draw(ctx, cell_layer, scene->name, scene->active ? "Active" : NULL, NULL);
+  theme_cell_draw(ctx, cell_layer, scene->name, scene->active ? "Active" : NULL, NULL);
 }
 
 static void room_scene_draw_header(GContext *ctx, const Layer *cell_layer,
                                    uint16_t section_index, void *context) {
-  menu_cell_basic_header_draw(ctx, cell_layer, "Scenes");
+  theme_header_draw(ctx, cell_layer, "Scenes");
 }
 
 static void room_scene_select_click(MenuLayer *menu_layer, MenuIndex *cell_index,
@@ -585,7 +687,7 @@ static void room_scene_select_click(MenuLayer *menu_layer, MenuIndex *cell_index
 
 static void device_draw_header(GContext *ctx, const Layer *cell_layer,
                                uint16_t section_index, void *context) {
-  menu_cell_basic_header_draw(ctx, cell_layer, s_selected_room);
+  theme_header_draw(ctx, cell_layer, s_selected_room);
 }
 
 static uint16_t action_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
@@ -606,12 +708,12 @@ static void action_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
                          ? blind_labels
                          : strcmp(s_selected_device_type, "fan") == 0
                            ? fan_labels : light_labels;
-  menu_cell_basic_draw(ctx, cell_layer, labels[cell_index->row], NULL, NULL);
+  theme_cell_draw(ctx, cell_layer, labels[cell_index->row], NULL, NULL);
 }
 
 static void action_draw_header(GContext *ctx, const Layer *cell_layer,
                                uint16_t section_index, void *context) {
-  menu_cell_basic_header_draw(ctx, cell_layer, s_selected_device);
+  theme_header_draw(ctx, cell_layer, s_selected_device);
 }
 
 static uint16_t preset_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
@@ -624,14 +726,14 @@ static void preset_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
   static const char *brightness_labels[] = {"25%", "50%", "75%", "100%"};
   const char *label = s_preset_kind == PRESET_COLOR ? s_colors[cell_index->row].name
                                                     : brightness_labels[cell_index->row];
-  menu_cell_basic_draw(ctx, cell_layer, label, NULL, NULL);
+  theme_cell_draw(ctx, cell_layer, label, NULL, NULL);
 }
 
 static void preset_draw_header(GContext *ctx, const Layer *cell_layer,
                                uint16_t section_index, void *context) {
   const char *title = s_preset_kind == PRESET_COLOR ? "Color"
                       : s_preset_kind == PRESET_SPEED ? "Speed" : "Brightness";
-  menu_cell_basic_header_draw(ctx, cell_layer, title);
+  theme_header_draw(ctx, cell_layer, title);
 }
 
 static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
@@ -840,6 +942,25 @@ static void maybe_auto_open(void) {
 }
 
 static void inbox_received(DictionaryIterator *iterator, void *context) {
+  Tuple *theme_background = dict_find(iterator, MESSAGE_KEY_THEME_BACKGROUND);
+  Tuple *theme_text = dict_find(iterator, MESSAGE_KEY_THEME_TEXT);
+  Tuple *theme_selection = dict_find(iterator, MESSAGE_KEY_THEME_SELECTION);
+  Tuple *theme_selection_text = dict_find(iterator, MESSAGE_KEY_THEME_SELECTION_TEXT);
+  Tuple *theme_font = dict_find(iterator, MESSAGE_KEY_THEME_FONT);
+  Tuple *theme_size = dict_find(iterator, MESSAGE_KEY_THEME_SIZE);
+  Tuple *theme_icons = dict_find(iterator, MESSAGE_KEY_THEME_ICONS);
+  if (theme_background || theme_text || theme_selection || theme_selection_text ||
+      theme_font || theme_size || theme_icons) {
+    if (theme_background) s_theme_background.argb = theme_background->value->uint8;
+    if (theme_text) s_theme_text.argb = theme_text->value->uint8;
+    if (theme_selection) s_theme_selection.argb = theme_selection->value->uint8;
+    if (theme_selection_text) s_theme_selection_text.argb = theme_selection_text->value->uint8;
+    if (theme_font) s_theme_font = theme_font->value->uint8 <= 2 ? theme_font->value->uint8 : 0;
+    if (theme_size) s_theme_size = theme_size->value->uint8 <= 2 ? theme_size->value->uint8 : 1;
+    if (theme_icons) s_theme_icons = theme_icons->value->int8 != 0;
+    apply_theme();
+  }
+
   Tuple *show_favorites = dict_find(iterator, MESSAGE_KEY_SHOW_FAVORITES);
   Tuple *show_scenes = dict_find(iterator, MESSAGE_KEY_SHOW_SCENES);
   Tuple *show_rooms = dict_find(iterator, MESSAGE_KEY_SHOW_ROOMS);
@@ -1022,9 +1143,11 @@ static void root_window_load(Window *window) {
   s_root_menu = menu_layer_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_root_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = root_get_num_rows,
+    .get_cell_height = theme_cell_height,
     .draw_row = root_draw_row,
     .select_click = root_select_click,
   });
+  apply_theme_to_menu(s_root_menu);
   menu_layer_set_click_config_onto_window(s_root_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_root_menu));
 }
@@ -1039,11 +1162,13 @@ static void list_window_load(Window *window) {
   s_list_menu = menu_layer_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_list_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = list_get_num_rows,
+    .get_cell_height = theme_cell_height,
     .get_header_height = list_get_header_height,
     .draw_header = list_draw_header,
     .draw_row = list_draw_row,
     .select_click = list_select_click,
   });
+  apply_theme_to_menu(s_list_menu);
   menu_layer_set_click_config_onto_window(s_list_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_list_menu));
 }
@@ -1058,11 +1183,13 @@ static void device_window_load(Window *window) {
   s_device_menu = menu_layer_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_device_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = device_get_num_rows,
+    .get_cell_height = theme_cell_height,
     .get_header_height = list_get_header_height,
     .draw_header = device_draw_header,
     .draw_row = device_draw_row,
     .select_click = device_select_click,
   });
+  apply_theme_to_menu(s_device_menu);
   menu_layer_set_click_config_onto_window(s_device_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_device_menu));
 }
@@ -1077,10 +1204,12 @@ static void sensor_window_load(Window *window) {
   s_sensor_menu = menu_layer_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_sensor_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = sensor_get_num_rows,
+    .get_cell_height = theme_cell_height,
     .get_header_height = list_get_header_height,
     .draw_header = sensor_draw_header,
     .draw_row = sensor_draw_row,
   });
+  apply_theme_to_menu(s_sensor_menu);
   menu_layer_set_click_config_onto_window(s_sensor_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_sensor_menu));
 }
@@ -1095,11 +1224,13 @@ static void room_scene_window_load(Window *window) {
   s_room_scene_menu = menu_layer_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_room_scene_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = room_scene_get_num_rows,
+    .get_cell_height = theme_cell_height,
     .get_header_height = list_get_header_height,
     .draw_header = room_scene_draw_header,
     .draw_row = room_scene_draw_row,
     .select_click = room_scene_select_click,
   });
+  apply_theme_to_menu(s_room_scene_menu);
   menu_layer_set_click_config_onto_window(s_room_scene_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_room_scene_menu));
 }
@@ -1114,11 +1245,13 @@ static void action_window_load(Window *window) {
   s_action_menu = menu_layer_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_action_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = action_get_num_rows,
+    .get_cell_height = theme_cell_height,
     .get_header_height = list_get_header_height,
     .draw_header = action_draw_header,
     .draw_row = action_draw_row,
     .select_click = action_select_click,
   });
+  apply_theme_to_menu(s_action_menu);
   menu_layer_set_click_config_onto_window(s_action_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_action_menu));
 }
@@ -1133,11 +1266,13 @@ static void preset_window_load(Window *window) {
   s_preset_menu = menu_layer_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_preset_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = preset_get_num_rows,
+    .get_cell_height = theme_cell_height,
     .get_header_height = list_get_header_height,
     .draw_header = preset_draw_header,
     .draw_row = preset_draw_row,
     .select_click = preset_select_click,
   });
+  apply_theme_to_menu(s_preset_menu);
   menu_layer_set_click_config_onto_window(s_preset_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_preset_menu));
 }
@@ -1151,11 +1286,13 @@ static void confirm_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(root);
   const int16_t margin = PBL_IF_ROUND_ELSE(18, 8);
+  window_set_background_color(window, s_theme_background);
 
   s_confirm_title = text_layer_create(GRect(margin, 18, bounds.size.w - margin * 2, 100));
   text_layer_set_text(s_confirm_title, s_confirm_text);
-  text_layer_set_font(s_confirm_title, fonts_get_system_font(
-    s_confirm_mode == CONFIRM_SCENE ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_background_color(s_confirm_title, GColorClear);
+  text_layer_set_text_color(s_confirm_title, s_theme_text);
+  text_layer_set_font(s_confirm_title, theme_title_font());
   text_layer_set_text_alignment(s_confirm_title, GTextAlignmentCenter);
   text_layer_set_overflow_mode(s_confirm_title, GTextOverflowModeTrailingEllipsis);
   layer_add_child(root, text_layer_get_layer(s_confirm_title));
@@ -1167,6 +1304,8 @@ static void confirm_window_load(Window *window) {
     s_confirm_mode == CONFIRM_INFO ? "BACK to close" :
                                     "SELECT to confirm\nBACK to cancel");
   text_layer_set_font(s_confirm_hint, fonts_get_system_font(FONT_KEY_GOTHIC_18));
+  text_layer_set_background_color(s_confirm_hint, GColorClear);
+  text_layer_set_text_color(s_confirm_hint, s_theme_text);
   text_layer_set_text_alignment(s_confirm_hint, GTextAlignmentCenter);
   layer_add_child(root, text_layer_get_layer(s_confirm_hint));
 }

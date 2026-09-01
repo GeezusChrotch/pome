@@ -57,6 +57,9 @@ webhook server should remain private.
   within each group, with redundant room-name prefixes hidden for display
 - Read-only temperature, humidity, contact, motion, occupancy, and leak values
 - Light toggle, brightness presets at 25/50/75/100%, and six configurable colors
+- A separate Themes settings tab with a live watch preview, configurable text,
+  background and selection colors, font family and size, optional device icons,
+  and up to 20 named saved themes
 - Room-wide All Lights toggle, brightness, and color with pacing and retries
 - Blind open/close plus slow (1%), regular (5%), and fast (10%) up/down controls
 - Confirmation for scene names suggesting doors, garages, gates, alarms, or disarm
@@ -85,6 +88,7 @@ Install the current Pebble SDK, then run:
 ```sh
 node tests/group-control.test.js
 node tests/voice-control.test.js
+node tests/theme-control.test.js
 pebble clean
 pebble build
 ```
