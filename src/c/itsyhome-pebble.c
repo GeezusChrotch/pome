@@ -8,6 +8,9 @@
 #define MAX_ID_LENGTH 40
 #define MAX_VOICE_LENGTH 128
 #define COLOR_COUNT 6
+#define MARQUEE_STEP_PIXELS 2
+#define MARQUEE_FRAME_MS 80
+#define MARQUEE_PAUSE_MS 900
 
 typedef enum {
   COMMAND_LOAD_FAVORITES = 1,
@@ -155,10 +158,77 @@ static GColor s_theme_selection_text = GColorWhite;
 static uint8_t s_theme_font;
 static uint8_t s_theme_size = 24;
 static bool s_theme_icons = true;
+static AppTimer *s_marquee_timer;
+static int16_t s_marquee_offset;
+static int16_t s_marquee_max;
+static bool s_marquee_at_end;
 
 static void show_scene_confirmation(const char *name);
 static void show_voice_info(const char *text);
 static void start_voice(void);
+
+static MenuLayer *active_menu(void) {
+  Window *top = window_stack_get_top_window();
+  if (top == s_root_window) return s_root_menu;
+  if (top == s_list_window) return s_list_menu;
+  if (top == s_device_window) return s_device_menu;
+  if (top == s_sensor_window) return s_sensor_menu;
+  if (top == s_room_scene_window) return s_room_scene_menu;
+  if (top == s_action_window) return s_action_menu;
+  if (top == s_preset_window) return s_preset_menu;
+  return NULL;
+}
+
+static void marquee_tick(void *context);
+
+static void marquee_schedule(uint32_t delay_ms) {
+  if (s_marquee_timer) app_timer_cancel(s_marquee_timer);
+  s_marquee_timer = app_timer_register(delay_ms, marquee_tick, NULL);
+}
+
+static void marquee_reset(void) {
+  s_marquee_offset = 0;
+  s_marquee_max = 0;
+  s_marquee_at_end = false;
+  MenuLayer *menu = active_menu();
+  if (menu) layer_mark_dirty(menu_layer_get_layer(menu));
+  marquee_schedule(MARQUEE_PAUSE_MS);
+}
+
+static void marquee_tick(void *context) {
+  s_marquee_timer = NULL;
+  MenuLayer *menu = active_menu();
+  if (!menu || s_marquee_max <= 0) {
+    return;
+  }
+
+  if (s_marquee_at_end) {
+    s_marquee_offset = 0;
+    s_marquee_at_end = false;
+    layer_mark_dirty(menu_layer_get_layer(menu));
+    marquee_schedule(MARQUEE_PAUSE_MS);
+    return;
+  }
+
+  s_marquee_offset += MARQUEE_STEP_PIXELS;
+  if (s_marquee_offset >= s_marquee_max) {
+    s_marquee_offset = s_marquee_max;
+    s_marquee_at_end = true;
+    marquee_schedule(MARQUEE_PAUSE_MS);
+  } else {
+    marquee_schedule(MARQUEE_FRAME_MS);
+  }
+  layer_mark_dirty(menu_layer_get_layer(menu));
+}
+
+static void marquee_selection_changed(MenuLayer *menu_layer, MenuIndex new_index,
+                                      MenuIndex old_index, void *context) {
+  marquee_reset();
+}
+
+static void menu_window_appear(Window *window) {
+  marquee_reset();
+}
 
 static bool voice_supported_platform(void) {
   return PBL_PLATFORM_TYPE_CURRENT == PlatformTypeEmery;
@@ -268,12 +338,12 @@ static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *
   graphics_context_set_text_color(ctx, highlighted ? s_theme_selection_text : s_theme_text);
 
   int16_t text_x = 6;
+  GRect icon_rect = GRectZero;
+  bool has_icon = s_theme_icons && icon;
   if (s_theme_icons && icon) {
     GRect icon_bounds = gbitmap_get_bounds(icon);
     int16_t icon_y = (bounds.size.h - icon_bounds.size.h) / 2;
-    graphics_context_set_compositing_mode(ctx, GCompOpSet);
-    graphics_draw_bitmap_in_rect(ctx, icon,
-      GRect(5, icon_y, icon_bounds.size.w, icon_bounds.size.h));
+    icon_rect = GRect(5, icon_y, icon_bounds.size.w, icon_bounds.size.h);
     text_x = icon_bounds.size.w + 10;
   }
 
@@ -285,9 +355,35 @@ static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *
                                  s_theme_size <= 24 ? 30 : 36;
     title_y = (bounds.size.h - approximate_height) / 2 - 2;
   }
-  graphics_draw_text(ctx, title, theme_title_font(),
-    GRect(text_x, title_y, bounds.size.w - text_x - 3, bounds.size.h),
-    GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  GFont title_font = theme_title_font();
+  int16_t title_width = bounds.size.w - text_x - 3;
+  if (highlighted) {
+    GSize content_size = graphics_text_layout_get_content_size(title, title_font,
+      GRect(0, 0, 1000, bounds.size.h), GTextOverflowModeFill, GTextAlignmentLeft);
+    s_marquee_max = content_size.w > title_width ? content_size.w - title_width + 6 : 0;
+    if (s_marquee_max > 0) {
+      if (!s_marquee_timer) marquee_schedule(MARQUEE_PAUSE_MS);
+      graphics_draw_text(ctx, title, title_font,
+        GRect(text_x - s_marquee_offset, title_y, content_size.w + 4, bounds.size.h),
+        GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+    } else {
+      s_marquee_offset = 0;
+      s_marquee_at_end = false;
+      graphics_draw_text(ctx, title, title_font,
+        GRect(text_x, title_y, title_width, bounds.size.h),
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    }
+  } else {
+    graphics_draw_text(ctx, title, title_font,
+      GRect(text_x, title_y, title_width, bounds.size.h),
+      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  }
+  if (has_icon) {
+    graphics_context_set_fill_color(ctx, highlighted ? s_theme_selection : s_theme_background);
+    graphics_fill_rect(ctx, GRect(0, 0, text_x, bounds.size.h), 0, GCornerNone);
+    graphics_context_set_compositing_mode(ctx, GCompOpSet);
+    graphics_draw_bitmap_in_rect(ctx, icon, icon_rect);
+  }
   if (subtitle && subtitle[0]) {
     int16_t subtitle_y = s_theme_size <= 14 ? 14 : s_theme_size <= 18 ? 18 :
                            s_theme_size <= 24 ? 24 : 30;
@@ -336,6 +432,7 @@ static void apply_theme(void) {
     text_layer_set_background_color(s_confirm_hint, GColorClear);
     text_layer_set_text_color(s_confirm_hint, s_theme_text);
   }
+  marquee_reset();
 }
 
 static uint16_t light_count(void) {
@@ -1156,6 +1253,7 @@ static void root_window_load(Window *window) {
     .get_cell_height = theme_cell_height,
     .draw_row = root_draw_row,
     .select_click = root_select_click,
+    .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_root_menu);
   menu_layer_set_click_config_onto_window(s_root_menu, window);
@@ -1177,6 +1275,7 @@ static void list_window_load(Window *window) {
     .draw_header = list_draw_header,
     .draw_row = list_draw_row,
     .select_click = list_select_click,
+    .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_list_menu);
   menu_layer_set_click_config_onto_window(s_list_menu, window);
@@ -1198,6 +1297,7 @@ static void device_window_load(Window *window) {
     .draw_header = device_draw_header,
     .draw_row = device_draw_row,
     .select_click = device_select_click,
+    .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_device_menu);
   menu_layer_set_click_config_onto_window(s_device_menu, window);
@@ -1218,6 +1318,7 @@ static void sensor_window_load(Window *window) {
     .get_header_height = list_get_header_height,
     .draw_header = sensor_draw_header,
     .draw_row = sensor_draw_row,
+    .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_sensor_menu);
   menu_layer_set_click_config_onto_window(s_sensor_menu, window);
@@ -1239,6 +1340,7 @@ static void room_scene_window_load(Window *window) {
     .draw_header = room_scene_draw_header,
     .draw_row = room_scene_draw_row,
     .select_click = room_scene_select_click,
+    .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_room_scene_menu);
   menu_layer_set_click_config_onto_window(s_room_scene_menu, window);
@@ -1260,6 +1362,7 @@ static void action_window_load(Window *window) {
     .draw_header = action_draw_header,
     .draw_row = action_draw_row,
     .select_click = action_select_click,
+    .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_action_menu);
   menu_layer_set_click_config_onto_window(s_action_menu, window);
@@ -1281,6 +1384,7 @@ static void preset_window_load(Window *window) {
     .draw_header = preset_draw_header,
     .draw_row = preset_draw_row,
     .select_click = preset_select_click,
+    .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_preset_menu);
   menu_layer_set_click_config_onto_window(s_preset_menu, window);
@@ -1359,30 +1463,37 @@ static void init(void) {
 
   window_set_window_handlers(s_root_window, (WindowHandlers) {
     .load = root_window_load,
+    .appear = menu_window_appear,
     .unload = root_window_unload,
   });
   window_set_window_handlers(s_list_window, (WindowHandlers) {
     .load = list_window_load,
+    .appear = menu_window_appear,
     .unload = list_window_unload,
   });
   window_set_window_handlers(s_device_window, (WindowHandlers) {
     .load = device_window_load,
+    .appear = menu_window_appear,
     .unload = device_window_unload,
   });
   window_set_window_handlers(s_sensor_window, (WindowHandlers) {
     .load = sensor_window_load,
+    .appear = menu_window_appear,
     .unload = sensor_window_unload,
   });
   window_set_window_handlers(s_room_scene_window, (WindowHandlers) {
     .load = room_scene_window_load,
+    .appear = menu_window_appear,
     .unload = room_scene_window_unload,
   });
   window_set_window_handlers(s_action_window, (WindowHandlers) {
     .load = action_window_load,
+    .appear = menu_window_appear,
     .unload = action_window_unload,
   });
   window_set_window_handlers(s_preset_window, (WindowHandlers) {
     .load = preset_window_load,
+    .appear = menu_window_appear,
     .unload = preset_window_unload,
   });
   window_set_window_handlers(s_confirm_window, (WindowHandlers) {
@@ -1401,6 +1512,10 @@ static void init(void) {
 }
 
 static void deinit(void) {
+  if (s_marquee_timer) {
+    app_timer_cancel(s_marquee_timer);
+    s_marquee_timer = NULL;
+  }
   if (s_dictation_session) dictation_session_destroy(s_dictation_session);
   window_destroy(s_confirm_window);
   window_destroy(s_preset_window);

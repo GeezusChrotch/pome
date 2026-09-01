@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.3
+
+- Scroll oversized menu-item names horizontally while their row is selected.
+- Pause at both ends of the marquee and reset it immediately when selection changes.
+- Keep unselected rows and subtitles stationary for quick menu scanning.
+
 ## 2.2.2
 
 - Ship five built-in themes: Classic, Pome Amber, Midnight, Forest, and Berry.

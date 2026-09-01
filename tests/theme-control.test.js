@@ -4,6 +4,11 @@ var assert = require("assert");
 var fs = require("fs");
 var vm = require("vm");
 
+var watchSource = fs.readFileSync("src/c/itsyhome-pebble.c", "utf8");
+assert.ok(watchSource.indexOf("marquee_selection_changed") !== -1);
+assert.ok(watchSource.indexOf("graphics_text_layout_get_content_size") !== -1);
+assert.ok(watchSource.indexOf("s_marquee_offset") !== -1);
+
 var stored = {};
 var handlers = {};
 var sent = [];

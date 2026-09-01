@@ -61,6 +61,7 @@ webhook server should remain private.
   background and selection colors, five Pebble system font families and their
   supported sizes, optional device icons, five built-in themes, and up to 20 named
   custom themes
+- Automatic marquee scrolling for selected menu-item names that do not fit the screen
 - Room-wide All Lights toggle, brightness, and color with pacing and retries
 - Blind open/close plus slow (1%), regular (5%), and fast (10%) up/down controls
 - Confirmation for scene names suggesting doors, garages, gates, alarms, or disarm
