@@ -1,7 +1,7 @@
 {
   "name": "pome",
   "author": "Joshua Bessom",
-  "version": "2.3.2",
+  "version": "2.4.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
@@ -48,7 +48,10 @@
       "THEME_SELECTION_TEXT": 26,
       "THEME_FONT": 27,
       "THEME_SIZE": 28,
-      "THEME_ICONS": 29
+      "THEME_ICONS": 29,
+      "SHORTCUT_UP": 30,
+      "SHORTCUT_SELECT": 31,
+      "SHORTCUT_DOWN": 32
     },
     "resources": {
       "media": [

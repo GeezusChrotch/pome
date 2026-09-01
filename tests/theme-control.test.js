@@ -9,6 +9,11 @@ assert.ok(watchSource.indexOf("marquee_selection_changed") !== -1);
 assert.ok(watchSource.indexOf("graphics_text_layout_get_content_size") !== -1);
 assert.ok(watchSource.indexOf("s_marquee_offset") !== -1);
 assert.ok(watchSource.indexOf("requested_font <= 9") !== -1);
+assert.ok(watchSource.indexOf("root_shortcut_click_config_provider") !== -1);
+assert.ok(watchSource.indexOf("window_long_click_subscribe(BUTTON_ID_UP") !== -1);
+assert.ok(watchSource.indexOf("window_long_click_subscribe(BUTTON_ID_SELECT") !== -1);
+assert.ok(watchSource.indexOf("window_long_click_subscribe(BUTTON_ID_DOWN") !== -1);
+assert.ok(watchSource.indexOf('strncmp(target, "scene:", 6)') !== -1);
 
 var stored = {};
 var handlers = {};
@@ -25,7 +30,10 @@ var context = {
     sendAppMessage: function(payload, success) { sent.push(payload); if (success) success(); },
     openURL: function(url) { openedUrl = url; }
   },
-  XMLHttpRequest: function() {},
+  XMLHttpRequest: function() {
+    this.open = function() {};
+    this.send = function() {};
+  },
   setTimeout: function(callback) { callback(); },
   clearTimeout: function() {},
   isFinite: isFinite,
@@ -50,6 +58,10 @@ assert.strictEqual(defaults.name, "Classic");
 assert.strictEqual(defaults.font, "gothic");
 assert.strictEqual(defaults.size, 24);
 assert.strictEqual(defaults.icons, true);
+assert.deepStrictEqual(JSON.parse(JSON.stringify(context.configuredShortcuts())),
+  {up: "off", select: "off", down: "off"});
+
+context.cacheShortcutScenes([{name: "Good Night"}, {name: "Movie Time"}]);
 
 var builtIns = context.configuredThemes();
 assert.strictEqual(builtIns.length, 5);
@@ -64,6 +76,11 @@ assert.doesNotThrow(function() { new vm.Script(embeddedScript[1]); });
 assert.ok(configurationHtml.indexOf('<meta charset="utf-8">') !== -1);
 assert.ok(configurationHtml.indexOf("id=\"setupTab\"") !== -1);
 assert.ok(configurationHtml.indexOf("id=\"themesTab\"") !== -1);
+assert.ok(configurationHtml.indexOf("id=\"shortcutsTab\"") !== -1);
+assert.ok(configurationHtml.indexOf("Long press Up") !== -1);
+assert.ok(configurationHtml.indexOf("Long press Select") !== -1);
+assert.ok(configurationHtml.indexOf("Long press Down") !== -1);
+assert.ok(configurationHtml.indexOf("scene:Good Night") !== -1);
 assert.ok(configurationHtml.indexOf("id=\"preview\"") !== -1);
 assert.ok(configurationHtml.indexOf("Font color") !== -1);
 assert.ok(configurationHtml.indexOf("Background color") !== -1);
@@ -108,6 +125,7 @@ handlers.webviewclosed({
     baseUrl: "https://example.invalid:10443",
     colors: context.DEFAULT_COLORS,
     sections: {favorites: true, scenes: true, rooms: true, sensors: true},
+    shortcuts: {up: "favorites", select: "voice", down: "scene:Good Night"},
     theme: customTheme,
     themes: [customTheme]
   }))
@@ -116,6 +134,8 @@ handlers.webviewclosed({
 var normalizedCustomTheme = Object.assign({}, customTheme, {builtIn: false});
 assert.deepStrictEqual(JSON.parse(stored.pomeTheme), normalizedCustomTheme);
 assert.deepStrictEqual(JSON.parse(stored.pomeThemes), [normalizedCustomTheme]);
+assert.deepStrictEqual(JSON.parse(stored.pomeShortcuts),
+  {up: "favorites", select: "voice", down: "scene:Good Night"});
 assert.strictEqual(context.configuredTheme().icons, false);
 assert.strictEqual(context.configuredThemes().length, 6);
 
@@ -128,6 +148,9 @@ assert.strictEqual(sent[0].THEME_SELECTION, context.pebbleColor(customTheme.sele
 assert.strictEqual(sent[0].THEME_FONT, 1);
 assert.strictEqual(sent[0].THEME_SIZE, 28);
 assert.strictEqual(sent[0].THEME_ICONS, 0);
+assert.strictEqual(sent[0].SHORTCUT_UP, "favorites");
+assert.strictEqual(sent[0].SHORTCUT_SELECT, "voice");
+assert.strictEqual(sent[0].SHORTCUT_DOWN, "scene:Good Night");
 
 context.Pebble.getActiveWatchInfo = function() { return {platform: "emery"}; };
 var time2Theme = context.configuredTheme();

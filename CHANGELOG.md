@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.0
+
+- Add configurable main-screen long-press shortcuts for the Up, Select, and Down buttons.
+- Support Voice, Scenes, Rooms, Favorites, Off, or a specific Itsyhome scene as each shortcut target.
+- Refresh and cache the Itsyhome scene list in the background without delaying settings.
+
 ## 2.3.2
 
 - Replace unrestricted theme color inputs with an 8x8 picker containing only Pebble's 64 display colors.

@@ -324,6 +324,47 @@ function configuredSections() {
   return sections;
 }
 
+function validShortcut(value) {
+  if (value === "off" || value === "voice" || value === "scenes" ||
+      value === "rooms" || value === "favorites") return value;
+  return typeof value === "string" && value.indexOf("scene:") === 0 &&
+    value.length > 6 && value.length <= 70 ? value : "off";
+}
+
+function configuredShortcuts() {
+  var shortcuts = {up: "off", select: "off", down: "off"};
+  try {
+    var saved = JSON.parse(localStorage.getItem("pomeShortcuts") || "null");
+    if (saved && typeof saved === "object") {
+      shortcuts.up = validShortcut(saved.up);
+      shortcuts.select = validShortcut(saved.select);
+      shortcuts.down = validShortcut(saved.down);
+    }
+  } catch (error) {
+    console.log("Invalid saved shortcuts: " + error.message);
+  }
+  return shortcuts;
+}
+
+function cacheShortcutScenes(items) {
+  if (!Array.isArray(items)) return;
+  var names = items.map(function(item) {
+    return item && typeof item.name === "string" ? item.name.trim() : "";
+  }).filter(function(name) { return name.length > 0 && name.length <= 64; })
+    .sort(function(left, right) { return left.toLowerCase().localeCompare(right.toLowerCase()); });
+  localStorage.setItem("pomeShortcutScenes", JSON.stringify(names.slice(0, MAX_ITEMS)));
+}
+
+function configuredShortcutScenes() {
+  try {
+    var scenes = JSON.parse(localStorage.getItem("pomeShortcutScenes") || "[]");
+    return Array.isArray(scenes) ? scenes.slice(0, MAX_ITEMS) : [];
+  } catch (error) {
+    console.log("Invalid cached shortcut scenes: " + error.message);
+    return [];
+  }
+}
+
 function validHexColor(value, fallback) {
   return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ?
     value.toLowerCase() : fallback;
@@ -471,6 +512,7 @@ function send(payload, onSuccess) {
 function sendDisplaySettings(done) {
   var sections = configuredSections();
   var theme = configuredTheme();
+  var shortcuts = configuredShortcuts();
   send({
     "SHOW_FAVORITES": sections.favorites ? 1 : 0,
     "SHOW_SCENES": sections.scenes ? 1 : 0,
@@ -482,7 +524,10 @@ function sendDisplaySettings(done) {
     "THEME_SELECTION_TEXT": pebbleColor(contrastingColor(theme.selection)),
     "THEME_FONT": THEME_FONTS[theme.font],
     "THEME_SIZE": theme.size,
-    "THEME_ICONS": theme.icons ? 1 : 0
+    "THEME_ICONS": theme.icons ? 1 : 0,
+    "SHORTCUT_UP": shortcuts.up,
+    "SHORTCUT_SELECT": shortcuts.select,
+    "SHORTCUT_DOWN": shortcuts.down
   }, done);
 }
 
@@ -638,6 +683,7 @@ function loadList(path, kind) {
       sendError(new Error("Unexpected Itsyhome list"));
       return;
     }
+    if (kind === ITEM_KIND_SCENE) cacheShortcutScenes(items);
     sendItems(items, kind);
   });
 }
@@ -1516,6 +1562,8 @@ function configurationPage() {
   var current = baseUrl().replace(/&/g, "&amp;").replace(/\"/g, "&quot;");
   var selectedColors = configuredColors();
   var selectedSections = configuredSections();
+  var selectedShortcuts = configuredShortcuts();
+  var shortcutScenes = configuredShortcutScenes();
   var selectedTheme = configuredTheme();
   var savedThemes = configuredThemes();
   var enhancedFonts = time2Enhanced();
@@ -1542,6 +1590,31 @@ function configurationPage() {
   var fontNotice = enhancedFonts ?
     '<p><strong>Time 2 enhanced fonts:</strong> five bundled fonts, each available in all five sizes.</p>' :
     '<p>Pebble Time uses the sizes supplied by each built-in system font.</p>';
+  function escapeHtml(value) {
+    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function shortcutOptions(selected) {
+    var options = [
+      ["off", "Off"], ["voice", "Voice"], ["scenes", "Scenes"],
+      ["rooms", "Rooms"], ["favorites", "Favorites"]
+    ].map(function(option) {
+      return '<option value="' + option[0] + '"' + (selected === option[0] ? " selected" : "") +
+        '>' + option[1] + '</option>';
+    }).join("");
+    if (shortcutScenes.length) {
+      options += '<optgroup label="Run a scene">' + shortcutScenes.map(function(name) {
+        var value = "scene:" + name;
+        return '<option value="' + escapeHtml(value) + '"' + (selected === value ? " selected" : "") +
+          '>' + escapeHtml(name) + '</option>';
+      }).join("") + '</optgroup>';
+    }
+    return options;
+  }
+  var shortcutFields = '<label>Long press Up</label><select id="shortcutUp">' +
+    shortcutOptions(selectedShortcuts.up) + '</select><label>Long press Select</label><select id="shortcutSelect">' +
+    shortcutOptions(selectedShortcuts.select) + '</select><label>Long press Down</label><select id="shortcutDown">' +
+    shortcutOptions(selectedShortcuts.down) + '</select>';
   var namedColors = {};
   COLOR_PALETTE.forEach(function(color) {
     namedColors[hsvToHex(color.hue, color.saturation)] = color.name;
@@ -1581,7 +1654,7 @@ function configurationPage() {
     'button{width:100%;padding:14px;border:0;border-radius:10px;background:#34a853;color:white;' +
     'font-size:17px;font-weight:600}.secondary{background:#e5e5ea;color:#111}.danger{background:#fff;color:#c5221f;' +
     'border:1px solid #d7d7dc}.button-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 20px}' +
-    'p{color:#666;font-size:14px}a{color:#0878d1}.tabs{display:grid;grid-template-columns:1fr 1fr;' +
+    'p{color:#666;font-size:14px}a{color:#0878d1}.tabs{display:grid;grid-template-columns:repeat(3,1fr);' +
     'background:#dedee3;border-radius:11px;padding:3px;margin-bottom:22px}.tabs button{padding:9px;background:transparent;' +
     'color:#555;font-size:15px}.tabs button.active{background:white;color:#111;box-shadow:0 1px 3px #aaa}' +
     '.panel{display:none}.panel.active{display:block}.preview-shell{width:216px;height:244px;margin:4px auto 24px;' +
@@ -1606,7 +1679,8 @@ function configurationPage() {
     'padding:13px;color:#604500;font-size:14px;line-height:1.35}.save-main{margin-top:28px}.apply{background:#0878d1}</style>' +
     '<div class="wrap"><h1>Pome</h1><div class="tabs"><button type="button" id="setupTab" class="active" ' +
     'onclick="tab(\'setup\')">Setup</button><button type="button" id="themesTab" ' +
-    'onclick="tab(\'themes\')">Themes</button></div><section id="setupPanel" class="panel active">' +
+    'onclick="tab(\'themes\')">Themes</button><button type="button" id="shortcutsTab" ' +
+    'onclick="tab(\'shortcuts\')">Shortcuts</button></div><section id="setupPanel" class="panel active">' +
     '<label>Itsyhome server URL</label><input id="url" ' +
     'placeholder="https://your-mac.tailnet.ts.net:10443" value="' + current + '">' +
     '<p>Enter your Itsyhome webhook URL. Use a private Tailscale HTTPS URL for home and ' +
@@ -1645,7 +1719,12 @@ function configurationPage() {
     '<div class="toggle"><label><input type="checkbox" id="themeIcons">Show device icons</label></div>' +
     '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
     '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
-    '</section></div><div id="paletteOverlay" class="palette-overlay" onclick="overlayClick(event)">' +
+    '</section><section id="shortcutsPanel" class="panel"><p class="help"><strong>Main-screen shortcuts:</strong> ' +
+    'Hold a side button for about one second. Short presses keep their normal navigation behavior.</p>' +
+    shortcutFields + (shortcutScenes.length ? '<p>Scenes refreshed from Itsyhome.</p>' :
+      '<p>No scenes are cached yet. Open settings while the Itsyhome server is reachable to load them.</p>') +
+    '<button class="save-main" onclick="save()">Save shortcuts</button></section></div>' +
+    '<div id="paletteOverlay" class="palette-overlay" onclick="overlayClick(event)">' +
     '<div class="palette-card"><h2>Choose a Pebble color</h2><div id="paletteGrid" class="palette-grid"></div>' +
     '<button type="button" class="palette-done" onclick="closePalette()">Done</button></div></div>' +
     '<script>var names=' + JSON.stringify(namedColors) + ';var currentTheme=' + themeJson +
@@ -1653,8 +1732,10 @@ function configurationPage() {
     ';function byId(id){return document.getElementById(id);}function tab(name){' +
     'byId(\'setupTab\').className=name===\'setup\'?\'active\':\'\';' +
     'byId(\'themesTab\').className=name===\'themes\'?\'active\':\'\';' +
+    'byId(\'shortcutsTab\').className=name===\'shortcuts\'?\'active\':\'\';' +
     'byId(\'setupPanel\').className=name===\'setup\'?\'panel active\':\'panel\';' +
-    'byId(\'themesPanel\').className=name===\'themes\'?\'panel active\':\'panel\';}' +
+    'byId(\'themesPanel\').className=name===\'themes\'?\'panel active\':\'panel\';' +
+    'byId(\'shortcutsPanel\').className=name===\'shortcuts\'?\'panel active\':\'panel\';}' +
     'var watchColors=[' +
     '\'#000000\',\'#001e41\',\'#004387\',\'#0068ca\',\'#2b4a2c\',\'#27514f\',\'#16638d\',\'#007dce\',' +
     '\'#5e9860\',\'#5c9b72\',\'#57a5a2\',\'#4cb4db\',\'#8ee391\',\'#8ee69e\',\'#8aebc0\',\'#84f5f1\',' +
@@ -1752,8 +1833,11 @@ function configurationPage() {
     'if(!sections.favorites&&!sections.scenes&&!sections.rooms){' +
     'alert(\'Choose at least one of Favorites, Scenes, or Rooms.\');return;}var colors=[];' +
     'for(var i=0;i<6;i++){colors.push(color(document.getElementById(\'c\'+i).value,i));}' +
+    'var shortcuts={up:byId(\'shortcutUp\').value,select:byId(\'shortcutSelect\').value,' +
+    'down:byId(\'shortcutDown\').value};' +
     'var response=encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,' +
-    'theme:readTheme(),themes:savedThemes}));var match=location.search.match(/[?&]return_to=([^&]*)/);' +
+    'shortcuts:shortcuts,theme:readTheme(),themes:savedThemes}));' +
+    'var match=location.search.match(/[?&]return_to=([^&]*)/);' +
     'location.href=(match?decodeURIComponent(match[1]):\'pebblejs://close#\')+response;}' +
     'var controls=[\'themeSize\',\'themeIcons\'];' +
     'for(var j=0;j<controls.length;j++){' +
@@ -1765,6 +1849,11 @@ function configurationPage() {
 
 Pebble.addEventListener("ready", function() {
   console.log("Pome ready" + (baseUrl() ? ": server configured" : ": setup required"));
+  if (baseUrl()) {
+    apiGet("/list/scenes", function(error, scenes) {
+      if (!error && Array.isArray(scenes)) cacheShortcutScenes(scenes);
+    });
+  }
   sendDisplaySettings(function() {
     sendColorChoices(function() {
       if (!baseUrl()) {
@@ -1829,6 +1918,11 @@ Pebble.addEventListener("appmessage", function(event) {
 
 Pebble.addEventListener("showConfiguration", function() {
   Pebble.openURL(configurationPage());
+  if (baseUrl()) {
+    apiGet("/list/scenes", function(error, scenes) {
+      if (!error && Array.isArray(scenes)) cacheShortcutScenes(scenes);
+    });
+  }
 });
 
 Pebble.addEventListener("webviewclosed", function(event) {
@@ -1843,6 +1937,13 @@ Pebble.addEventListener("webviewclosed", function(event) {
     }
     if (config.sections) {
       localStorage.setItem("pomeSections", JSON.stringify(config.sections));
+    }
+    if (config.shortcuts) {
+      localStorage.setItem("pomeShortcuts", JSON.stringify({
+        up: validShortcut(config.shortcuts.up),
+        select: validShortcut(config.shortcuts.select),
+        down: validShortcut(config.shortcuts.down)
+      }));
     }
     if (config.theme) {
       localStorage.setItem("pomeTheme", JSON.stringify(normalizeTheme(config.theme)));

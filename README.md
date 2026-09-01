@@ -65,6 +65,8 @@ webhook server should remain private.
   each available at 14, 18, 22, 26, and 30 points; Pebble Time keeps its smaller
   system-font build
 - Automatic marquee scrolling for selected menu-item names that do not fit the screen
+- Configurable main-screen long presses for Up, Select, and Down, targeting Voice,
+  Favorites, Scenes, Rooms, or a specific scene refreshed from Itsyhome
 
 The Time 2 font files are distributed under the SIL Open Font License. Source and
 license details are in `resources/fonts/README.md`.

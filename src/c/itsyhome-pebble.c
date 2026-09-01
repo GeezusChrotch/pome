@@ -7,6 +7,7 @@
 #define MAX_VALUE_LENGTH 32
 #define MAX_ID_LENGTH 40
 #define MAX_VOICE_LENGTH 128
+#define MAX_SHORTCUT_LENGTH 72
 #define COLOR_COUNT 6
 #define MARQUEE_STEP_PIXELS 2
 #define MARQUEE_FRAME_MS 80
@@ -158,6 +159,9 @@ static GColor s_theme_selection_text = GColorWhite;
 static uint8_t s_theme_font;
 static uint8_t s_theme_size = 24;
 static bool s_theme_icons = true;
+static char s_shortcut_up[MAX_SHORTCUT_LENGTH] = "off";
+static char s_shortcut_select[MAX_SHORTCUT_LENGTH] = "off";
+static char s_shortcut_down[MAX_SHORTCUT_LENGTH] = "off";
 static AppTimer *s_marquee_timer;
 static int16_t s_marquee_offset;
 static int16_t s_marquee_max;
@@ -1095,6 +1099,61 @@ static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void
   }
 }
 
+static void run_shortcut(const char *target) {
+  if (!target || !target[0] || strcmp(target, "off") == 0) return;
+  vibes_short_pulse();
+  if (strcmp(target, "voice") == 0) {
+    start_voice();
+  } else if (strcmp(target, "favorites") == 0) {
+    push_list(ITEM_KIND_FAVORITE);
+  } else if (strcmp(target, "scenes") == 0) {
+    push_list(ITEM_KIND_SCENE);
+  } else if (strcmp(target, "rooms") == 0) {
+    push_list(ITEM_KIND_ROOM);
+  } else if (strncmp(target, "scene:", 6) == 0 && target[6]) {
+    run_scene(target + 6);
+  }
+}
+
+static void root_long_click(ClickRecognizerRef recognizer, void *context) {
+  ButtonId button = click_recognizer_get_button_id(recognizer);
+  if (button == BUTTON_ID_UP) run_shortcut(s_shortcut_up);
+  else if (button == BUTTON_ID_SELECT) run_shortcut(s_shortcut_select);
+  else if (button == BUTTON_ID_DOWN) run_shortcut(s_shortcut_down);
+}
+
+static void root_single_click(ClickRecognizerRef recognizer, void *context) {
+  if (!s_root_menu) return;
+  ButtonId button = click_recognizer_get_button_id(recognizer);
+  if (button == BUTTON_ID_UP) {
+    menu_layer_set_selected_next(s_root_menu, true, MenuRowAlignCenter, true);
+  } else if (button == BUTTON_ID_DOWN) {
+    menu_layer_set_selected_next(s_root_menu, false, MenuRowAlignCenter, true);
+  } else if (button == BUTTON_ID_SELECT) {
+    MenuIndex selected = menu_layer_get_selected_index(s_root_menu);
+    root_select_click(s_root_menu, &selected, NULL);
+  }
+}
+
+static void root_shortcut_click_config_provider(void *context) {
+  if (strcmp(s_shortcut_up, "off") == 0) {
+    window_single_repeating_click_subscribe(BUTTON_ID_UP, 100, root_single_click);
+  } else {
+    window_single_click_subscribe(BUTTON_ID_UP, root_single_click);
+    window_long_click_subscribe(BUTTON_ID_UP, 700, root_long_click, NULL);
+  }
+  window_single_click_subscribe(BUTTON_ID_SELECT, root_single_click);
+  if (strcmp(s_shortcut_select, "off") != 0) {
+    window_long_click_subscribe(BUTTON_ID_SELECT, 700, root_long_click, NULL);
+  }
+  if (strcmp(s_shortcut_down, "off") == 0) {
+    window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 100, root_single_click);
+  } else {
+    window_single_click_subscribe(BUTTON_ID_DOWN, root_single_click);
+    window_long_click_subscribe(BUTTON_ID_DOWN, 700, root_long_click, NULL);
+  }
+}
+
 static void maybe_auto_open(void) {
   if (!s_auto_opened && visible_root_count() == 1) {
     s_auto_opened = true;
@@ -1103,6 +1162,23 @@ static void maybe_auto_open(void) {
 }
 
 static void inbox_received(DictionaryIterator *iterator, void *context) {
+  Tuple *shortcut_up = dict_find(iterator, MESSAGE_KEY_SHORTCUT_UP);
+  Tuple *shortcut_select = dict_find(iterator, MESSAGE_KEY_SHORTCUT_SELECT);
+  Tuple *shortcut_down = dict_find(iterator, MESSAGE_KEY_SHORTCUT_DOWN);
+  if (shortcut_up || shortcut_select || shortcut_down) {
+    if (shortcut_up) snprintf(s_shortcut_up, sizeof(s_shortcut_up), "%s", shortcut_up->value->cstring);
+    if (shortcut_select) {
+      snprintf(s_shortcut_select, sizeof(s_shortcut_select), "%s", shortcut_select->value->cstring);
+    }
+    if (shortcut_down) {
+      snprintf(s_shortcut_down, sizeof(s_shortcut_down), "%s", shortcut_down->value->cstring);
+    }
+    if (s_root_menu) {
+      window_set_click_config_provider_with_context(
+        s_root_window, root_shortcut_click_config_provider, s_root_menu);
+    }
+  }
+
   Tuple *theme_background = dict_find(iterator, MESSAGE_KEY_THEME_BACKGROUND);
   Tuple *theme_text = dict_find(iterator, MESSAGE_KEY_THEME_TEXT);
   Tuple *theme_selection = dict_find(iterator, MESSAGE_KEY_THEME_SELECTION);
@@ -1320,7 +1396,8 @@ static void root_window_load(Window *window) {
     .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_root_menu);
-  menu_layer_set_click_config_onto_window(s_root_menu, window);
+  window_set_click_config_provider_with_context(
+    window, root_shortcut_click_config_provider, s_root_menu);
   layer_add_child(root, menu_layer_get_layer(s_root_menu));
 }
 
