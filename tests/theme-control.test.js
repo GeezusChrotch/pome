@@ -73,7 +73,7 @@ assert.ok(configurationHtml.indexOf("Apply to Watch") !== -1);
 assert.ok(configurationHtml.indexOf("Roboto Condensed") !== -1);
 assert.ok(configurationHtml.indexOf("Droid Serif Bold") !== -1);
 assert.ok(configurationHtml.indexOf("Bitham Black") !== -1);
-assert.ok(configurationHtml.indexOf("gothic:[14,18,24,28]") !== -1);
+assert.ok(configurationHtml.indexOf('"gothic":[14,18,24,28]') !== -1);
 assert.ok(configurationHtml.indexOf('<option value="14">14 pt</option>') !== -1);
 assert.ok(configurationHtml.indexOf('<option value="30">30 pt</option>') !== -1);
 assert.ok(configurationHtml.indexOf("Pome Amber • Built-in") === -1);
@@ -117,6 +117,25 @@ assert.strictEqual(sent[0].THEME_SELECTION, context.pebbleColor(customTheme.sele
 assert.strictEqual(sent[0].THEME_FONT, 1);
 assert.strictEqual(sent[0].THEME_SIZE, 28);
 assert.strictEqual(sent[0].THEME_ICONS, 0);
+
+context.Pebble.getActiveWatchInfo = function() { return {platform: "emery"}; };
+var time2Theme = context.configuredTheme();
+assert.strictEqual(time2Theme.font, "montserrat");
+assert.strictEqual(time2Theme.size, 26);
+var time2Html = decodeURIComponent(context.configurationPage().split(",")[1]);
+assert.ok(time2Html.indexOf("Time 2 enhanced fonts") !== -1);
+assert.ok(time2Html.indexOf('<option value="inter">Inter</option>') !== -1);
+assert.ok(time2Html.indexOf('<option value="roboto">Roboto</option>') !== -1);
+assert.ok(time2Html.indexOf('<option value="open-sans">Open Sans</option>') !== -1);
+assert.ok(time2Html.indexOf('<option value="montserrat">Montserrat</option>') !== -1);
+assert.ok(time2Html.indexOf('<option value="poppins">Poppins</option>') !== -1);
+assert.ok(time2Html.indexOf('<option value="22">22 pt</option>') !== -1);
+assert.ok(time2Html.indexOf('<option value="26">26 pt</option>') !== -1);
+assert.ok(time2Html.indexOf('<option value="21">21 pt</option>') === -1);
+sent = [];
+context.sendDisplaySettings();
+assert.strictEqual(sent[0].THEME_FONT, 8);
+assert.strictEqual(sent[0].THEME_SIZE, 26);
 
 handlers.showConfiguration();
 assert.ok(/^data:text\/html/.test(openedUrl));

@@ -103,20 +103,52 @@ var BUILT_IN_THEMES = [
   }
 ];
 
+var TIME2_BUILT_IN_THEMES = [
+  {name: "Classic", text: "#000000", background: "#ffffff", selection: "#000000",
+   font: "inter", size: 22, icons: true, builtIn: true},
+  {name: "Pome Amber", text: "#550000", background: "#ffffaa", selection: "#ffaa00",
+   font: "montserrat", size: 22, icons: true, builtIn: true},
+  {name: "Midnight", text: "#ffffff", background: "#000055", selection: "#00aaff",
+   font: "roboto", size: 22, icons: true, builtIn: true},
+  {name: "Forest", text: "#ffffff", background: "#005500", selection: "#aaff00",
+   font: "open-sans", size: 26, icons: true, builtIn: true},
+  {name: "Berry", text: "#ffffff", background: "#550055", selection: "#ff55aa",
+   font: "poppins", size: 30, icons: false, builtIn: true}
+];
+
 var THEME_FONTS = {
   gothic: 0,
   "gothic-bold": 1,
   "roboto-condensed": 2,
   "droid-serif": 3,
-  "bitham-black": 4
+  "bitham-black": 4,
+  inter: 5,
+  roboto: 6,
+  "open-sans": 7,
+  montserrat: 8,
+  poppins: 9
 };
 var THEME_FONT_SIZES = {
   gothic: [14, 18, 24, 28],
   "gothic-bold": [14, 18, 24, 28],
   "roboto-condensed": [21],
   "droid-serif": [28],
-  "bitham-black": [30]
+  "bitham-black": [30],
+  inter: [14, 18, 22, 26, 30],
+  roboto: [14, 18, 22, 26, 30],
+  "open-sans": [14, 18, 22, 26, 30],
+  montserrat: [14, 18, 22, 26, 30],
+  poppins: [14, 18, 22, 26, 30]
 };
+
+function time2Enhanced() {
+  try {
+    return typeof Pebble.getActiveWatchInfo === "function" &&
+      Pebble.getActiveWatchInfo().platform === "emery";
+  } catch (error) {
+    return false;
+  }
+}
 
 var COLOR_PALETTE = DEFAULT_COLORS.concat([
   {name: "Orange", hue: 25, saturation: 100},
@@ -327,23 +359,46 @@ function normalizeTheme(theme) {
   };
 }
 
+function nearestThemeSize(size, sizes) {
+  var selected = sizes[0];
+  for (var index = 1; index < sizes.length; index += 1) {
+    if (Math.abs(sizes[index] - size) < Math.abs(selected - size)) selected = sizes[index];
+  }
+  return selected;
+}
+
+function themeForCurrentWatch(theme) {
+  var normalized = normalizeTheme(theme);
+  var fontId = THEME_FONTS[normalized.font];
+  if (time2Enhanced() && fontId < 5) {
+    var time2Fonts = ["inter", "montserrat", "roboto", "open-sans", "poppins"];
+    normalized.font = time2Fonts[fontId];
+    normalized.size = nearestThemeSize(normalized.size, THEME_FONT_SIZES[normalized.font]);
+  } else if (!time2Enhanced() && fontId >= 5) {
+    normalized.font = "gothic";
+    normalized.size = nearestThemeSize(normalized.size, THEME_FONT_SIZES.gothic);
+  }
+  return normalized;
+}
+
 function configuredTheme() {
   try {
-    return normalizeTheme(JSON.parse(localStorage.getItem("pomeTheme") || "null"));
+    return themeForCurrentWatch(JSON.parse(localStorage.getItem("pomeTheme") || "null"));
   } catch (error) {
     console.log("Invalid saved theme: " + error.message);
-    return normalizeTheme(DEFAULT_THEME);
+    return themeForCurrentWatch(DEFAULT_THEME);
   }
 }
 
 function configuredThemes() {
-  var themes = BUILT_IN_THEMES.map(normalizeTheme);
+  var builtIns = time2Enhanced() ? TIME2_BUILT_IN_THEMES : BUILT_IN_THEMES;
+  var themes = builtIns.map(themeForCurrentWatch);
   var names = {};
   themes.forEach(function(theme) { names[theme.name.toLowerCase()] = true; });
   try {
     var saved = JSON.parse(localStorage.getItem("pomeThemes") || "[]");
     if (Array.isArray(saved)) {
-      saved.slice(0, 20).map(normalizeTheme).forEach(function(theme) {
+      saved.slice(0, 20).map(themeForCurrentWatch).forEach(function(theme) {
         var name = theme.name.toLowerCase();
         if (!names[name]) {
           theme.builtIn = false;
@@ -1463,6 +1518,30 @@ function configurationPage() {
   var selectedSections = configuredSections();
   var selectedTheme = configuredTheme();
   var savedThemes = configuredThemes();
+  var enhancedFonts = time2Enhanced();
+  var pageFontSizes = enhancedFonts ? {
+    inter: [14, 18, 22, 26, 30], roboto: [14, 18, 22, 26, 30],
+    "open-sans": [14, 18, 22, 26, 30], montserrat: [14, 18, 22, 26, 30],
+    poppins: [14, 18, 22, 26, 30]
+  } : {
+    gothic: [14, 18, 24, 28], "gothic-bold": [14, 18, 24, 28],
+    "roboto-condensed": [21], "droid-serif": [28], "bitham-black": [30]
+  };
+  var fontOptions = enhancedFonts ?
+    '<option value="inter">Inter</option><option value="roboto">Roboto</option>' +
+    '<option value="open-sans">Open Sans</option><option value="montserrat">Montserrat</option>' +
+    '<option value="poppins">Poppins</option>' :
+    '<option value="gothic">Gothic</option><option value="gothic-bold">Gothic Bold</option>' +
+    '<option value="roboto-condensed">Roboto Condensed</option>' +
+    '<option value="droid-serif">Droid Serif Bold</option>' +
+    '<option value="bitham-black">Bitham Black</option>';
+  var sizeValues = enhancedFonts ? [14, 18, 22, 26, 30] : [14, 18, 21, 24, 28, 30];
+  var sizeOptions = sizeValues.map(function(size) {
+    return '<option value="' + size + '">' + size + ' pt</option>';
+  }).join("");
+  var fontNotice = enhancedFonts ?
+    '<p><strong>Time 2 enhanced fonts:</strong> five bundled fonts, each available in all five sizes.</p>' :
+    '<p>Pebble Time uses the sizes supplied by each built-in system font.</p>';
   var namedColors = {};
   COLOR_PALETTE.forEach(function(color) {
     namedColors[hsvToHex(color.hue, color.saturation)] = color.name;
@@ -1485,7 +1564,10 @@ function configurationPage() {
     checked(selectedSections.sensors) + '>Sensors inside rooms</label></div>';
   var themeJson = JSON.stringify(selectedTheme).replace(/<\//g, "<\\/");
   var themesJson = JSON.stringify(savedThemes).replace(/<\//g, "<\\/");
+  var webFonts = enhancedFonts ? '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?' +
+    'family=Inter&amp;family=Montserrat&amp;family=Open+Sans&amp;family=Poppins&amp;family=Roboto">' : '';
   var html = '<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width">' +
+    webFonts +
     '<style>*{box-sizing:border-box}body{font:17px -apple-system;margin:0;background:#f2f2f7;color:#111}' +
     '.wrap{padding:20px 20px 32px;max-width:620px;margin:auto}h1{font-size:28px;margin:4px 0 16px}' +
     'h2{font-size:20px;margin-top:28px}label{display:block;font-weight:600}' +
@@ -1541,12 +1623,8 @@ function configurationPage() {
     '<label>Font color</label><input type="color" id="themeText">' +
     '<label>Background color</label><input type="color" id="themeBackground">' +
     '<label>Selection color</label><input type="color" id="themeSelection">' +
-    '<label>Font</label><select id="themeFont"><option value="gothic">Gothic</option>' +
-    '<option value="gothic-bold">Gothic Bold</option><option value="roboto-condensed">Roboto Condensed</option>' +
-    '<option value="droid-serif">Droid Serif Bold</option><option value="bitham-black">Bitham Black</option></select>' +
-    '<label>Font size</label><select id="themeSize"><option value="14">14 pt</option>' +
-    '<option value="18">18 pt</option><option value="21">21 pt</option><option value="24">24 pt</option>' +
-    '<option value="28">28 pt</option><option value="30">30 pt</option></select>' +
+    fontNotice + '<label>Font</label><select id="themeFont">' + fontOptions + '</select>' +
+    '<label>Font size</label><select id="themeSize">' + sizeOptions + '</select>' +
     '<div class="toggle"><label><input type="checkbox" id="themeIcons">Show device icons</label></div>' +
     '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
     '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
@@ -1563,8 +1641,7 @@ function configurationPage() {
     'return result;}' +
     'function contrast(hex){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),' +
     'b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>=150?\'#000000\':\'#ffffff\';}' +
-    'var fontSizes={gothic:[14,18,24,28],\'gothic-bold\':[14,18,24,28],' +
-    '\'roboto-condensed\':[21],\'droid-serif\':[28],\'bitham-black\':[30]};' +
+    'var fontSizes=' + JSON.stringify(pageFontSizes) + ';' +
     'function hasValue(values,value){for(var i=0;i<values.length;i++)if(values[i]===value)return true;return false;}' +
     'function updateSizes(requested){var font=byId(\'themeFont\').value,sizes=fontSizes[font]||[24];' +
     'var menu=byId(\'themeSize\'),wanted=parseInt(requested,10),selected=sizes[0];for(var i=0;i<menu.options.length;i++){' +
@@ -1581,8 +1658,11 @@ function configurationPage() {
     'function preview(){var theme=readTheme(),shell=byId(\'preview\'),rows=shell.querySelectorAll(\'.preview-row\');' +
     'var background=pebbleHex(theme.background),text=pebbleHex(theme.text),selection=pebbleHex(theme.selection);' +
     'shell.style.background=background;shell.style.color=text;' +
-    'shell.style.fontFamily=theme.font===\'droid-serif\'?\'Georgia,serif\':' +
-    'theme.font===\'roboto-condensed\'?\'Arial Narrow,Arial,sans-serif\':\'Arial,sans-serif\';' +
+    'var previewFonts={inter:\'Inter,Arial,sans-serif\',roboto:\'Roboto,Arial,sans-serif\',' +
+    '\'open-sans\':\'Open Sans,Arial,sans-serif\',montserrat:\'Montserrat,Arial,sans-serif\',' +
+    'poppins:\'Poppins,Arial,sans-serif\',\'droid-serif\':\'Georgia,serif\',' +
+    '\'roboto-condensed\':\'Arial Narrow,Arial,sans-serif\'};' +
+    'shell.style.fontFamily=previewFonts[theme.font]||\'Arial,sans-serif\';' +
     'shell.style.fontWeight=theme.font===\'gothic-bold\'||theme.font===\'droid-serif\'||' +
     'theme.font===\'bitham-black\'?\'700\':\'400\';shell.style.fontSize=Math.max(12,theme.size-5)+\'px\';' +
     'rows[0].style.background=selection;rows[0].style.color=contrast(selection);' +

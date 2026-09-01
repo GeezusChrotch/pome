@@ -61,7 +61,13 @@ webhook server should remain private.
   background and selection colors, five Pebble system font families and their
   supported sizes, optional device icons, five built-in themes, and up to 20 named
   custom themes
+- Time 2 enhanced typography with Inter, Roboto, Open Sans, Montserrat, and Poppins,
+  each available at 14, 18, 22, 26, and 30 points; Pebble Time keeps its smaller
+  system-font build
 - Automatic marquee scrolling for selected menu-item names that do not fit the screen
+
+The Time 2 font files are distributed under the SIL Open Font License. Source and
+license details are in `resources/fonts/README.md`.
 - Room-wide All Lights toggle, brightness, and color with pacing and retries
 - Blind open/close plus slow (1%), regular (5%), and fast (10%) up/down controls
 - Confirmation for scene names suggesting doors, garages, gates, alarms, or disarm

@@ -1,7 +1,7 @@
 {
   "name": "pome",
   "author": "Joshua Bessom",
-  "version": "2.2.3",
+  "version": "2.3.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
@@ -147,6 +147,181 @@
           "type": "bitmap",
           "name": "DEVICE_GENERIC_SELECTED",
           "file": "images/device-generic-selected.png"
+        },
+        {
+          "type": "font",
+          "name": "INTER_14",
+          "file": "fonts/Inter.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "INTER_18",
+          "file": "fonts/Inter.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "INTER_22",
+          "file": "fonts/Inter.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "INTER_26",
+          "file": "fonts/Inter.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "INTER_30",
+          "file": "fonts/Inter.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "ROBOTO_14",
+          "file": "fonts/Roboto.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "ROBOTO_18",
+          "file": "fonts/Roboto.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "ROBOTO_22",
+          "file": "fonts/Roboto.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "ROBOTO_26",
+          "file": "fonts/Roboto.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "ROBOTO_30",
+          "file": "fonts/Roboto.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "OPEN_SANS_14",
+          "file": "fonts/OpenSans.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "OPEN_SANS_18",
+          "file": "fonts/OpenSans.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "OPEN_SANS_22",
+          "file": "fonts/OpenSans.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "OPEN_SANS_26",
+          "file": "fonts/OpenSans.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "OPEN_SANS_30",
+          "file": "fonts/OpenSans.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "MONTSERRAT_14",
+          "file": "fonts/Montserrat.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "MONTSERRAT_18",
+          "file": "fonts/Montserrat.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "MONTSERRAT_22",
+          "file": "fonts/Montserrat.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "MONTSERRAT_26",
+          "file": "fonts/Montserrat.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "MONTSERRAT_30",
+          "file": "fonts/Montserrat.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "POPPINS_14",
+          "file": "fonts/Poppins.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "POPPINS_18",
+          "file": "fonts/Poppins.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "POPPINS_22",
+          "file": "fonts/Poppins.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "POPPINS_26",
+          "file": "fonts/Poppins.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "POPPINS_30",
+          "file": "fonts/Poppins.ttf",
+          "targetPlatforms": ["emery"],
+          "characterRegex": "[ -~]"
         }
       ]
     }

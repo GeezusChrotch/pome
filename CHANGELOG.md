@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0
+
+- Add a Time 2 enhanced typography edition within the same Pome package.
+- Bundle Inter, Roboto, Open Sans, Montserrat, and Poppins exclusively for Time 2.
+- Offer every enhanced font at 14, 18, 22, 26, and 30 points.
+- Keep Pebble Time on its lightweight system fonts and map themes safely when switching watches.
+- Update the live phone preview and built-in themes for the active watch model.
+
 ## 2.2.3
 
 - Scroll oversized menu-item names horizontally while their row is selected.

@@ -162,6 +162,11 @@ static AppTimer *s_marquee_timer;
 static int16_t s_marquee_offset;
 static int16_t s_marquee_max;
 static bool s_marquee_at_end;
+#if defined(PBL_PLATFORM_EMERY)
+static GFont s_custom_theme_font;
+static uint8_t s_custom_theme_font_id = 255;
+static uint8_t s_custom_theme_font_size;
+#endif
 
 static void show_scene_confirmation(const char *name);
 static void show_voice_info(const char *text);
@@ -306,7 +311,59 @@ static GBitmap *icon_for_device_type(const char *type, bool highlighted) {
   return highlighted ? s_icon_generic_selected : s_icon_generic;
 }
 
+#if defined(PBL_PLATFORM_EMERY)
+static void unload_custom_theme_font(void) {
+  if (s_custom_theme_font) {
+    fonts_unload_custom_font(s_custom_theme_font);
+    s_custom_theme_font = NULL;
+  }
+  s_custom_theme_font_id = 255;
+  s_custom_theme_font_size = 0;
+}
+
+static uint8_t custom_size_index(void) {
+  if (s_theme_size <= 14) return 0;
+  if (s_theme_size <= 18) return 1;
+  if (s_theme_size <= 22) return 2;
+  if (s_theme_size <= 26) return 3;
+  return 4;
+}
+
+static GFont time2_theme_font(void) {
+  static const uint32_t font_resources[5][5] = {
+    {RESOURCE_ID_INTER_14, RESOURCE_ID_INTER_18, RESOURCE_ID_INTER_22,
+     RESOURCE_ID_INTER_26, RESOURCE_ID_INTER_30},
+    {RESOURCE_ID_ROBOTO_14, RESOURCE_ID_ROBOTO_18, RESOURCE_ID_ROBOTO_22,
+     RESOURCE_ID_ROBOTO_26, RESOURCE_ID_ROBOTO_30},
+    {RESOURCE_ID_OPEN_SANS_14, RESOURCE_ID_OPEN_SANS_18, RESOURCE_ID_OPEN_SANS_22,
+     RESOURCE_ID_OPEN_SANS_26, RESOURCE_ID_OPEN_SANS_30},
+    {RESOURCE_ID_MONTSERRAT_14, RESOURCE_ID_MONTSERRAT_18, RESOURCE_ID_MONTSERRAT_22,
+     RESOURCE_ID_MONTSERRAT_26, RESOURCE_ID_MONTSERRAT_30},
+    {RESOURCE_ID_POPPINS_14, RESOURCE_ID_POPPINS_18, RESOURCE_ID_POPPINS_22,
+     RESOURCE_ID_POPPINS_26, RESOURCE_ID_POPPINS_30},
+  };
+  uint8_t family = s_theme_font - 5;
+  uint8_t size_index = custom_size_index();
+  uint8_t actual_size = (uint8_t[]){14, 18, 22, 26, 30}[size_index];
+  if (s_custom_theme_font && s_custom_theme_font_id == s_theme_font &&
+      s_custom_theme_font_size == actual_size) {
+    return s_custom_theme_font;
+  }
+  unload_custom_theme_font();
+  s_custom_theme_font = fonts_load_custom_font(
+    resource_get_handle(font_resources[family][size_index]));
+  s_custom_theme_font_id = s_theme_font;
+  s_custom_theme_font_size = actual_size;
+  return s_custom_theme_font ? s_custom_theme_font :
+    fonts_get_system_font(FONT_KEY_GOTHIC_24);
+}
+#endif
+
 static GFont theme_title_font(void) {
+#if defined(PBL_PLATFORM_EMERY)
+  if (s_theme_font >= 5 && s_theme_font <= 9) return time2_theme_font();
+  unload_custom_theme_font();
+#endif
   if (s_theme_font == 2) return fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21);
   if (s_theme_font == 3) return fonts_get_system_font(FONT_KEY_DROID_SERIF_28_BOLD);
   if (s_theme_font == 4) return fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
@@ -1525,6 +1582,9 @@ static void deinit(void) {
   window_destroy(s_device_window);
   window_destroy(s_list_window);
   window_destroy(s_root_window);
+#if defined(PBL_PLATFORM_EMERY)
+  unload_custom_theme_font();
+#endif
   gbitmap_destroy(s_icon_generic_selected);
   gbitmap_destroy(s_icon_garage_selected);
   gbitmap_destroy(s_icon_climate_selected);
