@@ -9,9 +9,10 @@ router port forwarding, or an unauthenticated public reverse proxy.
 Never publish real server URLs, tailnet names, tokens, or accessory inventories in
 issues, logs, screenshots, commits, or pull requests.
 
-Voice commands must resolve to one exact, reachable Itsyhome target and require
-on-watch confirmation. Locks, garage doors, security systems, and other unsupported
-sensitive services are deliberately excluded from voice execution.
+Voice commands must resolve to one exact, reachable Itsyhome target. Ambiguous matches
+are rejected, and sensitive scene names require on-watch confirmation. Locks, garage
+doors, security systems, and other unsupported sensitive services are deliberately
+excluded from direct voice execution.
 
 ## Reporting a vulnerability
 

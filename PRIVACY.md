@@ -17,8 +17,8 @@ and Apple Home are separate products with their own privacy practices.
 When the user selects Voice, Pebble's native dictation system sends microphone audio
 through the transcription service configured in the Pebble mobile app. Pome does not
 receive or store that audio; it receives the accepted text transcript, holds the
-parsed command temporarily for confirmation, and sends the resulting request only to
-the user's configured Itsyhome server.
+parsed command only in memory while resolving it, and sends the resulting request only
+to the user's configured Itsyhome server.
 
 Pome's maintainers do not receive accessory names, sensor values, server URLs, or
 control activity.

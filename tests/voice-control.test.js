@@ -52,6 +52,14 @@ var result = parse("Set Lounge TV");
 assert.strictEqual(result.intent.action, "scene");
 assert.strictEqual(result.intent.scene, "Lounge TV");
 
+result = parse("Set Lounge TV on");
+assert.strictEqual(result.intent.action, "scene");
+assert.strictEqual(result.intent.scene, "Lounge TV");
+
+result = parse("Set scene Lounge TV");
+assert.strictEqual(result.intent.action, "scene");
+assert.strictEqual(result.intent.scene, "Lounge TV");
+
 result = parse("Turn Lounge TV on");
 assert.strictEqual(result.intent.action, "power");
 assert.strictEqual(result.intent.entity.type, "switch");
@@ -91,6 +99,8 @@ assert.strictEqual(result.intent.action, "query");
 assert.strictEqual(result.intent.entity.type, "temperature-sensor");
 
 assert.ok(context.parseVoiceCommand("Make the house cozy", catalog).error);
+assert.strictEqual(context.voiceSceneIsSensitive("Lounge TV"), false);
+assert.strictEqual(context.voiceSceneIsSensitive("Garage Open"), true);
 
 var ambiguousCatalog = context.buildVoiceCatalog([
   {name: "Den Air", room: "Den", type: "switch", reachable: true},
@@ -108,5 +118,26 @@ context.send = function(payload) { messages.push(payload); };
 context.setDevicePower("Den", "Den Air", "switch", true);
 assert.deepStrictEqual(paths, ["/on/Den/Den%20Air"]);
 assert.deepStrictEqual(JSON.parse(JSON.stringify(messages)), [{STATUS: "Turned on"}]);
+
+var executedIntent = null;
+messages = [];
+context.VOICE_CATALOG = catalog;
+context.resolveVoiceServiceId = function(intent, done) { done(null); };
+context.executeVoiceIntent = function(intent) { executedIntent = intent; };
+context.send = function(payload) { messages.push(payload); };
+context.handleVoiceTranscript("Set Lounge TV");
+assert.strictEqual(executedIntent.action, "scene");
+assert.strictEqual(executedIntent.scene, "Lounge TV");
+assert.deepStrictEqual(messages, []);
+
+var sensitiveCatalog = context.buildVoiceCatalog([], [{name: "Garage Open"}], []);
+context.VOICE_CATALOG = sensitiveCatalog;
+executedIntent = null;
+messages = [];
+context.handleVoiceTranscript("Set Garage Open");
+assert.strictEqual(executedIntent, null);
+assert.strictEqual(context.PENDING_VOICE_INTENT.action, "scene");
+assert.deepStrictEqual(JSON.parse(JSON.stringify(messages)),
+  [{VOICE_PROMPT: "Scene\nGarage Open"}]);
 
 console.log("Voice control tests passed");

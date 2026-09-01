@@ -1024,11 +1024,24 @@ function exactVoiceScene(text, scenes) {
   var normalized = normalizeVoice(text).replace(/^please /, "");
   var match = normalized.match(/^(?:set|run|activate|start)(?: the)? (.+)$/);
   if (!match) return null;
-  var sceneName = match[1].replace(/^scene /, "");
-  var matches = scenes.filter(function(scene) {
-    return normalizeVoice(scene.name) === sceneName;
-  });
-  return matches.length === 1 ? matches[0] : null;
+  var sceneNames = [match[1]];
+  pushUnique(sceneNames, match[1].replace(/^scene /, ""));
+  pushUnique(sceneNames, match[1].replace(/ scene$/, ""));
+  pushUnique(sceneNames, match[1].replace(/ on$/, ""));
+  for (var index = 0; index < sceneNames.length; index += 1) {
+    var candidate = sceneNames[index];
+    var matches = scenes.filter(function(scene) {
+      return normalizeVoice(scene.name) === candidate;
+    });
+    if (matches.length === 1) return matches[0];
+  }
+  return null;
+}
+
+function voiceSceneIsSensitive(name) {
+  return ["unlock", "garage", "door", "alarm", "security", "disarm", "gate"].some(
+    function(keyword) { return voicePhraseContains(name, keyword); }
+  );
 }
 
 function voiceNumber(text) {
@@ -1251,8 +1264,15 @@ function handleVoiceTranscript(transcription) {
       executeVoiceQuery(parsed.intent);
       return;
     }
-    PENDING_VOICE_INTENT = parsed.intent;
-    send({"VOICE_PROMPT": parsed.prompt});
+    if (parsed.intent.action === "scene" && voiceSceneIsSensitive(parsed.intent.scene)) {
+      PENDING_VOICE_INTENT = parsed.intent;
+      send({"VOICE_PROMPT": parsed.prompt});
+      return;
+    }
+    resolveVoiceServiceId(parsed.intent, function(resolveError) {
+      if (resolveError) { sendError(resolveError); return; }
+      executeVoiceIntent(parsed.intent);
+    });
   });
 }
 

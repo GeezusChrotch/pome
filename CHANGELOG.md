@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.2
+
+- Run unambiguous safe voice commands immediately without a second confirmation.
+- Recognize optional "scene" and "on" wording around exact `set` scene commands.
+- Keep confirmation for security-sensitive scene names and refuse ambiguous targets.
+
 ## 2.1.1
 
 - Label Voice as requiring Pebble Time 2 on the original Pebble Time.

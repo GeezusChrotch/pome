@@ -14,7 +14,7 @@
 
 Pome puts Apple Home controls on a Pebble Time or Pebble Time 2.
 
-Voice is the first menu item on dictation-capable watches. Say "Set Lounge TV," "Turn lounge lights green," or ask for a sensor reading. Pome discovers names from Itsyhome and confirms parsed controls before execution.
+Voice is the first menu item on dictation-capable watches. Say "Set Lounge TV," "Turn lounge lights green," or ask for a sensor reading. Pome discovers names from Itsyhome, runs clear safe matches immediately, and refuses ambiguous targets.
 
 Browse favorites, scenes, rooms, devices, and read-only sensors. Lights include toggle, brightness, six custom colors, and a paced All Lights control. Fans include speed, while blinds include open, close, position, and three movement steps. Devices are grouped by type and name with redundant room prefixes hidden.
 

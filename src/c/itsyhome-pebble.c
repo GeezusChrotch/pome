@@ -330,6 +330,9 @@ static void start_voice(void) {
   }
   if (!s_dictation_session) {
     s_dictation_session = dictation_session_create(MAX_VOICE_LENGTH, dictation_callback, NULL);
+    if (s_dictation_session) {
+      dictation_session_enable_confirmation(s_dictation_session, false);
+    }
   }
   if (!s_dictation_session) {
     set_status("Voice unavailable");

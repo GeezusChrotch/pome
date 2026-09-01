@@ -62,11 +62,13 @@ webhook server should remain private.
 - Confirmation for scene names suggesting doors, garages, gates, alarms, or disarm
 - Full original Itsyhome names retained for every command
 - Voice is always first, discovers the current Itsyhome vocabulary automatically, and
-  confirms parsed commands before execution
+  runs unambiguous safe matches immediately
 - Voice scenes use "set", "run", "activate", or "start"; explicit power language
   continues to target devices
 - Voice covers safe power controls, light color and brightness, fan speed, blind
   movement and position, scenes, and read-only status questions
+- Ambiguous phrases are rejected, while scene names suggesting doors, garages, gates,
+  alarms, or disarming still require confirmation
 
 ## Architecture
 
