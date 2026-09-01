@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0
+
+- Add Voice as the first Pome menu item with native Pebble dictation.
+- Discover rooms, scenes, devices, and configured colors dynamically from Itsyhome.
+- Support Siri-style scene commands such as "Set Lounge TV" while keeping explicit
+  device commands such as "Turn Lounge TV on" distinct.
+- Add confirmed voice control for power, room lights, color, brightness, fan speed,
+  blinds, and scenes, plus read-only sensor and device-status questions.
+- Reject ambiguous, unsupported, and security-sensitive voice targets instead of guessing.
+
 ## 2.0.10
 
 - Accumulate repeated blind position presses instead of reusing a briefly stale position.

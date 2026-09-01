@@ -7,6 +7,8 @@ Browse favorites, scenes, rooms, devices, and read-only sensors from your wrist.
 Lights include toggle, brightness, and configurable color controls. Each room also
 gets an **All Lights** control that safely paces commands across its reachable bulbs.
 Blinds include absolute open/close controls and 1%, 5%, and 10% position steps.
+On dictation-capable watches, **Voice** turns natural phrases such as "Set Lounge TV"
+or "Turn lounge lights green" into confirmed Itsyhome commands.
 
 Pome is an independent community project and is not affiliated with Apple,
 Itsyhome, Tailscale, or Pebble.
@@ -59,12 +61,20 @@ webhook server should remain private.
 - Blind open/close plus slow (1%), regular (5%), and fast (10%) up/down controls
 - Confirmation for scene names suggesting doors, garages, gates, alarms, or disarm
 - Full original Itsyhome names retained for every command
+- Voice is always first, discovers the current Itsyhome vocabulary automatically, and
+  confirms parsed commands before execution
+- Voice scenes use "set", "run", "activate", or "start"; explicit power language
+  continues to target devices
+- Voice covers safe power controls, light color and brightness, fan speed, blind
+  movement and position, scenes, and read-only status questions
 
 ## Architecture
 
 The native C watch app sends AppMessages to PebbleKit JS on the paired phone.
 PebbleKit JS then calls the user-configured Itsyhome webhook server directly. Pome
-has no account, analytics, hosted backend, or cloud relay of its own.
+has no account, analytics, hosted backend, or cloud relay of its own. Voice audio is
+handled by Pebble's native dictation system and the transcription provider selected
+in the Pebble mobile app; Pome receives only the accepted transcript.
 
 ## Development
 
@@ -72,6 +82,7 @@ Install the current Pebble SDK, then run:
 
 ```sh
 node tests/group-control.test.js
+node tests/voice-control.test.js
 pebble clean
 pebble build
 ```

@@ -116,6 +116,14 @@ runCase([
 }, ["/info/Den", "/on/Den/One", "/on/Den/Two"], "All lights on");
 
 runCase(mixedLights, function() {
+  context.setDevicePower("Living Room", "All Lights", "light-group", true);
+}, [
+  "/info/Living%20Room",
+  "/on/Living%20Room/Ceiling%20One",
+  "/on/Living%20Room/Ceiling%20Two"
+], "All lights on");
+
+runCase(mixedLights, function() {
   context.setBrightness("Living Room", "All Lights", 75, "light-group");
 }, [
   "/info/Living%20Room",

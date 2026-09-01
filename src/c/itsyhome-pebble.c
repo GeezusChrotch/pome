@@ -6,6 +6,7 @@
 #define MAX_TYPE_LENGTH 24
 #define MAX_VALUE_LENGTH 32
 #define MAX_ID_LENGTH 40
+#define MAX_VOICE_LENGTH 128
 #define COLOR_COUNT 6
 
 typedef enum {
@@ -20,6 +21,8 @@ typedef enum {
   COMMAND_LOAD_COLORS = 9,
   COMMAND_SET_SPEED = 10,
   COMMAND_SET_POSITION = 11,
+  COMMAND_PARSE_VOICE = 12,
+  COMMAND_EXECUTE_VOICE = 13,
 } Command;
 
 typedef enum {
@@ -58,6 +61,14 @@ typedef enum {
   PRESET_SPEED,
 } PresetKind;
 
+typedef enum {
+  CONFIRM_NONE,
+  CONFIRM_SCENE,
+  CONFIRM_VOICE,
+  CONFIRM_VOICE_WORKING,
+  CONFIRM_VOICE_RESULT,
+} ConfirmMode;
+
 static Window *s_root_window;
 static Window *s_list_window;
 static Window *s_device_window;
@@ -75,6 +86,7 @@ static MenuLayer *s_action_menu;
 static MenuLayer *s_preset_menu;
 static TextLayer *s_confirm_title;
 static TextLayer *s_confirm_hint;
+static DictationSession *s_dictation_session;
 static GBitmap *s_icon_light;
 static GBitmap *s_icon_fan;
 static GBitmap *s_icon_switch;
@@ -122,6 +134,8 @@ static char s_selected_device[MAX_NAME_LENGTH];
 static char s_selected_device_id[MAX_ID_LENGTH];
 static char s_selected_device_type[MAX_TYPE_LENGTH];
 static char s_pending_scene[MAX_NAME_LENGTH];
+static char s_confirm_text[MAX_VOICE_LENGTH];
+static ConfirmMode s_confirm_mode;
 static PresetKind s_preset_kind;
 static bool s_loading;
 static bool s_device_loading;
@@ -130,10 +144,12 @@ static bool s_show_scenes = true;
 static bool s_show_rooms = true;
 static bool s_show_sensors = true;
 static bool s_auto_opened;
+static bool s_voice_pending;
 static char s_device_error[40];
 static char s_status[48] = "Connecting...";
 
-static void show_confirmation(const char *name);
+static void show_scene_confirmation(const char *name);
+static void start_voice(void);
 
 static void set_status(const char *text) {
   snprintf(s_status, sizeof(s_status), "%s", text ? text : "");
@@ -264,6 +280,60 @@ static void send_command(Command command, const char *name, const char *room,
   send_command_with_id(command, name, room, type, NULL);
 }
 
+static void send_voice_transcript(const char *transcription) {
+  DictionaryIterator *out = NULL;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK || !out) {
+    set_status("Phone unavailable");
+    vibes_short_pulse();
+    return;
+  }
+  dict_write_uint8(out, MESSAGE_KEY_COMMAND, COMMAND_PARSE_VOICE);
+  dict_write_cstring(out, MESSAGE_KEY_VOICE_TEXT, transcription);
+  dict_write_end(out);
+  app_message_outbox_send();
+  s_voice_pending = true;
+  set_status("Understanding...");
+}
+
+static void dictation_callback(DictationSession *session, DictationSessionStatus status,
+                               char *transcription, void *context) {
+  if (status == DictationSessionStatusSuccess && transcription && transcription[0]) {
+    send_voice_transcript(transcription);
+    return;
+  }
+  if (status == DictationSessionStatusFailureTranscriptionRejected) {
+    set_status("Voice canceled");
+    return;
+  }
+  if (status == DictationSessionStatusFailureNoSpeechDetected) {
+    set_status("No speech heard");
+  } else if (status == DictationSessionStatusFailureConnectivityError) {
+    set_status("Voice needs phone");
+  } else if (status == DictationSessionStatusFailureDisabled) {
+    set_status("Voice disabled");
+  } else {
+    set_status("Voice unavailable");
+  }
+  vibes_short_pulse();
+}
+
+static void start_voice(void) {
+  if (!s_dictation_session) {
+    s_dictation_session = dictation_session_create(MAX_VOICE_LENGTH, dictation_callback, NULL);
+  }
+  if (!s_dictation_session) {
+    set_status("Voice unavailable");
+    vibes_short_pulse();
+    return;
+  }
+  set_status("Listening...");
+  DictationSessionStatus status = dictation_session_start(s_dictation_session);
+  if (status != DictationSessionStatusSuccess) {
+    set_status("Voice busy");
+    vibes_short_pulse();
+  }
+}
+
 static void run_scene(const char *name) {
   set_status("Running scene...");
   send_command(COMMAND_RUN_SCENE, name, NULL, NULL);
@@ -336,14 +406,16 @@ static bool sensors_visible(void) {
 
 static uint16_t root_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                   void *context) {
-  return visible_root_count() + 1;
+  return visible_root_count() + 2;
 }
 
 static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                           void *context) {
   uint16_t visible_count = visible_root_count();
-  if (cell_index->row < visible_count) {
-    ItemKind kind = root_kind_at(cell_index->row);
+  if (cell_index->row == 0) {
+    menu_cell_basic_draw(ctx, cell_layer, "Voice", "Speak a command", NULL);
+  } else if (cell_index->row <= visible_count) {
+    ItemKind kind = root_kind_at(cell_index->row - 1);
     menu_cell_basic_draw(ctx, cell_layer, root_kind_label(kind),
                          s_loading ? "Loading..." : NULL, NULL);
   } else {
@@ -490,7 +562,7 @@ static void room_scene_select_click(MenuLayer *menu_layer, MenuIndex *cell_index
   if (s_room_scene_count == 0) return;
   HomeItem *scene = &s_room_scenes[cell_index->row];
   if (scene_is_sensitive(scene->name)) {
-    show_confirmation(scene->name);
+    show_scene_confirmation(scene->name);
   } else {
     run_scene(scene->name);
   }
@@ -620,17 +692,48 @@ static void action_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
 }
 
 static void confirm_click_handler(ClickRecognizerRef recognizer, void *context) {
-  window_stack_pop(true);
-  run_scene(s_pending_scene);
+  if (s_confirm_mode == CONFIRM_SCENE) {
+    window_stack_pop(true);
+    run_scene(s_pending_scene);
+  } else if (s_confirm_mode == CONFIRM_VOICE) {
+    s_confirm_mode = CONFIRM_VOICE_WORKING;
+    s_voice_pending = true;
+    snprintf(s_confirm_text, sizeof(s_confirm_text), "Working...");
+    if (s_confirm_title) text_layer_set_text(s_confirm_title, s_confirm_text);
+    if (s_confirm_hint) text_layer_set_text(s_confirm_hint, "");
+    send_command(COMMAND_EXECUTE_VOICE, NULL, NULL, NULL);
+  } else if (s_confirm_mode == CONFIRM_VOICE_RESULT) {
+    window_stack_pop(true);
+    start_voice();
+  }
 }
 
 static void confirm_click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, confirm_click_handler);
 }
 
-static void show_confirmation(const char *name) {
+static void show_scene_confirmation(const char *name) {
   snprintf(s_pending_scene, sizeof(s_pending_scene), "%s", name);
+  snprintf(s_confirm_text, sizeof(s_confirm_text), "%s", name);
+  s_confirm_mode = CONFIRM_SCENE;
   window_stack_push(s_confirm_window, true);
+}
+
+static void show_voice_confirmation(const char *text) {
+  snprintf(s_confirm_text, sizeof(s_confirm_text), "%s", text);
+  s_confirm_mode = CONFIRM_VOICE;
+  window_stack_push(s_confirm_window, true);
+}
+
+static void show_voice_result(const char *text) {
+  s_voice_pending = false;
+  snprintf(s_confirm_text, sizeof(s_confirm_text), "%s", text);
+  if (s_confirm_mode != CONFIRM_VOICE_WORKING) {
+    window_stack_push(s_confirm_window, true);
+  }
+  s_confirm_mode = CONFIRM_VOICE_RESULT;
+  if (s_confirm_title) text_layer_set_text(s_confirm_title, s_confirm_text);
+  if (s_confirm_hint) text_layer_set_text(s_confirm_hint, "SELECT to speak again\nBACK to close");
 }
 
 static void list_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
@@ -638,7 +741,7 @@ static void list_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void
   if (s_current_kind == ITEM_KIND_ROOM) {
     load_devices(item->name);
   } else if (scene_is_sensitive(item->name)) {
-    show_confirmation(item->name);
+    show_scene_confirmation(item->name);
   } else {
     run_scene(item->name);
   }
@@ -699,8 +802,10 @@ static void refresh_lists(void) {
 
 static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   uint16_t visible_count = visible_root_count();
-  if (cell_index->row < visible_count) {
-    push_list(root_kind_at(cell_index->row));
+  if (cell_index->row == 0) {
+    start_voice();
+  } else if (cell_index->row <= visible_count) {
+    push_list(root_kind_at(cell_index->row - 1));
   } else {
     refresh_lists();
   }
@@ -729,6 +834,21 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
     if (!s_loading) maybe_auto_open();
   }
 
+  Tuple *voice_prompt = dict_find(iterator, MESSAGE_KEY_VOICE_PROMPT);
+  if (voice_prompt) {
+    s_voice_pending = false;
+    show_voice_confirmation(voice_prompt->value->cstring);
+    return;
+  }
+
+  Tuple *voice_result = dict_find(iterator, MESSAGE_KEY_VOICE_RESULT);
+  if (voice_result) {
+    s_voice_pending = false;
+    show_voice_result(voice_result->value->cstring);
+    vibes_double_pulse();
+    return;
+  }
+
   Tuple *error = dict_find(iterator, MESSAGE_KEY_ERROR);
   if (error) {
     s_loading = false;
@@ -738,6 +858,10 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       if (s_device_menu) menu_layer_reload_data(s_device_menu);
     }
     set_status(error->value->cstring);
+    if (s_voice_pending || s_confirm_mode == CONFIRM_VOICE_WORKING) {
+      s_voice_pending = false;
+      show_voice_result(error->value->cstring);
+    }
     vibes_short_pulse();
     return;
   }
@@ -745,6 +869,11 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   Tuple *status = dict_find(iterator, MESSAGE_KEY_STATUS);
   if (status) {
     set_status(status->value->cstring);
+    if (s_voice_pending || s_confirm_mode == CONFIRM_VOICE_WORKING) {
+      show_voice_result(status->value->cstring);
+      vibes_double_pulse();
+      return;
+    }
     if (strcmp(status->value->cstring, "Scene complete") == 0) {
       vibes_double_pulse();
       send_command(COMMAND_LOAD_SCENES, NULL, NULL, NULL);
@@ -1002,16 +1131,19 @@ static void confirm_window_load(Window *window) {
   GRect bounds = layer_get_bounds(root);
   const int16_t margin = PBL_IF_ROUND_ELSE(18, 8);
 
-  s_confirm_title = text_layer_create(GRect(margin, 28, bounds.size.w - margin * 2, 72));
-  text_layer_set_text(s_confirm_title, s_pending_scene);
-  text_layer_set_font(s_confirm_title, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  s_confirm_title = text_layer_create(GRect(margin, 18, bounds.size.w - margin * 2, 100));
+  text_layer_set_text(s_confirm_title, s_confirm_text);
+  text_layer_set_font(s_confirm_title, fonts_get_system_font(
+    s_confirm_mode == CONFIRM_SCENE ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(s_confirm_title, GTextAlignmentCenter);
   text_layer_set_overflow_mode(s_confirm_title, GTextOverflowModeTrailingEllipsis);
   layer_add_child(root, text_layer_get_layer(s_confirm_title));
 
   s_confirm_hint = text_layer_create(GRect(margin, bounds.size.h - 56,
                                             bounds.size.w - margin * 2, 42));
-  text_layer_set_text(s_confirm_hint, "SELECT to confirm\nBACK to cancel");
+  text_layer_set_text(s_confirm_hint,
+    s_confirm_mode == CONFIRM_VOICE_RESULT ? "SELECT to speak again\nBACK to close"
+                                          : "SELECT to confirm\nBACK to cancel");
   text_layer_set_font(s_confirm_hint, fonts_get_system_font(FONT_KEY_GOTHIC_18));
   text_layer_set_text_alignment(s_confirm_hint, GTextAlignmentCenter);
   layer_add_child(root, text_layer_get_layer(s_confirm_hint));
@@ -1022,6 +1154,7 @@ static void confirm_window_unload(Window *window) {
   text_layer_destroy(s_confirm_hint);
   s_confirm_title = NULL;
   s_confirm_hint = NULL;
+  s_confirm_mode = CONFIRM_NONE;
 }
 
 static void init(void) {
@@ -1097,6 +1230,7 @@ static void init(void) {
 }
 
 static void deinit(void) {
+  if (s_dictation_session) dictation_session_destroy(s_dictation_session);
   window_destroy(s_confirm_window);
   window_destroy(s_preset_window);
   window_destroy(s_action_window);

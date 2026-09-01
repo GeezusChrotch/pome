@@ -16,6 +16,7 @@
 
    ```sh
    node tests/group-control.test.js
+   node tests/voice-control.test.js
    pebble clean
    pebble build
    unzip -p build/itsyhome-pebble.pbw appinfo.json | jq

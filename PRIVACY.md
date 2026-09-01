@@ -14,5 +14,11 @@ the configured Itsyhome webhook server. If the user chooses Tailscale, that traf
 travels through the user's private tailnet under Tailscale's own policies. Itsyhome
 and Apple Home are separate products with their own privacy practices.
 
+When the user selects Voice, Pebble's native dictation system sends microphone audio
+through the transcription service configured in the Pebble mobile app. Pome does not
+receive or store that audio; it receives the accepted text transcript, holds the
+parsed command temporarily for confirmation, and sends the resulting request only to
+the user's configured Itsyhome server.
+
 Pome's maintainers do not receive accessory names, sensor values, server URLs, or
 control activity.

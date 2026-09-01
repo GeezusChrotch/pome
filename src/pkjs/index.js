@@ -5,6 +5,9 @@ var ROOM_LIGHT_MAX_ATTEMPTS = 2;
 var BLIND_POSITION_CACHE_TTL_MS = 30000;
 var BLIND_POSITION_CACHE = {};
 var BLIND_ACTION_QUEUES = {};
+var VOICE_CATALOG_CACHE_TTL_MS = 120000;
+var VOICE_CATALOG = null;
+var PENDING_VOICE_INTENT = null;
 
 var COMMAND_LOAD_FAVORITES = 1;
 var COMMAND_LOAD_SCENES = 2;
@@ -17,6 +20,8 @@ var COMMAND_SET_COLOR = 8;
 var COMMAND_LOAD_COLORS = 9;
 var COMMAND_SET_SPEED = 10;
 var COMMAND_SET_POSITION = 11;
+var COMMAND_PARSE_VOICE = 12;
+var COMMAND_EXECUTE_VOICE = 13;
 
 var ITEM_KIND_FAVORITE = 1;
 var ITEM_KIND_SCENE = 2;
@@ -496,6 +501,30 @@ function toggleDevice(room, name, type, serviceId) {
     });
 }
 
+function setDevicePower(room, name, type, turnOn, serviceId) {
+  if (type === "light-group") {
+    controlRoomLights(room, turnOn ? "on" : "off");
+    return;
+  }
+  if (!TOGGLE_SAFE_TYPES[type]) {
+    sendError(new Error("Device cannot be controlled by voice"));
+    return;
+  }
+  var action = turnOn ? "on" : "off";
+  apiGet("/" + action + "/" + encodedDeviceTarget(room, name, serviceId),
+    function(error, response) {
+      if (error) {
+        sendError(error);
+        return;
+      }
+      if (response && response.status === "error") {
+        sendError(new Error(response.message || "Power command failed"));
+        return;
+      }
+      send({"STATUS": turnOn ? "Turned on" : "Turned off"});
+    });
+}
+
 function roomLights(room, callback) {
   apiGet("/info/" + encodeURIComponent(room), function(error, items) {
     if (error) {
@@ -573,6 +602,11 @@ function controlRoomLights(room, action, value, saturation) {
         return "/" + powerAction + "/" +
           encodedDeviceTarget(room, light.name, light.serviceId);
       }, anyOn ? "All lights off" : "All lights on");
+    } else if (action === "on" || action === "off") {
+      runLightCommands(lights, function(light) {
+        return "/" + action + "/" +
+          encodedDeviceTarget(room, light.name, light.serviceId);
+      }, action === "on" ? "All lights on" : "All lights off");
     } else if (action === "brightness") {
       runLightCommands(lights, function(light) {
         return "/brightness/" + value + "/" +
@@ -698,6 +732,29 @@ function enqueueBlindAction(target, operation) {
   runNext();
 }
 
+function setBlindAbsolutePosition(room, name, position, type, serviceId) {
+  if (type !== "blinds") {
+    sendError(new Error("Position is only available for blinds"));
+    return;
+  }
+  var target = encodedDeviceTarget(room, name, serviceId);
+  var clamped = Math.max(0, Math.min(100, Math.round(Number(position))));
+  rememberBlindPosition(target, clamped);
+  apiGet("/position/" + clamped + "/" + target, function(error, response) {
+    if (error) {
+      delete BLIND_POSITION_CACHE[target];
+      sendError(error);
+      return;
+    }
+    if (response && response.status === "error") {
+      delete BLIND_POSITION_CACHE[target];
+      sendError(new Error(response.message || "Position failed"));
+      return;
+    }
+    send({"STATUS": "Position set to " + clamped + "%"});
+  });
+}
+
 function setBlindPosition(room, name, action, type, serviceId) {
   if (type !== "blinds") {
     sendError(new Error("Position is only available for blinds"));
@@ -772,6 +829,443 @@ function setBlindPosition(room, name, action, type, serviceId) {
       }
       applyPosition(position + selected.delta);
     });
+  });
+}
+
+function normalizeVoice(text) {
+  return String(text || "").toLowerCase().replace(/[\u2018\u2019']/g, "")
+    .replace(/[^a-z0-9%]+/g, " ").replace(/\s+/g, " ").replace(/^ | $/g, "");
+}
+
+function voicePhraseContains(text, phrase) {
+  var normalizedText = " " + normalizeVoice(text) + " ";
+  var normalizedPhrase = normalizeVoice(phrase);
+  return normalizedPhrase && normalizedText.indexOf(" " + normalizedPhrase + " ") !== -1;
+}
+
+function pushUnique(list, value) {
+  if (value && list.indexOf(value) === -1) list.push(value);
+}
+
+function voiceTypeAliases(type) {
+  var aliases = {
+    "light": ["light", "lights", "lamp", "lamps"],
+    "light-group": ["light", "lights", "all lights"],
+    "fan": ["fan", "fans"],
+    "switch": ["switch", "switches"],
+    "outlet": ["outlet", "outlets", "plug", "plugs"],
+    "blinds": ["blind", "blinds", "shade", "shades"],
+    "air-purifier": ["air", "air purifier", "purifier"],
+    "humidifier": ["humidifier"],
+    "dehumidifier": ["dehumidifier"],
+    "humidifier-dehumidifier": ["humidifier", "dehumidifier"],
+    "heater-cooler": ["air", "air conditioner", "ac", "heater", "heat"],
+    "thermostat": ["thermostat", "temperature"],
+    "temperature-sensor": ["temperature", "temperature sensor"],
+    "humidity-sensor": ["humidity", "humidity sensor"],
+    "motion-sensor": ["motion", "motion sensor"],
+    "occupancy-sensor": ["occupancy", "occupancy sensor"],
+    "contact-sensor": ["contact", "contact sensor", "door sensor", "window sensor"],
+    "leak-sensor": ["leak", "leak sensor", "water sensor"]
+  };
+  return aliases[type] || [String(type || "").replace(/-/g, " ")];
+}
+
+function buildVoiceCatalog(devices, scenes, rooms) {
+  var roomNames = [];
+  (rooms || []).forEach(function(room) {
+    pushUnique(roomNames, typeof room === "string" ? room : room && room.name);
+  });
+  var usableDevices = (devices || []).filter(function(device) {
+    return device && typeof device.name === "string" && typeof device.room === "string";
+  });
+  usableDevices.forEach(function(device) { pushUnique(roomNames, device.room); });
+  var entities = usableDevices.slice();
+  roomNames.forEach(function(room) {
+    var hasLights = usableDevices.some(function(device) {
+      return device.room.toLowerCase() === room.toLowerCase() && device.type === "light" &&
+        device.reachable !== false;
+    });
+    if (hasLights) {
+      entities.push({name: "All Lights", room: room, type: "light-group", reachable: true});
+    }
+  });
+  return {
+    devices: usableDevices,
+    entities: entities,
+    scenes: (scenes || []).filter(function(scene) {
+      return scene && typeof scene.name === "string";
+    }),
+    rooms: roomNames,
+    fetchedAt: Date.now()
+  };
+}
+
+function loadVoiceCatalog(done) {
+  if (VOICE_CATALOG && Date.now() - VOICE_CATALOG.fetchedAt < VOICE_CATALOG_CACHE_TTL_MS) {
+    done(null, VOICE_CATALOG);
+    return;
+  }
+  var results = {};
+  var remaining = 3;
+  var finished = false;
+  function loaded(key) {
+    return function(error, value) {
+      if (finished) return;
+      if (error) {
+        finished = true;
+        done(error);
+        return;
+      }
+      if (!Array.isArray(value)) {
+        finished = true;
+        done(new Error("Unexpected Itsyhome voice list"));
+        return;
+      }
+      results[key] = value;
+      remaining -= 1;
+      if (remaining === 0) {
+        VOICE_CATALOG = buildVoiceCatalog(results.devices, results.scenes, results.rooms);
+        done(null, VOICE_CATALOG);
+      }
+    };
+  }
+  apiGet("/list/devices", loaded("devices"));
+  apiGet("/list/scenes", loaded("scenes"));
+  apiGet("/list/rooms", loaded("rooms"));
+}
+
+function voiceEntityAliases(entity) {
+  var aliases = [];
+  var fullName = normalizeVoice(entity.name);
+  var room = normalizeVoice(entity.room);
+  pushUnique(aliases, fullName);
+  if (entity.type === "light-group") {
+    pushUnique(aliases, room + " lights");
+    pushUnique(aliases, "all " + room + " lights");
+    pushUnique(aliases, room + " all lights");
+    pushUnique(aliases, "all lights in " + room);
+    pushUnique(aliases, "the lights in " + room);
+  } else {
+    var shortName = normalizeVoice(displayNameInRoom(entity.name, entity.room));
+    pushUnique(aliases, shortName);
+    pushUnique(aliases, room + " " + shortName);
+  }
+  return aliases;
+}
+
+function findVoiceRoom(text, catalog) {
+  var matches = catalog.rooms.filter(function(room) {
+    return voicePhraseContains(text, room) || voicePhraseContains(text, room.replace(/ room$/i, ""));
+  }).sort(function(left, right) { return right.length - left.length; });
+  return matches.length ? matches[0] : null;
+}
+
+function spokenVoiceTypes(text) {
+  var types = [];
+  var knownTypes = ["light", "fan", "switch", "outlet", "blinds", "air-purifier",
+    "humidifier", "dehumidifier", "humidifier-dehumidifier", "heater-cooler", "thermostat",
+    "temperature-sensor", "humidity-sensor", "motion-sensor", "occupancy-sensor",
+    "contact-sensor", "leak-sensor"];
+  knownTypes.forEach(function(type) {
+    if (voiceTypeAliases(type).some(function(alias) { return voicePhraseContains(text, alias); })) {
+      types.push(type);
+    }
+  });
+  return types;
+}
+
+function findVoiceEntity(text, catalog) {
+  var candidates = [];
+  catalog.entities.forEach(function(entity) {
+    if (entity.reachable === false) return;
+    var best = 0;
+    voiceEntityAliases(entity).forEach(function(alias) {
+      if (voicePhraseContains(text, alias)) best = Math.max(best, normalizeVoice(alias).length);
+    });
+    if (best && entity.type === "light-group") best += 100;
+    if (best) candidates.push({entity: entity, score: best});
+  });
+  if (candidates.length) {
+    var topScore = Math.max.apply(Math, candidates.map(function(item) { return item.score; }));
+    var top = candidates.filter(function(item) { return item.score === topScore; });
+    if (top.length === 1) return {entity: top[0].entity};
+    var spoken = spokenVoiceTypes(text);
+    var typed = top.filter(function(item) { return spoken.indexOf(item.entity.type) !== -1; });
+    if (typed.length === 1) return {entity: typed[0].entity};
+    var matchedRoom = findVoiceRoom(text, catalog);
+    if (matchedRoom && spoken.length) {
+      var typedRoomDevices = catalog.devices.filter(function(device) {
+        return device.reachable !== false &&
+          normalizeVoice(device.room) === normalizeVoice(matchedRoom) &&
+          spoken.indexOf(device.type) !== -1;
+      });
+      if (typedRoomDevices.length === 1) return {entity: typedRoomDevices[0]};
+    }
+    return {error: "Which device? " + top.slice(0, 2).map(function(item) {
+      return item.entity.name;
+    }).join(" or ")};
+  }
+
+  var room = findVoiceRoom(text, catalog);
+  var types = spokenVoiceTypes(text);
+  if (room && types.length) {
+    var roomDevices = catalog.devices.filter(function(device) {
+      return device.reachable !== false && device.room.toLowerCase() === room.toLowerCase() &&
+        types.indexOf(device.type) !== -1;
+    });
+    if (roomDevices.length === 1) return {entity: roomDevices[0]};
+    if (roomDevices.length > 1) return {error: "Which " + voiceTypeAliases(types[0])[0] + " in " + room + "?"};
+  }
+  return {error: "I couldn't match that device"};
+}
+
+function exactVoiceScene(text, scenes) {
+  var normalized = normalizeVoice(text).replace(/^please /, "");
+  var match = normalized.match(/^(?:set|run|activate|start)(?: the)? (.+)$/);
+  if (!match) return null;
+  var sceneName = match[1].replace(/^scene /, "");
+  var matches = scenes.filter(function(scene) {
+    return normalizeVoice(scene.name) === sceneName;
+  });
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function voiceNumber(text) {
+  var normalized = normalizeVoice(text);
+  var numeric = normalized.match(/\b(100|[1-9]?[0-9])\s*(?:%|percent)?\b/);
+  if (numeric) return Number(numeric[1]);
+  var numbers = {
+    "zero": 0, "ten": 10, "twenty": 20, "twenty five": 25, "thirty": 30,
+    "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "seventy five": 75,
+    "eighty": 80, "ninety": 90, "one hundred": 100
+  };
+  var names = Object.keys(numbers).sort(function(left, right) { return right.length - left.length; });
+  for (var index = 0; index < names.length; index += 1) {
+    if (voicePhraseContains(normalized, names[index])) return numbers[names[index]];
+  }
+  return null;
+}
+
+function voiceColor(text) {
+  var colors = configuredColors().concat(COLOR_PALETTE);
+  var seen = {};
+  var matches = colors.filter(function(color) {
+    var name = normalizeVoice(color.name);
+    if (!name || seen[name]) return false;
+    seen[name] = true;
+    return voicePhraseContains(text, name);
+  }).sort(function(left, right) { return right.name.length - left.name.length; });
+  return matches.length ? matches[0] : null;
+}
+
+function voiceEntityLabel(entity) {
+  return entity.type === "light-group" ? "All Lights" :
+    displayNameInRoom(entity.name, entity.room);
+}
+
+function voicePrompt(entity, detail) {
+  return entity.room + " / " + voiceEntityLabel(entity) + "\n" + detail;
+}
+
+function parseVoiceCommand(transcription, catalog) {
+  var text = normalizeVoice(transcription);
+  if (!text) return {error: "I didn't hear a command"};
+
+  var scene = exactVoiceScene(text, catalog.scenes);
+  if (scene) {
+    return {intent: {action: "scene", scene: scene.name}, prompt: "Scene\n" + scene.name};
+  }
+
+  var query = /^(?:what is|whats|show|check|read|is)\b/.test(text);
+  var found = findVoiceEntity(text, catalog);
+  if (found.error) return found;
+  var entity = found.entity;
+  if (query) {
+    return {intent: {action: "query", entity: entity}};
+  }
+
+  if (entity.type === "blinds") {
+    var number = voiceNumber(text);
+    if (number !== null && (voicePhraseContains(text, "percent") || text.indexOf("%") !== -1 ||
+        voicePhraseContains(text, "position"))) {
+      return {intent: {action: "position", entity: entity, value: number},
+        prompt: voicePrompt(entity, number + "% open")};
+    }
+    var blindAction = null;
+    var blindLabel = "";
+    if (voicePhraseContains(text, "open")) { blindAction = 0; blindLabel = "Open"; }
+    else if (voicePhraseContains(text, "close")) { blindAction = 1; blindLabel = "Close"; }
+    else if (voicePhraseContains(text, "slow up") || voicePhraseContains(text, "slow raise")) {
+      blindAction = 4; blindLabel = "Slow up 1%";
+    } else if (voicePhraseContains(text, "slow down") || voicePhraseContains(text, "slow lower")) {
+      blindAction = 5; blindLabel = "Slow down 1%";
+    } else if (voicePhraseContains(text, "fast up") || voicePhraseContains(text, "fast raise")) {
+      blindAction = 6; blindLabel = "Fast up 10%";
+    } else if (voicePhraseContains(text, "fast down") || voicePhraseContains(text, "fast lower")) {
+      blindAction = 7; blindLabel = "Fast down 10%";
+    } else if (voicePhraseContains(text, "up") || voicePhraseContains(text, "raise")) {
+      blindAction = 2; blindLabel = "Up 5%";
+    } else if (voicePhraseContains(text, "down") || voicePhraseContains(text, "lower")) {
+      blindAction = 3; blindLabel = "Down 5%";
+    }
+    if (blindAction !== null) {
+      return {intent: {action: "blind", entity: entity, value: blindAction},
+        prompt: voicePrompt(entity, blindLabel)};
+    }
+    return {error: "Say open, close, up, down, or a position"};
+  }
+
+  var turnOn = voicePhraseContains(text, "on") || voicePhraseContains(text, "power on");
+  var turnOff = voicePhraseContains(text, "off") || voicePhraseContains(text, "shut off") ||
+    voicePhraseContains(text, "power off");
+  if (turnOn || turnOff) {
+    if (!TOGGLE_SAFE_TYPES[entity.type] && entity.type !== "light-group") {
+      return {error: "That device isn't safe for voice power control"};
+    }
+    return {intent: {action: "power", entity: entity, value: turnOn},
+      prompt: voicePrompt(entity, turnOn ? "Turn on" : "Turn off")};
+  }
+  if (voicePhraseContains(text, "toggle")) {
+    if (!TOGGLE_SAFE_TYPES[entity.type] && entity.type !== "light-group") {
+      return {error: "That device isn't safe for voice control"};
+    }
+    return {intent: {action: "toggle", entity: entity}, prompt: voicePrompt(entity, "Toggle")};
+  }
+
+  var color = voiceColor(text);
+  if (color && (entity.type === "light" || entity.type === "light-group")) {
+    return {intent: {action: "color", entity: entity, hue: color.hue,
+      saturation: color.saturation}, prompt: voicePrompt(entity, color.name)};
+  }
+
+  var level = voiceNumber(text);
+  if (entity.type === "fan" && level !== null) {
+    return {intent: {action: "speed", entity: entity, value: level},
+      prompt: voicePrompt(entity, "Speed " + level + "%")};
+  }
+  if ((entity.type === "light" || entity.type === "light-group") && level !== null) {
+    return {intent: {action: "brightness", entity: entity, value: level},
+      prompt: voicePrompt(entity, "Brightness " + level + "%")};
+  }
+  if (voicePhraseContains(text, "low") || voicePhraseContains(text, "medium") ||
+      voicePhraseContains(text, "high")) {
+    var preset = voicePhraseContains(text, "low") ? 25 :
+      voicePhraseContains(text, "medium") ? 50 : 100;
+    if (entity.type === "fan") {
+      return {intent: {action: "speed", entity: entity, value: preset},
+        prompt: voicePrompt(entity, "Speed " + preset + "%")};
+    }
+    if (entity.type === "light" || entity.type === "light-group") {
+      return {intent: {action: "brightness", entity: entity, value: preset},
+        prompt: voicePrompt(entity, "Brightness " + preset + "%")};
+    }
+  }
+  return {error: "Try on, off, a color, percentage, speed, or scene"};
+}
+
+function voiceStatusValue(item) {
+  if (!item || item.reachable === false) return "Unavailable";
+  if (isSensor(item)) return sensorValue(item, item);
+  var state = item.state || {};
+  if (typeof state.on === "boolean") return state.on ? "On" : "Off";
+  if (state.speed !== undefined) return state.speed + "% speed";
+  if (state.position !== undefined) return state.position + "% open";
+  var value = sensorValue(item, item);
+  return value === "Unknown" ? "Status unavailable" : value;
+}
+
+function executeVoiceQuery(intent) {
+  var entity = intent.entity;
+  apiGet("/info/" + encodeURIComponent(entity.room), function(error, items) {
+    if (error) { sendError(error); return; }
+    if (!Array.isArray(items)) { sendError(new Error("Status unavailable")); return; }
+    var matches = items.filter(function(item) {
+      return item && normalizeVoice(item.name) === normalizeVoice(entity.name) &&
+        item.type === entity.type;
+    });
+    if (matches.length !== 1) { sendError(new Error("Status target is ambiguous")); return; }
+    send({"VOICE_RESULT": voiceEntityLabel(entity) + "\n" + voiceStatusValue(matches[0])});
+  });
+}
+
+function resolveVoiceServiceId(intent, done) {
+  var entity = intent.entity;
+  if (!entity || entity.type === "light-group" || entity.serviceId || !VOICE_CATALOG) {
+    done(null);
+    return;
+  }
+  var duplicates = VOICE_CATALOG.devices.filter(function(device) {
+    return normalizeVoice(device.room) === normalizeVoice(entity.room) &&
+      normalizeVoice(device.name) === normalizeVoice(entity.name);
+  });
+  if (duplicates.length <= 1) { done(null); return; }
+  apiGet("/debug/" + encodeURIComponent(entity.name), function(error, response) {
+    if (error) { done(error); return; }
+    var details = Array.isArray(response) ? response : [response];
+    var matches = details.filter(function(detail) {
+      return detail && detail.serviceTypeLabel === entity.type &&
+        (!detail.room || normalizeVoice(detail.room) === normalizeVoice(entity.room)) &&
+        typeof detail.serviceId === "string";
+    });
+    if (matches.length !== 1) {
+      done(new Error("That device name is ambiguous"));
+      return;
+    }
+    entity.serviceId = matches[0].serviceId;
+    done(null);
+  });
+}
+
+function executeVoiceIntent(intent) {
+  if (intent.action === "scene") { runScene(intent.scene); return; }
+  var entity = intent.entity;
+  if (intent.action === "power") {
+    setDevicePower(entity.room, entity.name, entity.type, intent.value, entity.serviceId);
+  } else if (intent.action === "toggle") {
+    toggleDevice(entity.room, entity.name, entity.type, entity.serviceId);
+  } else if (intent.action === "brightness") {
+    setBrightness(entity.room, entity.name, intent.value, entity.type, entity.serviceId);
+  } else if (intent.action === "color") {
+    setColor(entity.room, entity.name, intent.hue, intent.saturation, entity.type,
+      entity.serviceId);
+  } else if (intent.action === "speed") {
+    setSpeed(entity.room, entity.name, intent.value, entity.type, entity.serviceId);
+  } else if (intent.action === "blind") {
+    setBlindPosition(entity.room, entity.name, intent.value, entity.type, entity.serviceId);
+  } else if (intent.action === "position") {
+    setBlindAbsolutePosition(entity.room, entity.name, intent.value, entity.type,
+      entity.serviceId);
+  } else {
+    sendError(new Error("Unknown voice action"));
+  }
+}
+
+function handleVoiceTranscript(transcription) {
+  PENDING_VOICE_INTENT = null;
+  loadVoiceCatalog(function(error, catalog) {
+    if (error) { sendError(error); return; }
+    var parsed = parseVoiceCommand(transcription, catalog);
+    if (parsed.error) { sendError(new Error(parsed.error)); return; }
+    if (parsed.intent.action === "query") {
+      executeVoiceQuery(parsed.intent);
+      return;
+    }
+    PENDING_VOICE_INTENT = parsed.intent;
+    send({"VOICE_PROMPT": parsed.prompt});
+  });
+}
+
+function executePendingVoiceIntent() {
+  if (!PENDING_VOICE_INTENT) {
+    sendError(new Error("Voice command expired"));
+    return;
+  }
+  var intent = PENDING_VOICE_INTENT;
+  PENDING_VOICE_INTENT = null;
+  resolveVoiceServiceId(intent, function(error) {
+    if (error) { sendError(error); return; }
+    executeVoiceIntent(intent);
   });
 }
 
@@ -895,6 +1389,12 @@ Pebble.addEventListener("appmessage", function(event) {
     case COMMAND_LOAD_COLORS:
       sendColorChoices();
       break;
+    case COMMAND_PARSE_VOICE:
+      handleVoiceTranscript(payload.VOICE_TEXT);
+      break;
+    case COMMAND_EXECUTE_VOICE:
+      executePendingVoiceIntent();
+      break;
     default:
       sendError(new Error("Unknown command"));
   }
@@ -917,6 +1417,7 @@ Pebble.addEventListener("webviewclosed", function(event) {
     if (config.sections) {
       localStorage.setItem("pomeSections", JSON.stringify(config.sections));
     }
+    VOICE_CATALOG = null;
     sendDisplaySettings(function() {
       sendColorChoices(function() { send({ "STATUS": "Settings saved" }); });
     });

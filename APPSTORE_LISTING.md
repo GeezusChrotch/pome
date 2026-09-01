@@ -14,9 +14,11 @@
 
 Pome puts Apple Home controls on a Pebble Time or Pebble Time 2.
 
-Browse favorites, scenes, rooms, devices, and read-only sensors from your wrist. Lights include toggle, 25/50/75/100% brightness presets, and six colors chosen with the iPhone color wheel. Blinds include open, close, and 1%, 5%, or 10% up/down steps. Each room has an All Lights control with paced commands and retries. Other compatible accessories can be toggled. Devices are grouped by type and alphabetized within each group, with redundant room prefixes hidden, while sensitive scene names require confirmation.
+Voice is the first menu item on dictation-capable watches. Say "Set Lounge TV," "Turn lounge lights green," or ask for a sensor reading. Pome discovers names from Itsyhome and confirms parsed controls before execution.
 
-Pome uses PebbleKit JS on the paired phone to contact Itsyhome running on your Mac. Itsyhome bridges Apple Home/HomeKit to an HTTP webhook server. Pome has no account, analytics, hosted backend, or cloud relay; it talks only to the URL you configure.
+Browse favorites, scenes, rooms, devices, and read-only sensors. Lights include toggle, brightness, six custom colors, and a paced All Lights control. Fans include speed, while blinds include open, close, position, and three movement steps. Devices are grouped by type and name with redundant room prefixes hidden.
+
+Pome uses PebbleKit JS on the paired phone to contact Itsyhome on your Mac. It has no account, analytics, hosted backend, or cloud relay. Voice transcription is handled by the provider configured in the Pebble mobile app.
 
 Required setup:
 1. Install Itsyhome for macOS: https://itsyhome.app/macos
