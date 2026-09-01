@@ -33,13 +33,16 @@ var catalog = context.buildVoiceCatalog([
   {name: "Lounge Blinds", room: "Lounge", type: "blinds", reachable: true},
   {name: "Nest Temperature", room: "Lounge", type: "temperature-sensor", reachable: true},
   {name: "Den Air", room: "Den", type: "switch", reachable: true},
-  {name: "Den Fan", room: "Den", type: "fan", reachable: true}
+  {name: "Den Fan", room: "Den", type: "fan", reachable: true},
+  {name: "Bathroom Vanity", room: "Bathroom", type: "light", reachable: true},
+  {name: "Bathroom Ceiling", room: "Bathroom", type: "light", reachable: true}
 ], [
   {name: "Lounge TV"},
   {name: "Goodnight"}
 ], [
   {name: "Lounge"},
-  {name: "Den"}
+  {name: "Den"},
+  {name: "Bathroom"}
 ]);
 
 function parse(text) {
@@ -69,6 +72,14 @@ result = parse("Turn lounge lights green");
 assert.strictEqual(result.intent.action, "color");
 assert.strictEqual(result.intent.entity.type, "light-group");
 assert.strictEqual(result.intent.hue, 120);
+
+result = parse("Turn bathroom Amber");
+assert.strictEqual(result.intent.action, "color");
+assert.strictEqual(result.intent.entity.type, "light-group");
+assert.strictEqual(result.intent.entity.room, "Bathroom");
+assert.strictEqual(result.intent.hue, 35);
+
+assert.ok(context.parseVoiceCommand("Turn bathroom on", catalog).error);
 
 result = parse("Set the lounge lights to 50 percent");
 assert.strictEqual(result.intent.action, "brightness");

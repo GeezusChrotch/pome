@@ -1360,7 +1360,16 @@ function parseVoiceCommand(transcription, catalog) {
   }
 
   var query = /^(?:what is|whats|show|check|read|is)\b/.test(text);
+  var color = voiceColor(text);
   var found = findVoiceEntity(text, catalog);
+  if (found.error && color) {
+    var matchedRoom = findVoiceRoom(text, catalog);
+    var roomLightGroups = matchedRoom ? catalog.entities.filter(function(candidate) {
+      return candidate.reachable !== false && candidate.type === "light-group" &&
+        normalizeVoice(candidate.room) === normalizeVoice(matchedRoom);
+    }) : [];
+    if (roomLightGroups.length === 1) found = {entity: roomLightGroups[0]};
+  }
   if (found.error) return found;
   var entity = found.entity;
   if (query) {
@@ -1415,7 +1424,6 @@ function parseVoiceCommand(transcription, catalog) {
     return {intent: {action: "toggle", entity: entity}, prompt: voicePrompt(entity, "Toggle")};
   }
 
-  var color = voiceColor(text);
   if (color && (entity.type === "light" || entity.type === "light-group")) {
     return {intent: {action: "color", entity: entity, hue: color.hue,
       saturation: color.saturation}, prompt: voicePrompt(entity, color.name)};

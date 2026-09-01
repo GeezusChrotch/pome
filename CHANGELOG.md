@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.1
+
+- Let natural room-plus-color phrases such as "Turn bathroom amber" target that room's All Lights group.
+- Keep ambiguous room-only power phrases rejected unless the user explicitly says lights.
+
 ## 2.4.0
 
 - Add configurable main-screen long-press shortcuts for the Up, Select, and Down buttons.
