@@ -14,6 +14,9 @@ assert.ok(watchSource.indexOf("window_long_click_subscribe(BUTTON_ID_UP") !== -1
 assert.ok(watchSource.indexOf("window_long_click_subscribe(BUTTON_ID_SELECT") !== -1);
 assert.ok(watchSource.indexOf("window_long_click_subscribe(BUTTON_ID_DOWN") !== -1);
 assert.ok(watchSource.indexOf('strncmp(target, "scene:", 6)') !== -1);
+assert.ok(watchSource.indexOf('strcmp(target, "themes")') !== -1);
+assert.ok(watchSource.indexOf("theme_select_click") !== -1);
+assert.ok(watchSource.indexOf('theme->active ? "Current"') !== -1);
 
 var stored = {};
 var handlers = {};
@@ -60,6 +63,7 @@ assert.strictEqual(defaults.size, 24);
 assert.strictEqual(defaults.icons, true);
 assert.deepStrictEqual(JSON.parse(JSON.stringify(context.configuredShortcuts())),
   {up: "off", select: "off", down: "off"});
+assert.strictEqual(context.validShortcut("themes"), "themes");
 
 context.cacheShortcutScenes([{name: "Good Night"}, {name: "Movie Time"}]);
 
@@ -80,6 +84,7 @@ assert.ok(configurationHtml.indexOf("id=\"shortcutsTab\"") !== -1);
 assert.ok(configurationHtml.indexOf("Long press Up") !== -1);
 assert.ok(configurationHtml.indexOf("Long press Select") !== -1);
 assert.ok(configurationHtml.indexOf("Long press Down") !== -1);
+assert.ok(configurationHtml.indexOf('<option value="themes">Themes</option>') !== -1);
 assert.ok(configurationHtml.indexOf("scene:Good Night") !== -1);
 assert.ok(configurationHtml.indexOf("id=\"preview\"") !== -1);
 assert.ok(configurationHtml.indexOf("Font color") !== -1);
@@ -170,6 +175,22 @@ sent = [];
 context.sendDisplaySettings();
 assert.strictEqual(sent[0].THEME_FONT, 8);
 assert.strictEqual(sent[0].THEME_SIZE, 26);
+
+sent = [];
+context.sendThemeChoices();
+assert.strictEqual(sent.length, 7);
+assert.strictEqual(sent[0].ITEM_KIND, 8);
+assert.strictEqual(sent[0].ITEM_NAME, "Classic");
+assert.strictEqual(sent[5].ITEM_NAME, "Amber Night");
+assert.strictEqual(sent[5].ITEM_ACTIVE, 1);
+assert.strictEqual(sent[6].LIST_DONE, 8);
+
+sent = [];
+context.applyThemeAtIndex(2);
+assert.strictEqual(JSON.parse(stored.pomeTheme).name, "Midnight");
+assert.strictEqual(sent.length, 1);
+assert.strictEqual(sent[0].STATUS, "Theme applied");
+assert.strictEqual(sent[0].THEME_FONT, 6);
 
 handlers.showConfiguration();
 assert.ok(/^data:text\/html/.test(openedUrl));

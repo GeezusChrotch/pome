@@ -8,6 +8,7 @@
 #define MAX_ID_LENGTH 40
 #define MAX_VOICE_LENGTH 128
 #define MAX_SHORTCUT_LENGTH 72
+#define MAX_THEMES 25
 #define COLOR_COUNT 6
 #define MARQUEE_STEP_PIXELS 2
 #define MARQUEE_FRAME_MS 80
@@ -27,6 +28,8 @@ typedef enum {
   COMMAND_SET_POSITION = 11,
   COMMAND_PARSE_VOICE = 12,
   COMMAND_EXECUTE_VOICE = 13,
+  COMMAND_LOAD_THEMES = 14,
+  COMMAND_SET_THEME = 15,
 } Command;
 
 typedef enum {
@@ -37,6 +40,7 @@ typedef enum {
   ITEM_KIND_COLOR = 5,
   ITEM_KIND_SENSOR = 6,
   ITEM_KIND_ROOM_SCENE = 7,
+  ITEM_KIND_THEME = 8,
 } ItemKind;
 
 typedef struct {
@@ -58,6 +62,18 @@ typedef struct {
   char value[MAX_VALUE_LENGTH];
   bool reachable;
 } SensorItem;
+
+typedef struct {
+  char name[33];
+  GColor background;
+  GColor text;
+  GColor selection;
+  GColor selection_text;
+  uint8_t font;
+  uint8_t size;
+  bool icons;
+  bool active;
+} ThemeChoice;
 
 typedef enum {
   PRESET_BRIGHTNESS,
@@ -81,6 +97,7 @@ static Window *s_sensor_window;
 static Window *s_room_scene_window;
 static Window *s_action_window;
 static Window *s_preset_window;
+static Window *s_theme_window;
 static Window *s_confirm_window;
 static MenuLayer *s_root_menu;
 static MenuLayer *s_list_menu;
@@ -89,6 +106,7 @@ static MenuLayer *s_sensor_menu;
 static MenuLayer *s_room_scene_menu;
 static MenuLayer *s_action_menu;
 static MenuLayer *s_preset_menu;
+static MenuLayer *s_theme_menu;
 static TextLayer *s_confirm_title;
 static TextLayer *s_confirm_hint;
 static DictationSession *s_dictation_session;
@@ -119,6 +137,7 @@ static char s_device_display_names[MAX_ITEMS][MAX_NAME_LENGTH];
 static char s_device_ids[MAX_ITEMS][MAX_ID_LENGTH];
 static HomeItem s_room_scenes[MAX_ITEMS];
 static SensorItem s_sensors[MAX_ITEMS];
+static ThemeChoice s_themes[MAX_THEMES];
 static ColorChoice s_colors[COLOR_COUNT] = {
   {"Amber", 35, 100},
   {"Red", 0, 100},
@@ -133,6 +152,7 @@ static uint16_t s_room_count;
 static uint16_t s_device_count;
 static uint16_t s_sensor_count;
 static uint16_t s_room_scene_count;
+static uint16_t s_theme_count;
 static ItemKind s_current_kind = ITEM_KIND_FAVORITE;
 static char s_selected_room[MAX_NAME_LENGTH];
 static char s_selected_device[MAX_NAME_LENGTH];
@@ -150,6 +170,7 @@ static bool s_show_rooms = true;
 static bool s_show_sensors = true;
 static bool s_auto_opened;
 static bool s_voice_pending;
+static bool s_theme_loading;
 static char s_device_error[40];
 static char s_status[48] = "Connecting...";
 static GColor s_theme_background = GColorWhite;
@@ -185,6 +206,7 @@ static MenuLayer *active_menu(void) {
   if (top == s_room_scene_window) return s_room_scene_menu;
   if (top == s_action_window) return s_action_menu;
   if (top == s_preset_window) return s_preset_menu;
+  if (top == s_theme_window) return s_theme_menu;
   return NULL;
 }
 
@@ -473,7 +495,8 @@ static void apply_theme_to_menu(MenuLayer *menu) {
 
 static void apply_theme(void) {
   Window *windows[] = {s_root_window, s_list_window, s_device_window, s_sensor_window,
-                       s_room_scene_window, s_action_window, s_preset_window, s_confirm_window};
+                       s_room_scene_window, s_action_window, s_preset_window, s_theme_window,
+                       s_confirm_window};
   for (size_t i = 0; i < ARRAY_LENGTH(windows); i++) {
     if (windows[i]) window_set_background_color(windows[i], s_theme_background);
   }
@@ -484,6 +507,7 @@ static void apply_theme(void) {
   apply_theme_to_menu(s_room_scene_menu);
   apply_theme_to_menu(s_action_menu);
   apply_theme_to_menu(s_preset_menu);
+  apply_theme_to_menu(s_theme_menu);
   if (s_confirm_title) {
     text_layer_set_background_color(s_confirm_title, GColorClear);
     text_layer_set_text_color(s_confirm_title, s_theme_text);
@@ -901,6 +925,72 @@ static void preset_draw_header(GContext *ctx, const Layer *cell_layer,
   theme_header_draw(ctx, cell_layer, title);
 }
 
+static uint16_t theme_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
+                                   void *context) {
+  return s_theme_loading || s_theme_count == 0 ? 1 : s_theme_count;
+}
+
+static void theme_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
+                           void *context) {
+  if (s_theme_loading) {
+    theme_cell_draw(ctx, cell_layer, "Loading themes...", NULL, NULL);
+    return;
+  }
+  if (s_theme_count == 0) {
+    theme_cell_draw(ctx, cell_layer, "No themes", NULL, NULL);
+    return;
+  }
+  ThemeChoice *theme = &s_themes[cell_index->row];
+  theme_cell_draw(ctx, cell_layer, theme->name, theme->active ? "Current" : NULL, NULL);
+}
+
+static void theme_draw_header(GContext *ctx, const Layer *cell_layer,
+                              uint16_t section_index, void *context) {
+  theme_header_draw(ctx, cell_layer, "Themes");
+}
+
+static void apply_theme_choice(ThemeChoice *theme) {
+  s_theme_background = theme->background;
+  s_theme_text = theme->text;
+  s_theme_selection = theme->selection;
+  s_theme_selection_text = theme->selection_text;
+#if defined(PBL_PLATFORM_EMERY)
+  s_theme_font = theme->font <= 9 ? theme->font : 0;
+#else
+  s_theme_font = theme->font <= 4 ? theme->font : 0;
+#endif
+  s_theme_size = theme->size >= 14 && theme->size <= 30 ? theme->size : 24;
+  s_theme_icons = theme->icons;
+  apply_theme();
+}
+
+static void theme_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
+  if (s_theme_loading || cell_index->row >= s_theme_count) return;
+  for (uint16_t i = 0; i < s_theme_count; i++) s_themes[i].active = false;
+  ThemeChoice *theme = &s_themes[cell_index->row];
+  theme->active = true;
+  apply_theme_choice(theme);
+
+  DictionaryIterator *out = NULL;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK || !out) {
+    set_status("Phone unavailable");
+    vibes_short_pulse();
+    return;
+  }
+  dict_write_uint8(out, MESSAGE_KEY_COMMAND, COMMAND_SET_THEME);
+  dict_write_uint16(out, MESSAGE_KEY_ITEM_INDEX, cell_index->row);
+  dict_write_end(out);
+  app_message_outbox_send();
+  vibes_short_pulse();
+}
+
+static void show_theme_picker(void) {
+  s_theme_count = 0;
+  s_theme_loading = true;
+  window_stack_push(s_theme_window, true);
+  send_command(COMMAND_LOAD_THEMES, NULL, NULL, NULL);
+}
+
 static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   if (s_preset_kind == PRESET_COLOR) {
     ColorChoice *color = &s_colors[cell_index->row];
@@ -1110,6 +1200,8 @@ static void run_shortcut(const char *target) {
     push_list(ITEM_KIND_SCENE);
   } else if (strcmp(target, "rooms") == 0) {
     push_list(ITEM_KIND_ROOM);
+  } else if (strcmp(target, "themes") == 0) {
+    show_theme_picker();
   } else if (strncmp(target, "scene:", 6) == 0 && target[6]) {
     run_scene(target + 6);
   }
@@ -1162,6 +1254,9 @@ static void maybe_auto_open(void) {
 }
 
 static void inbox_received(DictionaryIterator *iterator, void *context) {
+  Tuple *item_kind_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_KIND);
+  bool is_theme_catalog_item = item_kind_tuple &&
+    item_kind_tuple->value->uint8 == ITEM_KIND_THEME;
   Tuple *shortcut_up = dict_find(iterator, MESSAGE_KEY_SHORTCUT_UP);
   Tuple *shortcut_select = dict_find(iterator, MESSAGE_KEY_SHORTCUT_SELECT);
   Tuple *shortcut_down = dict_find(iterator, MESSAGE_KEY_SHORTCUT_DOWN);
@@ -1186,8 +1281,8 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   Tuple *theme_font = dict_find(iterator, MESSAGE_KEY_THEME_FONT);
   Tuple *theme_size = dict_find(iterator, MESSAGE_KEY_THEME_SIZE);
   Tuple *theme_icons = dict_find(iterator, MESSAGE_KEY_THEME_ICONS);
-  if (theme_background || theme_text || theme_selection || theme_selection_text ||
-      theme_font || theme_size || theme_icons) {
+  if (!is_theme_catalog_item && (theme_background || theme_text || theme_selection ||
+      theme_selection_text || theme_font || theme_size || theme_icons)) {
     if (theme_background) s_theme_background.argb = theme_background->value->uint8;
     if (theme_text) s_theme_text.argb = theme_text->value->uint8;
     if (theme_selection) s_theme_selection.argb = theme_selection->value->uint8;
@@ -1241,6 +1336,11 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   Tuple *error = dict_find(iterator, MESSAGE_KEY_ERROR);
   if (error) {
     s_loading = false;
+    if (s_theme_loading) {
+      s_theme_loading = false;
+      s_theme_count = 0;
+      if (s_theme_menu) menu_layer_reload_data(s_theme_menu);
+    }
     if (s_device_loading) {
       s_device_loading = false;
       snprintf(s_device_error, sizeof(s_device_error), "%s", error->value->cstring);
@@ -1287,6 +1387,22 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   if (kind_tuple && index_tuple && name_tuple) {
     ItemKind kind = kind_tuple->value->uint8;
     uint16_t index = index_tuple->value->uint16;
+    if (kind == ITEM_KIND_THEME && index < MAX_THEMES) {
+      ThemeChoice *theme = &s_themes[index];
+      snprintf(theme->name, sizeof(theme->name), "%s", name_tuple->value->cstring);
+      theme->background.argb = theme_background ? theme_background->value->uint8 : GColorWhite.argb;
+      theme->text.argb = theme_text ? theme_text->value->uint8 : GColorBlack.argb;
+      theme->selection.argb = theme_selection ? theme_selection->value->uint8 : GColorBlack.argb;
+      theme->selection_text.argb = theme_selection_text ?
+        theme_selection_text->value->uint8 : GColorWhite.argb;
+      theme->font = theme_font ? (uint8_t)theme_font->value->int32 : 0;
+      theme->size = theme_size ? theme_size->value->uint8 : 24;
+      theme->icons = !theme_icons || theme_icons->value->int8 != 0;
+      Tuple *active_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_ACTIVE);
+      theme->active = active_tuple && active_tuple->value->int8 != 0;
+      if (index >= s_theme_count) s_theme_count = index + 1;
+      return;
+    }
     if (kind == ITEM_KIND_COLOR && index < COLOR_COUNT) {
       snprintf(s_colors[index].name, sizeof(s_colors[index].name), "%s",
                name_tuple->value->cstring);
@@ -1373,6 +1489,9 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
     } else if (done_kind == ITEM_KIND_DEVICE) {
       s_device_loading = false;
       if (s_device_menu) menu_layer_reload_data(s_device_menu);
+    } else if (done_kind == ITEM_KIND_THEME) {
+      s_theme_loading = false;
+      if (s_theme_menu) menu_layer_reload_data(s_theme_menu);
     }
   }
 }
@@ -1537,6 +1656,28 @@ static void preset_window_unload(Window *window) {
   s_preset_menu = NULL;
 }
 
+static void theme_window_load(Window *window) {
+  Layer *root = window_get_root_layer(window);
+  s_theme_menu = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_theme_menu, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = theme_get_num_rows,
+    .get_cell_height = theme_cell_height,
+    .get_header_height = list_get_header_height,
+    .draw_header = theme_draw_header,
+    .draw_row = theme_draw_row,
+    .select_click = theme_select_click,
+    .selection_changed = marquee_selection_changed,
+  });
+  apply_theme_to_menu(s_theme_menu);
+  menu_layer_set_click_config_onto_window(s_theme_menu, window);
+  layer_add_child(root, menu_layer_get_layer(s_theme_menu));
+}
+
+static void theme_window_unload(Window *window) {
+  menu_layer_destroy(s_theme_menu);
+  s_theme_menu = NULL;
+}
+
 static void confirm_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(root);
@@ -1600,6 +1741,7 @@ static void init(void) {
   s_room_scene_window = window_create();
   s_action_window = window_create();
   s_preset_window = window_create();
+  s_theme_window = window_create();
   s_confirm_window = window_create();
 
   window_set_window_handlers(s_root_window, (WindowHandlers) {
@@ -1637,6 +1779,11 @@ static void init(void) {
     .appear = menu_window_appear,
     .unload = preset_window_unload,
   });
+  window_set_window_handlers(s_theme_window, (WindowHandlers) {
+    .load = theme_window_load,
+    .appear = menu_window_appear,
+    .unload = theme_window_unload,
+  });
   window_set_window_handlers(s_confirm_window, (WindowHandlers) {
     .load = confirm_window_load,
     .unload = confirm_window_unload,
@@ -1659,6 +1806,7 @@ static void deinit(void) {
   }
   if (s_dictation_session) dictation_session_destroy(s_dictation_session);
   window_destroy(s_confirm_window);
+  window_destroy(s_theme_window);
   window_destroy(s_preset_window);
   window_destroy(s_action_window);
   window_destroy(s_sensor_window);

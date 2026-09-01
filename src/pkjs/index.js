@@ -1,5 +1,6 @@
 var DEFAULT_BASE_URL = "";
 var MAX_ITEMS = 64;
+var MAX_THEME_CHOICES = 25;
 var ROOM_LIGHT_COMMAND_DELAY_MS = 700;
 var ROOM_LIGHT_MAX_ATTEMPTS = 2;
 var BLIND_POSITION_CACHE_TTL_MS = 30000;
@@ -22,6 +23,8 @@ var COMMAND_SET_SPEED = 10;
 var COMMAND_SET_POSITION = 11;
 var COMMAND_PARSE_VOICE = 12;
 var COMMAND_EXECUTE_VOICE = 13;
+var COMMAND_LOAD_THEMES = 14;
+var COMMAND_SET_THEME = 15;
 
 var ITEM_KIND_FAVORITE = 1;
 var ITEM_KIND_SCENE = 2;
@@ -30,6 +33,7 @@ var ITEM_KIND_DEVICE = 4;
 var ITEM_KIND_COLOR = 5;
 var ITEM_KIND_SENSOR = 6;
 var ITEM_KIND_ROOM_SCENE = 7;
+var ITEM_KIND_THEME = 8;
 
 var DEFAULT_COLORS = [
   {name: "Amber", hue: 35, saturation: 100},
@@ -326,7 +330,7 @@ function configuredSections() {
 
 function validShortcut(value) {
   if (value === "off" || value === "voice" || value === "scenes" ||
-      value === "rooms" || value === "favorites") return value;
+      value === "rooms" || value === "favorites" || value === "themes") return value;
   return typeof value === "string" && value.indexOf("scene:") === 0 &&
     value.length > 6 && value.length <= 70 ? value : "off";
 }
@@ -470,6 +474,24 @@ function contrastingColor(hex) {
   return (red * 299 + green * 587 + blue * 114) / 1000 >= 150 ? "#000000" : "#ffffff";
 }
 
+function themesEqual(left, right) {
+  return left && right && left.name === right.name && left.text === right.text &&
+    left.background === right.background && left.selection === right.selection &&
+    left.font === right.font && left.size === right.size && left.icons === right.icons;
+}
+
+function themeMessage(theme) {
+  return {
+    "THEME_BACKGROUND": pebbleColor(theme.background),
+    "THEME_TEXT": pebbleColor(theme.text),
+    "THEME_SELECTION": pebbleColor(theme.selection),
+    "THEME_SELECTION_TEXT": pebbleColor(contrastingColor(theme.selection)),
+    "THEME_FONT": THEME_FONTS[theme.font],
+    "THEME_SIZE": theme.size,
+    "THEME_ICONS": theme.icons ? 1 : 0
+  };
+}
+
 function hsvToHex(hue, saturation) {
   var h = ((hue % 360) + 360) % 360;
   var s = Math.max(0, Math.min(100, saturation)) / 100;
@@ -513,22 +535,61 @@ function sendDisplaySettings(done) {
   var sections = configuredSections();
   var theme = configuredTheme();
   var shortcuts = configuredShortcuts();
-  send({
-    "SHOW_FAVORITES": sections.favorites ? 1 : 0,
-    "SHOW_SCENES": sections.scenes ? 1 : 0,
-    "SHOW_ROOMS": sections.rooms ? 1 : 0,
-    "SHOW_SENSORS": sections.sensors ? 1 : 0,
-    "THEME_BACKGROUND": pebbleColor(theme.background),
-    "THEME_TEXT": pebbleColor(theme.text),
-    "THEME_SELECTION": pebbleColor(theme.selection),
-    "THEME_SELECTION_TEXT": pebbleColor(contrastingColor(theme.selection)),
-    "THEME_FONT": THEME_FONTS[theme.font],
-    "THEME_SIZE": theme.size,
-    "THEME_ICONS": theme.icons ? 1 : 0,
-    "SHORTCUT_UP": shortcuts.up,
-    "SHORTCUT_SELECT": shortcuts.select,
-    "SHORTCUT_DOWN": shortcuts.down
-  }, done);
+  var payload = themeMessage(theme);
+  payload.SHOW_FAVORITES = sections.favorites ? 1 : 0;
+  payload.SHOW_SCENES = sections.scenes ? 1 : 0;
+  payload.SHOW_ROOMS = sections.rooms ? 1 : 0;
+  payload.SHOW_SENSORS = sections.sensors ? 1 : 0;
+  payload.SHORTCUT_UP = shortcuts.up;
+  payload.SHORTCUT_SELECT = shortcuts.select;
+  payload.SHORTCUT_DOWN = shortcuts.down;
+  send(payload, done);
+}
+
+function watchThemeChoices() {
+  var themes = configuredThemes();
+  var current = configuredTheme();
+  if (!themes.some(function(theme) { return themesEqual(theme, current); })) {
+    if (themes.length >= MAX_THEME_CHOICES) themes = themes.slice(0, MAX_THEME_CHOICES - 1);
+    themes.push(current);
+  }
+  return themes.slice(0, MAX_THEME_CHOICES);
+}
+
+function sendThemeChoices(done) {
+  var themes = watchThemeChoices();
+  var current = configuredTheme();
+  var index = 0;
+  function sendNext() {
+    if (index >= themes.length) {
+      send({"LIST_DONE": ITEM_KIND_THEME}, done);
+      return;
+    }
+    var theme = themes[index];
+    var payload = themeMessage(theme);
+    payload.ITEM_KIND = ITEM_KIND_THEME;
+    payload.ITEM_INDEX = index;
+    payload.ITEM_NAME = theme.name;
+    payload.ITEM_ACTIVE = themesEqual(theme, current) ? 1 : 0;
+    send(payload, function() {
+      index += 1;
+      sendNext();
+    });
+  }
+  sendNext();
+}
+
+function applyThemeAtIndex(index) {
+  var themes = watchThemeChoices();
+  if (typeof index !== "number" || index < 0 || index >= themes.length) {
+    sendError(new Error("Theme unavailable"));
+    return;
+  }
+  var theme = normalizeTheme(themes[index]);
+  localStorage.setItem("pomeTheme", JSON.stringify(theme));
+  var payload = themeMessage(theme);
+  payload.STATUS = "Theme applied";
+  send(payload);
 }
 
 function apiGet(path, callback) {
@@ -1630,7 +1691,7 @@ function configurationPage() {
   function shortcutOptions(selected) {
     var options = [
       ["off", "Off"], ["voice", "Voice"], ["scenes", "Scenes"],
-      ["rooms", "Rooms"], ["favorites", "Favorites"]
+      ["rooms", "Rooms"], ["favorites", "Favorites"], ["themes", "Themes"]
     ].map(function(option) {
       return '<option value="' + option[0] + '"' + (selected === option[0] ? " selected" : "") +
         '>' + option[1] + '</option>';
@@ -1943,6 +2004,12 @@ Pebble.addEventListener("appmessage", function(event) {
       break;
     case COMMAND_EXECUTE_VOICE:
       executePendingVoiceIntent();
+      break;
+    case COMMAND_LOAD_THEMES:
+      sendThemeChoices();
+      break;
+    case COMMAND_SET_THEME:
+      applyThemeAtIndex(payload.ITEM_INDEX);
       break;
     default:
       sendError(new Error("Unknown command"));

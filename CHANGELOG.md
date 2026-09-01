@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.0
+
+- Add an on-watch picker for built-in and saved themes, with the current theme marked.
+- Let any main-screen button long press open the Themes picker.
+- Apply watch-selected themes immediately and persist the choice in the iPhone companion app.
+
 ## 2.4.2
 
 - Add a hidden room-wide voice color effect for reachable lights.
