@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.0
+
+- Add Settings as the bottom item on the watch's main menu.
+- Put theme selection and all three long-press button assignments in on-watch Settings.
+- Support assigning general destinations or a specific loaded scene without opening the phone.
+
 ## 2.5.1
 
 - Keep large menu titles on one line when unselected, then marquee-scroll them when selected.

@@ -19,6 +19,11 @@ assert.ok(watchSource.indexOf("theme_select_click") !== -1);
 assert.ok(watchSource.indexOf('theme->active ? "Current"') !== -1);
 assert.ok(watchSource.indexOf("title_height") !== -1);
 assert.ok(watchSource.indexOf("GRect(text_x, title_y, title_width, title_height)") !== -1);
+assert.ok(watchSource.indexOf('theme_cell_draw(ctx, cell_layer, "Settings"') !== -1);
+assert.ok(watchSource.indexOf("return visible_root_count() + 3") !== -1);
+assert.ok(watchSource.indexOf("settings_select_click") !== -1);
+assert.ok(watchSource.indexOf("shortcut_target_select_click") !== -1);
+assert.ok(watchSource.indexOf("COMMAND_SET_SHORTCUT = 16") !== -1);
 
 var stored = {};
 var handlers = {};
@@ -193,6 +198,13 @@ assert.strictEqual(JSON.parse(stored.pomeTheme).name, "Midnight");
 assert.strictEqual(sent.length, 1);
 assert.strictEqual(sent[0].STATUS, "Theme applied");
 assert.strictEqual(sent[0].THEME_FONT, 6);
+
+sent = [];
+context.setShortcutAtIndex(0, "themes");
+assert.strictEqual(JSON.parse(stored.pomeShortcuts).up, "themes");
+assert.strictEqual(sent.length, 1);
+assert.strictEqual(sent[0].SHORTCUT_UP, "themes");
+assert.strictEqual(sent[0].STATUS, "Shortcut saved");
 
 handlers.showConfiguration();
 assert.ok(/^data:text\/html/.test(openedUrl));

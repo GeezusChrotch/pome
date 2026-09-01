@@ -1,7 +1,7 @@
 #include <pebble.h>
 #include <ctype.h>
 
-#define MAX_ITEMS 64
+#define MAX_ITEMS 60
 #define MAX_NAME_LENGTH 64
 #define MAX_TYPE_LENGTH 24
 #define MAX_VALUE_LENGTH 32
@@ -30,6 +30,7 @@ typedef enum {
   COMMAND_EXECUTE_VOICE = 13,
   COMMAND_LOAD_THEMES = 14,
   COMMAND_SET_THEME = 15,
+  COMMAND_SET_SHORTCUT = 16,
 } Command;
 
 typedef enum {
@@ -98,6 +99,9 @@ static Window *s_room_scene_window;
 static Window *s_action_window;
 static Window *s_preset_window;
 static Window *s_theme_window;
+static Window *s_settings_window;
+static Window *s_shortcut_window;
+static Window *s_shortcut_target_window;
 static Window *s_confirm_window;
 static MenuLayer *s_root_menu;
 static MenuLayer *s_list_menu;
@@ -107,6 +111,9 @@ static MenuLayer *s_room_scene_menu;
 static MenuLayer *s_action_menu;
 static MenuLayer *s_preset_menu;
 static MenuLayer *s_theme_menu;
+static MenuLayer *s_settings_menu;
+static MenuLayer *s_shortcut_menu;
+static MenuLayer *s_shortcut_target_menu;
 static TextLayer *s_confirm_title;
 static TextLayer *s_confirm_hint;
 static DictationSession *s_dictation_session;
@@ -183,6 +190,7 @@ static bool s_theme_icons = true;
 static char s_shortcut_up[MAX_SHORTCUT_LENGTH] = "off";
 static char s_shortcut_select[MAX_SHORTCUT_LENGTH] = "off";
 static char s_shortcut_down[MAX_SHORTCUT_LENGTH] = "off";
+static uint8_t s_selected_shortcut_button;
 static AppTimer *s_marquee_timer;
 static int16_t s_marquee_offset;
 static int16_t s_marquee_max;
@@ -196,6 +204,7 @@ static uint8_t s_custom_theme_font_size;
 static void show_scene_confirmation(const char *name);
 static void show_voice_info(const char *text);
 static void start_voice(void);
+static void root_shortcut_click_config_provider(void *context);
 
 static MenuLayer *active_menu(void) {
   Window *top = window_stack_get_top_window();
@@ -207,6 +216,9 @@ static MenuLayer *active_menu(void) {
   if (top == s_action_window) return s_action_menu;
   if (top == s_preset_window) return s_preset_menu;
   if (top == s_theme_window) return s_theme_menu;
+  if (top == s_settings_window) return s_settings_menu;
+  if (top == s_shortcut_window) return s_shortcut_menu;
+  if (top == s_shortcut_target_window) return s_shortcut_target_menu;
   return NULL;
 }
 
@@ -497,6 +509,7 @@ static void apply_theme_to_menu(MenuLayer *menu) {
 static void apply_theme(void) {
   Window *windows[] = {s_root_window, s_list_window, s_device_window, s_sensor_window,
                        s_room_scene_window, s_action_window, s_preset_window, s_theme_window,
+                       s_settings_window, s_shortcut_window, s_shortcut_target_window,
                        s_confirm_window};
   for (size_t i = 0; i < ARRAY_LENGTH(windows); i++) {
     if (windows[i]) window_set_background_color(windows[i], s_theme_background);
@@ -509,6 +522,9 @@ static void apply_theme(void) {
   apply_theme_to_menu(s_action_menu);
   apply_theme_to_menu(s_preset_menu);
   apply_theme_to_menu(s_theme_menu);
+  apply_theme_to_menu(s_settings_menu);
+  apply_theme_to_menu(s_shortcut_menu);
+  apply_theme_to_menu(s_shortcut_target_menu);
   if (s_confirm_title) {
     text_layer_set_background_color(s_confirm_title, GColorClear);
     text_layer_set_text_color(s_confirm_title, s_theme_text);
@@ -712,7 +728,7 @@ static bool sensors_visible(void) {
 
 static uint16_t root_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                   void *context) {
-  return visible_root_count() + 2;
+  return visible_root_count() + 3;
 }
 
 static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
@@ -725,8 +741,10 @@ static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
     ItemKind kind = root_kind_at(cell_index->row - 1);
     theme_cell_draw(ctx, cell_layer, root_kind_label(kind),
                     s_loading ? "Loading..." : NULL, NULL);
-  } else {
+  } else if (cell_index->row == visible_count + 1) {
     theme_cell_draw(ctx, cell_layer, "Refresh", s_status, NULL);
+  } else {
+    theme_cell_draw(ctx, cell_layer, "Settings", NULL, NULL);
   }
 }
 
@@ -992,6 +1010,136 @@ static void show_theme_picker(void) {
   send_command(COMMAND_LOAD_THEMES, NULL, NULL, NULL);
 }
 
+static const char *shortcut_value(uint8_t button) {
+  if (button == 0) return s_shortcut_up;
+  if (button == 1) return s_shortcut_select;
+  return s_shortcut_down;
+}
+
+static const char *shortcut_button_name(uint8_t button) {
+  if (button == 0) return "Up";
+  if (button == 1) return "Select";
+  return "Down";
+}
+
+static const char *shortcut_target_label(const char *target, char *buffer, size_t size) {
+  if (strcmp(target, "off") == 0) return "Off";
+  if (strcmp(target, "voice") == 0) return "Voice";
+  if (strcmp(target, "favorites") == 0) return "Favorites";
+  if (strcmp(target, "scenes") == 0) return "Scenes";
+  if (strcmp(target, "rooms") == 0) return "Rooms";
+  if (strcmp(target, "themes") == 0) return "Themes";
+  if (strncmp(target, "scene:", 6) == 0 && target[6]) {
+    snprintf(buffer, size, "Scene: %s", target + 6);
+    return buffer;
+  }
+  return "Off";
+}
+
+static uint16_t settings_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
+                                      void *context) {
+  return 2;
+}
+
+static void settings_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
+                              void *context) {
+  theme_cell_draw(ctx, cell_layer, cell_index->row == 0 ? "Themes" : "Long Press Buttons",
+                  cell_index->row == 0 ? "Choose a theme" : "Up, Select, Down", NULL);
+}
+
+static void settings_draw_header(GContext *ctx, const Layer *cell_layer,
+                                 uint16_t section_index, void *context) {
+  theme_header_draw(ctx, cell_layer, "Settings");
+}
+
+static void settings_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
+  if (cell_index->row == 0) show_theme_picker();
+  else window_stack_push(s_shortcut_window, true);
+}
+
+static uint16_t shortcut_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
+                                      void *context) {
+  return 3;
+}
+
+static void shortcut_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
+                              void *context) {
+  static char label[MAX_SHORTCUT_LENGTH];
+  const char *target = shortcut_value(cell_index->row);
+  theme_cell_draw(ctx, cell_layer, shortcut_button_name(cell_index->row),
+                  shortcut_target_label(target, label, sizeof(label)), NULL);
+}
+
+static void shortcut_draw_header(GContext *ctx, const Layer *cell_layer,
+                                 uint16_t section_index, void *context) {
+  theme_header_draw(ctx, cell_layer, "Long Press Buttons");
+}
+
+static void shortcut_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
+  s_selected_shortcut_button = cell_index->row;
+  window_stack_push(s_shortcut_target_window, true);
+}
+
+static const char *shortcut_target_at(uint16_t row, char *buffer, size_t size) {
+  static const char *targets[] = {"off", "voice", "favorites", "scenes", "rooms", "themes"};
+  if (row < ARRAY_LENGTH(targets)) return targets[row];
+  uint16_t scene_index = row - ARRAY_LENGTH(targets);
+  if (scene_index < s_scene_count) {
+    snprintf(buffer, size, "scene:%s", s_scenes[scene_index].name);
+    return buffer;
+  }
+  return "off";
+}
+
+static uint16_t shortcut_target_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
+                                             void *context) {
+  return 6 + s_scene_count;
+}
+
+static void shortcut_target_draw_row(GContext *ctx, const Layer *cell_layer,
+                                     MenuIndex *cell_index, void *context) {
+  static char target[MAX_SHORTCUT_LENGTH];
+  static char label[MAX_SHORTCUT_LENGTH];
+  const char *value = shortcut_target_at(cell_index->row, target, sizeof(target));
+  const char *title = shortcut_target_label(value, label, sizeof(label));
+  theme_cell_draw(ctx, cell_layer, title,
+                  strcmp(value, shortcut_value(s_selected_shortcut_button)) == 0 ? "Current" : NULL,
+                  NULL);
+}
+
+static void shortcut_target_draw_header(GContext *ctx, const Layer *cell_layer,
+                                        uint16_t section_index, void *context) {
+  static char title[24];
+  snprintf(title, sizeof(title), "%s Long Press", shortcut_button_name(s_selected_shortcut_button));
+  theme_header_draw(ctx, cell_layer, title);
+}
+
+static void shortcut_target_select_click(MenuLayer *menu_layer, MenuIndex *cell_index,
+                                         void *context) {
+  char target[MAX_SHORTCUT_LENGTH];
+  const char *value = shortcut_target_at(cell_index->row, target, sizeof(target));
+  char *destination = s_selected_shortcut_button == 0 ? s_shortcut_up :
+                      s_selected_shortcut_button == 1 ? s_shortcut_select : s_shortcut_down;
+  snprintf(destination, MAX_SHORTCUT_LENGTH, "%s", value);
+  window_set_click_config_provider_with_context(
+    s_root_window, root_shortcut_click_config_provider, s_root_menu);
+  if (s_shortcut_menu) menu_layer_reload_data(s_shortcut_menu);
+  if (s_shortcut_target_menu) menu_layer_reload_data(s_shortcut_target_menu);
+
+  DictionaryIterator *out = NULL;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK || !out) {
+    set_status("Phone unavailable");
+    vibes_short_pulse();
+    return;
+  }
+  dict_write_uint8(out, MESSAGE_KEY_COMMAND, COMMAND_SET_SHORTCUT);
+  dict_write_uint16(out, MESSAGE_KEY_ITEM_INDEX, s_selected_shortcut_button);
+  dict_write_cstring(out, MESSAGE_KEY_ITEM_NAME, value);
+  dict_write_end(out);
+  app_message_outbox_send();
+  vibes_short_pulse();
+}
+
 static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   if (s_preset_kind == PRESET_COLOR) {
     ColorChoice *color = &s_colors[cell_index->row];
@@ -1185,8 +1333,10 @@ static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void
     start_voice();
   } else if (cell_index->row <= visible_count) {
     push_list(root_kind_at(cell_index->row - 1));
-  } else {
+  } else if (cell_index->row == visible_count + 1) {
     refresh_lists();
+  } else {
+    window_stack_push(s_settings_window, true);
   }
 }
 
@@ -1273,6 +1423,8 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       window_set_click_config_provider_with_context(
         s_root_window, root_shortcut_click_config_provider, s_root_menu);
     }
+    if (s_shortcut_menu) menu_layer_reload_data(s_shortcut_menu);
+    if (s_shortcut_target_menu) menu_layer_reload_data(s_shortcut_target_menu);
   }
 
   Tuple *theme_background = dict_find(iterator, MESSAGE_KEY_THEME_BACKGROUND);
@@ -1379,6 +1531,8 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       vibes_double_pulse();
       if (s_preset_menu) window_stack_pop(true);
       if (s_action_menu) window_stack_pop(true);
+    } else if (strcmp(status->value->cstring, "Shortcut saved") == 0) {
+      vibes_double_pulse();
     }
   }
 
@@ -1679,6 +1833,72 @@ static void theme_window_unload(Window *window) {
   s_theme_menu = NULL;
 }
 
+static void settings_window_load(Window *window) {
+  Layer *root = window_get_root_layer(window);
+  s_settings_menu = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_settings_menu, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = settings_get_num_rows,
+    .get_cell_height = theme_cell_height,
+    .get_header_height = list_get_header_height,
+    .draw_header = settings_draw_header,
+    .draw_row = settings_draw_row,
+    .select_click = settings_select_click,
+    .selection_changed = marquee_selection_changed,
+  });
+  apply_theme_to_menu(s_settings_menu);
+  menu_layer_set_click_config_onto_window(s_settings_menu, window);
+  layer_add_child(root, menu_layer_get_layer(s_settings_menu));
+}
+
+static void settings_window_unload(Window *window) {
+  menu_layer_destroy(s_settings_menu);
+  s_settings_menu = NULL;
+}
+
+static void shortcut_window_load(Window *window) {
+  Layer *root = window_get_root_layer(window);
+  s_shortcut_menu = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_shortcut_menu, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = shortcut_get_num_rows,
+    .get_cell_height = theme_cell_height,
+    .get_header_height = list_get_header_height,
+    .draw_header = shortcut_draw_header,
+    .draw_row = shortcut_draw_row,
+    .select_click = shortcut_select_click,
+    .selection_changed = marquee_selection_changed,
+  });
+  apply_theme_to_menu(s_shortcut_menu);
+  menu_layer_set_click_config_onto_window(s_shortcut_menu, window);
+  layer_add_child(root, menu_layer_get_layer(s_shortcut_menu));
+}
+
+static void shortcut_window_unload(Window *window) {
+  menu_layer_destroy(s_shortcut_menu);
+  s_shortcut_menu = NULL;
+}
+
+static void shortcut_target_window_load(Window *window) {
+  Layer *root = window_get_root_layer(window);
+  s_shortcut_target_menu = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_shortcut_target_menu, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = shortcut_target_get_num_rows,
+    .get_cell_height = theme_cell_height,
+    .get_header_height = list_get_header_height,
+    .draw_header = shortcut_target_draw_header,
+    .draw_row = shortcut_target_draw_row,
+    .select_click = shortcut_target_select_click,
+    .selection_changed = marquee_selection_changed,
+  });
+  apply_theme_to_menu(s_shortcut_target_menu);
+  menu_layer_set_click_config_onto_window(s_shortcut_target_menu, window);
+  layer_add_child(root, menu_layer_get_layer(s_shortcut_target_menu));
+}
+
+static void shortcut_target_window_unload(Window *window) {
+  menu_layer_destroy(s_shortcut_target_menu);
+  s_shortcut_target_menu = NULL;
+}
+
 static void confirm_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(root);
@@ -1743,6 +1963,9 @@ static void init(void) {
   s_action_window = window_create();
   s_preset_window = window_create();
   s_theme_window = window_create();
+  s_settings_window = window_create();
+  s_shortcut_window = window_create();
+  s_shortcut_target_window = window_create();
   s_confirm_window = window_create();
 
   window_set_window_handlers(s_root_window, (WindowHandlers) {
@@ -1785,6 +2008,21 @@ static void init(void) {
     .appear = menu_window_appear,
     .unload = theme_window_unload,
   });
+  window_set_window_handlers(s_settings_window, (WindowHandlers) {
+    .load = settings_window_load,
+    .appear = menu_window_appear,
+    .unload = settings_window_unload,
+  });
+  window_set_window_handlers(s_shortcut_window, (WindowHandlers) {
+    .load = shortcut_window_load,
+    .appear = menu_window_appear,
+    .unload = shortcut_window_unload,
+  });
+  window_set_window_handlers(s_shortcut_target_window, (WindowHandlers) {
+    .load = shortcut_target_window_load,
+    .appear = menu_window_appear,
+    .unload = shortcut_target_window_unload,
+  });
   window_set_window_handlers(s_confirm_window, (WindowHandlers) {
     .load = confirm_window_load,
     .unload = confirm_window_unload,
@@ -1807,6 +2045,9 @@ static void deinit(void) {
   }
   if (s_dictation_session) dictation_session_destroy(s_dictation_session);
   window_destroy(s_confirm_window);
+  window_destroy(s_shortcut_target_window);
+  window_destroy(s_shortcut_window);
+  window_destroy(s_settings_window);
   window_destroy(s_theme_window);
   window_destroy(s_preset_window);
   window_destroy(s_action_window);

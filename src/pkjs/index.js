@@ -1,5 +1,5 @@
 var DEFAULT_BASE_URL = "";
-var MAX_ITEMS = 64;
+var MAX_ITEMS = 60;
 var MAX_THEME_CHOICES = 25;
 var ROOM_LIGHT_COMMAND_DELAY_MS = 700;
 var ROOM_LIGHT_MAX_ATTEMPTS = 2;
@@ -25,6 +25,7 @@ var COMMAND_PARSE_VOICE = 12;
 var COMMAND_EXECUTE_VOICE = 13;
 var COMMAND_LOAD_THEMES = 14;
 var COMMAND_SET_THEME = 15;
+var COMMAND_SET_SHORTCUT = 16;
 
 var ITEM_KIND_FAVORITE = 1;
 var ITEM_KIND_SCENE = 2;
@@ -348,6 +349,28 @@ function configuredShortcuts() {
     console.log("Invalid saved shortcuts: " + error.message);
   }
   return shortcuts;
+}
+
+function setShortcutAtIndex(index, target) {
+  var keys = ["up", "select", "down"];
+  if (typeof index !== "number" || index < 0 || index >= keys.length) {
+    sendError(new Error("Button unavailable"));
+    return;
+  }
+  var validated = validShortcut(target);
+  if (validated !== target) {
+    sendError(new Error("Shortcut unavailable"));
+    return;
+  }
+  var shortcuts = configuredShortcuts();
+  shortcuts[keys[index]] = validated;
+  localStorage.setItem("pomeShortcuts", JSON.stringify(shortcuts));
+  send({
+    "SHORTCUT_UP": shortcuts.up,
+    "SHORTCUT_SELECT": shortcuts.select,
+    "SHORTCUT_DOWN": shortcuts.down,
+    "STATUS": "Shortcut saved"
+  });
 }
 
 function cacheShortcutScenes(items) {
@@ -2010,6 +2033,9 @@ Pebble.addEventListener("appmessage", function(event) {
       break;
     case COMMAND_SET_THEME:
       applyThemeAtIndex(payload.ITEM_INDEX);
+      break;
+    case COMMAND_SET_SHORTCUT:
+      setShortcutAtIndex(payload.ITEM_INDEX, payload.ITEM_NAME);
       break;
     default:
       sendError(new Error("Unknown command"));
