@@ -17,6 +17,8 @@ assert.ok(watchSource.indexOf('strncmp(target, "scene:", 6)') !== -1);
 assert.ok(watchSource.indexOf('strcmp(target, "themes")') !== -1);
 assert.ok(watchSource.indexOf("theme_select_click") !== -1);
 assert.ok(watchSource.indexOf('theme->active ? "Current"') !== -1);
+assert.ok(watchSource.indexOf("title_height") !== -1);
+assert.ok(watchSource.indexOf("GRect(text_x, title_y, title_width, title_height)") !== -1);
 
 var stored = {};
 var handlers = {};

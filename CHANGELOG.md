@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.5.1
+
+- Keep large menu titles on one line when unselected, then marquee-scroll them when selected.
+
 ## 2.5.0
 
 - Add an on-watch picker for built-in and saved themes, with the current theme marked.

@@ -430,35 +430,38 @@ static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *
     text_x = icon_bounds.size.w + 10;
   }
 
+  int16_t approximate_height = s_theme_size <= 14 ? 20 : s_theme_size <= 18 ? 24 :
+                               s_theme_size <= 24 ? 30 : 36;
+  int16_t subtitle_y = s_theme_size <= 14 ? 14 : s_theme_size <= 18 ? 18 :
+                         s_theme_size <= 24 ? 24 : 30;
   int16_t title_y;
   if (subtitle && subtitle[0]) {
     title_y = s_theme_size <= 18 ? -3 : -5;
   } else {
-    int16_t approximate_height = s_theme_size <= 14 ? 20 : s_theme_size <= 18 ? 24 :
-                                 s_theme_size <= 24 ? 30 : 36;
     title_y = (bounds.size.h - approximate_height) / 2 - 2;
   }
+  int16_t title_height = subtitle && subtitle[0] ? subtitle_y - title_y : approximate_height;
   GFont title_font = theme_title_font();
   int16_t title_width = bounds.size.w - text_x - 3;
   if (highlighted) {
     GSize content_size = graphics_text_layout_get_content_size(title, title_font,
-      GRect(0, 0, 1000, bounds.size.h), GTextOverflowModeFill, GTextAlignmentLeft);
+      GRect(0, 0, 1000, title_height), GTextOverflowModeFill, GTextAlignmentLeft);
     s_marquee_max = content_size.w > title_width ? content_size.w - title_width + 6 : 0;
     if (s_marquee_max > 0) {
       if (!s_marquee_timer) marquee_schedule(MARQUEE_PAUSE_MS);
       graphics_draw_text(ctx, title, title_font,
-        GRect(text_x - s_marquee_offset, title_y, content_size.w + 4, bounds.size.h),
+        GRect(text_x - s_marquee_offset, title_y, content_size.w + 4, title_height),
         GTextOverflowModeFill, GTextAlignmentLeft, NULL);
     } else {
       s_marquee_offset = 0;
       s_marquee_at_end = false;
       graphics_draw_text(ctx, title, title_font,
-        GRect(text_x, title_y, title_width, bounds.size.h),
+        GRect(text_x, title_y, title_width, title_height),
         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
     }
   } else {
     graphics_draw_text(ctx, title, title_font,
-      GRect(text_x, title_y, title_width, bounds.size.h),
+      GRect(text_x, title_y, title_width, title_height),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   }
   if (has_icon) {
@@ -468,8 +471,6 @@ static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *
     graphics_draw_bitmap_in_rect(ctx, icon, icon_rect);
   }
   if (subtitle && subtitle[0]) {
-    int16_t subtitle_y = s_theme_size <= 14 ? 14 : s_theme_size <= 18 ? 18 :
-                           s_theme_size <= 24 ? 24 : 30;
     graphics_draw_text(ctx, subtitle, fonts_get_system_font(FONT_KEY_GOTHIC_14),
       GRect(text_x, subtitle_y, bounds.size.w - text_x - 3, 18),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
