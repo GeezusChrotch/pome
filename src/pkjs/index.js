@@ -1592,6 +1592,15 @@ function configurationPage() {
     '.preview-icon{width:25px;margin-right:4px;text-align:center;font-size:19px;flex:0 0 auto}' +
     '.preview-text{min-width:0}.preview-name{line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     '.preview-sub{font:14px/16px Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.palette-trigger{height:58px;margin:8px 0 18px;padding:7px 12px;background:#fff;color:#111;' +
+    'border:1px solid #bbb;display:flex;align-items:center;text-align:left}.palette-swatch{width:38px;height:38px;' +
+    'border:1px solid rgba(0,0,0,.28);border-radius:8px;margin-right:12px}.palette-value{font:15px ui-monospace,monospace}' +
+    '.palette-overlay{display:none;position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.48);' +
+    'align-items:center;justify-content:center}.palette-overlay.open{display:flex}.palette-card{width:92%;max-width:390px;' +
+    'background:#f2f2f7;border-radius:16px;padding:16px}.palette-card h2{margin:0 0 12px}.palette-grid{display:grid;' +
+    'grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}.palette-option{height:38px;padding:0;border-radius:7px;' +
+    'border:1px solid rgba(0,0,0,.28);position:relative}.palette-option.selected{outline:3px solid #0878d1;' +
+    'outline-offset:1px}.palette-done{margin-top:16px;background:#e5e5ea;color:#111}' +
     '.theme-card{background:#fff;border:1px solid #bbb;border-radius:12px;' +
     'padding:14px;margin:10px 0 20px}.help{background:#fff7df;border:1px solid #e3bd5c;border-radius:12px;' +
     'padding:13px;color:#604500;font-size:14px;line-height:1.35}.save-main{margin-top:28px}.apply{background:#0878d1}</style>' +
@@ -1622,15 +1631,23 @@ function configurationPage() {
     '<p>Selecting a theme previews it. Apply sends the selected theme to the watch immediately.</p>' +
     '<div class="button-row"><button type="button" class="apply" onclick="applyCurrent()">Apply Current Preview</button>' +
     '<button type="button" class="danger" onclick="deleteTheme()">Delete</button></div></div>' +
-    '<label>Font color</label><input type="color" id="themeText">' +
-    '<label>Background color</label><input type="color" id="themeBackground">' +
-    '<label>Selection color</label><input type="color" id="themeSelection">' +
+    '<label>Font color</label><button type="button" class="palette-trigger" onclick="openPalette(\'themeText\')">' +
+    '<span class="palette-swatch" id="themeTextSwatch"></span><span class="palette-value" id="themeTextValue"></span>' +
+    '</button><input type="hidden" id="themeText">' +
+    '<label>Background color</label><button type="button" class="palette-trigger" onclick="openPalette(\'themeBackground\')">' +
+    '<span class="palette-swatch" id="themeBackgroundSwatch"></span><span class="palette-value" id="themeBackgroundValue"></span>' +
+    '</button><input type="hidden" id="themeBackground">' +
+    '<label>Selection color</label><button type="button" class="palette-trigger" onclick="openPalette(\'themeSelection\')">' +
+    '<span class="palette-swatch" id="themeSelectionSwatch"></span><span class="palette-value" id="themeSelectionValue"></span>' +
+    '</button><input type="hidden" id="themeSelection">' +
     fontNotice + '<label>Font</label><select id="themeFont">' + fontOptions + '</select>' +
     '<label>Font size</label><select id="themeSize">' + sizeOptions + '</select>' +
     '<div class="toggle"><label><input type="checkbox" id="themeIcons">Show device icons</label></div>' +
     '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
     '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
-    '</section></div>' +
+    '</section></div><div id="paletteOverlay" class="palette-overlay" onclick="overlayClick(event)">' +
+    '<div class="palette-card"><h2>Choose a Pebble color</h2><div id="paletteGrid" class="palette-grid"></div>' +
+    '<button type="button" class="palette-done" onclick="closePalette()">Done</button></div></div>' +
     '<script>var names=' + JSON.stringify(namedColors) + ';var currentTheme=' + themeJson +
     ';var savedThemes=' + themesJson +
     ';function byId(id){return document.getElementById(id);}function tab(name){' +
@@ -1650,6 +1667,24 @@ function configurationPage() {
     'function watchHex(hex){var levels=[];for(var i=1;i<7;i+=2)' +
     'levels.push(Math.round(parseInt(hex.slice(i,i+2),16)*3/255));' +
     'return watchColors[levels[0]*16+levels[1]*4+levels[2]];}' +
+    'var rawPalette=[];for(var pi=0;pi<64;pi++){var pr=Math.floor(pi/16),pg=Math.floor(pi/4)%4,pb=pi%4;' +
+    'rawPalette.push("#"+[pr,pg,pb].map(function(level){var part=(level*85).toString(16);' +
+    'return part.length<2?"0"+part:part;}).join(""));}' +
+    'function canonicalHex(hex){var levels=[];for(var i=1;i<7;i+=2)' +
+    'levels.push(Math.round(parseInt(hex.slice(i,i+2),16)*3/255));' +
+    'return rawPalette[levels[0]*16+levels[1]*4+levels[2]];}' +
+    'var paletteTarget=null;function setThemeColor(id,hex){var value=canonicalHex(hex);byId(id).value=value;' +
+    'byId(id+"Swatch").style.background=watchHex(value);byId(id+"Value").textContent=value.toUpperCase();}' +
+    'function renderPalette(){var grid=byId("paletteGrid");grid.innerHTML="";var selected=byId(paletteTarget).value;' +
+    'for(var i=0;i<64;i++){var option=document.createElement("button");option.type="button";' +
+    'option.className="palette-option"+(rawPalette[i]===selected?" selected":"");option.style.background=watchColors[i];' +
+    'option.title=rawPalette[i].toUpperCase();option.setAttribute("aria-label","Pebble color "+rawPalette[i]);' +
+    'option.setAttribute("data-index",String(i));option.onclick=function(){choosePalette(parseInt(this.getAttribute("data-index"),10));};' +
+    'grid.appendChild(option);}}' +
+    'function openPalette(id){paletteTarget=id;renderPalette();byId("paletteOverlay").className="palette-overlay open";}' +
+    'function choosePalette(index){setThemeColor(paletteTarget,rawPalette[index]);preview();closePalette();}' +
+    'function closePalette(){byId("paletteOverlay").className="palette-overlay";paletteTarget=null;}' +
+    'function overlayClick(event){if(event.target===byId("paletteOverlay"))closePalette();}' +
     'function contrast(hex){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),' +
     'b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>=150?\'#000000\':\'#ffffff\';}' +
     'var fontSizes=' + JSON.stringify(pageFontSizes) + ';' +
@@ -1663,8 +1698,8 @@ function configurationPage() {
     'selection:byId(\'themeSelection\').value,font:byId(\'themeFont\').value,' +
     'size:parseInt(byId(\'themeSize\').value,10),icons:byId(\'themeIcons\').checked,builtIn:false};}' +
     'function applyTheme(theme){currentTheme=theme;byId(\'themeName\').value=theme.name||\'\';' +
-    'byId(\'themeText\').value=theme.text;byId(\'themeBackground\').value=theme.background;' +
-    'byId(\'themeSelection\').value=theme.selection;byId(\'themeFont\').value=theme.font;' +
+    'setThemeColor(\'themeText\',theme.text);setThemeColor(\'themeBackground\',theme.background);' +
+    'setThemeColor(\'themeSelection\',theme.selection);byId(\'themeFont\').value=theme.font;' +
     'updateSizes(theme.size);byId(\'themeIcons\').checked=theme.icons!==false;preview();}' +
     'function preview(){var theme=readTheme(),shell=byId(\'preview\'),rows=shell.querySelectorAll(\'.preview-row\');' +
     'var background=watchHex(theme.background),text=watchHex(theme.text),selection=watchHex(theme.selection);' +
@@ -1720,7 +1755,7 @@ function configurationPage() {
     'var response=encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,' +
     'theme:readTheme(),themes:savedThemes}));var match=location.search.match(/[?&]return_to=([^&]*)/);' +
     'location.href=(match?decodeURIComponent(match[1]):\'pebblejs://close#\')+response;}' +
-    'var controls=[\'themeText\',\'themeBackground\',\'themeSelection\',\'themeSize\',\'themeIcons\'];' +
+    'var controls=[\'themeSize\',\'themeIcons\'];' +
     'for(var j=0;j<controls.length;j++){' +
     'byId(controls[j]).addEventListener(\'change\',preview);byId(controls[j]).addEventListener(\'input\',preview);}' +
     'byId(\'themeFont\').addEventListener(\'change\',function(){updateSizes(null);preview();});' +

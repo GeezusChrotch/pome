@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.3.2
+
+- Replace unrestricted theme color inputs with an 8x8 picker containing only Pebble's 64 display colors.
+- Show each palette choice using the watch-corrected appearance while storing its exact Pebble color value.
+
 ## 2.3.1
 
 - Make the phone preview use the Time 2 watch's exact 200×228-pixel content geometry.
