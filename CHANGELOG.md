@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.2
+
+- Ship five built-in themes: Classic, Pome Amber, Midnight, Forest, and Berry.
+- Put every real Pebble font-size option directly in the settings page so the selector
+  cannot appear empty in the iPhone webview.
+- Keep incompatible sizes visible but disabled, and keep built-in themes separate from
+  the 20 user-created theme slots.
+
 ## 2.2.1
 
 - Make **Save Theme & Apply to Watch** persist the named theme and send it immediately,

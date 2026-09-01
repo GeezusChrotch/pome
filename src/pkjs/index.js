@@ -50,6 +50,59 @@ var DEFAULT_THEME = {
   icons: true
 };
 
+var BUILT_IN_THEMES = [
+  {
+    name: "Classic",
+    text: "#000000",
+    background: "#ffffff",
+    selection: "#000000",
+    font: "gothic",
+    size: 24,
+    icons: true,
+    builtIn: true
+  },
+  {
+    name: "Pome Amber",
+    text: "#550000",
+    background: "#ffffaa",
+    selection: "#ffaa00",
+    font: "gothic-bold",
+    size: 24,
+    icons: true,
+    builtIn: true
+  },
+  {
+    name: "Midnight",
+    text: "#ffffff",
+    background: "#000055",
+    selection: "#00aaff",
+    font: "roboto-condensed",
+    size: 21,
+    icons: true,
+    builtIn: true
+  },
+  {
+    name: "Forest",
+    text: "#ffffff",
+    background: "#005500",
+    selection: "#aaff00",
+    font: "droid-serif",
+    size: 28,
+    icons: true,
+    builtIn: true
+  },
+  {
+    name: "Berry",
+    text: "#ffffff",
+    background: "#550055",
+    selection: "#ff55aa",
+    font: "bitham-black",
+    size: 30,
+    icons: false,
+    builtIn: true
+  }
+];
+
 var THEME_FONTS = {
   gothic: 0,
   "gothic-bold": 1,
@@ -244,6 +297,13 @@ function validHexColor(value, fallback) {
     value.toLowerCase() : fallback;
 }
 
+function arrayContains(values, value) {
+  for (var index = 0; index < values.length; index += 1) {
+    if (values[index] === value) return true;
+  }
+  return false;
+}
+
 function normalizeTheme(theme) {
   var value = theme && typeof theme === "object" ? theme : {};
   var font = value.font === "serif" ? "droid-serif" : value.font;
@@ -252,7 +312,7 @@ function normalizeTheme(theme) {
   var size = Object.prototype.hasOwnProperty.call(legacySizes, value.size) ?
     legacySizes[value.size] : parseInt(value.size, 10);
   var sizes = THEME_FONT_SIZES[font];
-  if (sizes.indexOf(size) === -1) size = sizes.indexOf(DEFAULT_THEME.size) >= 0 ?
+  if (!arrayContains(sizes, size)) size = arrayContains(sizes, DEFAULT_THEME.size) ?
     DEFAULT_THEME.size : sizes[0];
   return {
     name: typeof value.name === "string" && value.name.trim() ?
@@ -262,7 +322,8 @@ function normalizeTheme(theme) {
     selection: validHexColor(value.selection, DEFAULT_THEME.selection),
     font: font,
     size: size,
-    icons: value.icons !== false
+    icons: value.icons !== false,
+    builtIn: value.builtIn === true
   };
 }
 
@@ -276,13 +337,25 @@ function configuredTheme() {
 }
 
 function configuredThemes() {
+  var themes = BUILT_IN_THEMES.map(normalizeTheme);
+  var names = {};
+  themes.forEach(function(theme) { names[theme.name.toLowerCase()] = true; });
   try {
     var saved = JSON.parse(localStorage.getItem("pomeThemes") || "[]");
-    if (Array.isArray(saved)) return saved.slice(0, 20).map(normalizeTheme);
+    if (Array.isArray(saved)) {
+      saved.slice(0, 20).map(normalizeTheme).forEach(function(theme) {
+        var name = theme.name.toLowerCase();
+        if (!names[name]) {
+          theme.builtIn = false;
+          themes.push(theme);
+          names[name] = true;
+        }
+      });
+    }
   } catch (error) {
     console.log("Invalid saved themes: " + error.message);
   }
-  return [];
+  return themes;
 }
 
 function pebbleColor(hex) {
@@ -1471,7 +1544,9 @@ function configurationPage() {
     '<label>Font</label><select id="themeFont"><option value="gothic">Gothic</option>' +
     '<option value="gothic-bold">Gothic Bold</option><option value="roboto-condensed">Roboto Condensed</option>' +
     '<option value="droid-serif">Droid Serif Bold</option><option value="bitham-black">Bitham Black</option></select>' +
-    '<label>Font size</label><select id="themeSize"></select>' +
+    '<label>Font size</label><select id="themeSize"><option value="14">14 pt</option>' +
+    '<option value="18">18 pt</option><option value="21">21 pt</option><option value="24">24 pt</option>' +
+    '<option value="28">28 pt</option><option value="30">30 pt</option></select>' +
     '<div class="toggle"><label><input type="checkbox" id="themeIcons">Show device icons</label></div>' +
     '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
     '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
@@ -1490,14 +1565,15 @@ function configurationPage() {
     'b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>=150?\'#000000\':\'#ffffff\';}' +
     'var fontSizes={gothic:[14,18,24,28],\'gothic-bold\':[14,18,24,28],' +
     '\'roboto-condensed\':[21],\'droid-serif\':[28],\'bitham-black\':[30]};' +
+    'function hasValue(values,value){for(var i=0;i<values.length;i++)if(values[i]===value)return true;return false;}' +
     'function updateSizes(requested){var font=byId(\'themeFont\').value,sizes=fontSizes[font]||[24];' +
-    'var menu=byId(\'themeSize\'),wanted=parseInt(requested,10);menu.innerHTML=\'\';for(var i=0;i<sizes.length;i++){' +
-    'var option=document.createElement(\'option\');option.value=String(sizes[i]);option.textContent=sizes[i]+\' pt\';' +
-    'menu.appendChild(option);}menu.value=sizes.indexOf(wanted)>=0?String(wanted):String(sizes[0]);}' +
+    'var menu=byId(\'themeSize\'),wanted=parseInt(requested,10),selected=sizes[0];for(var i=0;i<menu.options.length;i++){' +
+    'var value=parseInt(menu.options[i].value,10),allowed=hasValue(sizes,value);menu.options[i].disabled=!allowed;' +
+    'if(allowed&&value===wanted)selected=value;}menu.value=String(selected);}' +
     'function readTheme(){return{name:byId(\'themeName\').value.trim()||\'Custom\',' +
     'text:byId(\'themeText\').value,background:byId(\'themeBackground\').value,' +
     'selection:byId(\'themeSelection\').value,font:byId(\'themeFont\').value,' +
-    'size:parseInt(byId(\'themeSize\').value,10),icons:byId(\'themeIcons\').checked};}' +
+    'size:parseInt(byId(\'themeSize\').value,10),icons:byId(\'themeIcons\').checked,builtIn:false};}' +
     'function applyTheme(theme){currentTheme=theme;byId(\'themeName\').value=theme.name||\'\';' +
     'byId(\'themeText\').value=theme.text;byId(\'themeBackground\').value=theme.background;' +
     'byId(\'themeSelection\').value=theme.selection;byId(\'themeFont\').value=theme.font;' +
@@ -1514,15 +1590,19 @@ function configurationPage() {
     'icons[i].style.display=theme.icons?\'inline-block\':\'none\';}' +
     'function refreshThemes(selected){var menu=byId(\'savedTheme\');menu.innerHTML=\'<option value="">Choose a saved theme</option>\';' +
     'for(var i=0;i<savedThemes.length;i++){var option=document.createElement(\'option\');option.value=String(i);' +
-    'option.textContent=savedThemes[i].name;menu.appendChild(option);if(savedThemes[i].name===selected)menu.value=String(i);}}' +
+    'option.textContent=savedThemes[i].name+(savedThemes[i].builtIn?\' • Built-in\':\'\');menu.appendChild(option);' +
+    'if(savedThemes[i].name===selected)menu.value=String(i);}}' +
     'function loadTheme(){var index=parseInt(byId(\'savedTheme\').value,10);if(!isNaN(index)&&savedThemes[index])' +
     'applyTheme(savedThemes[index]);}' +
     'function applySaved(){loadTheme();if(byId(\'savedTheme\').value!==\'\')save();}' +
     'function saveTheme(){var theme=readTheme();if(!theme.name){alert(\'Name your theme first.\');return;}' +
-    'var found=-1;for(var i=0;i<savedThemes.length;i++)if(savedThemes[i].name.toLowerCase()===theme.name.toLowerCase())found=i;' +
-    'if(found>=0)savedThemes[found]=theme;else{if(savedThemes.length>=20){alert(\'Pome can save up to 20 themes.\');return;}' +
+    'var found=-1,customCount=0;for(var i=0;i<savedThemes.length;i++){' +
+    'if(!savedThemes[i].builtIn)customCount++;if(savedThemes[i].name.toLowerCase()===theme.name.toLowerCase())found=i;}' +
+    'if(found>=0&&savedThemes[found].builtIn){alert(\'Choose a new name for your custom theme.\');return;}' +
+    'if(found>=0)savedThemes[found]=theme;else{if(customCount>=20){alert(\'Pome can save up to 20 custom themes.\');return;}' +
     'savedThemes.push(theme);}currentTheme=theme;refreshThemes(theme.name);save();}' +
     'function deleteTheme(){var index=parseInt(byId(\'savedTheme\').value,10);if(isNaN(index)||!savedThemes[index])return;' +
+    'if(savedThemes[index].builtIn){alert(\'Built-in themes can’t be deleted.\');return;}' +
     'if(!confirm(\'Delete \"\'+savedThemes[index].name+\'\"?\'))return;savedThemes.splice(index,1);' +
     'refreshThemes(\'\');save();}' +
     ';function color(hex,index){var r=parseInt(hex.slice(1,3),16)/255;' +
@@ -1638,7 +1718,10 @@ Pebble.addEventListener("webviewclosed", function(event) {
       localStorage.setItem("pomeTheme", JSON.stringify(normalizeTheme(config.theme)));
     }
     if (Array.isArray(config.themes)) {
-      localStorage.setItem("pomeThemes", JSON.stringify(config.themes.slice(0, 20).map(normalizeTheme)));
+      var customThemes = config.themes.filter(function(theme) {
+        return theme && theme.builtIn !== true;
+      }).slice(0, 20).map(normalizeTheme);
+      localStorage.setItem("pomeThemes", JSON.stringify(customThemes));
     }
     VOICE_CATALOG = null;
     sendDisplaySettings(function() {

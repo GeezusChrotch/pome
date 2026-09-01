@@ -45,6 +45,12 @@ assert.strictEqual(defaults.font, "gothic");
 assert.strictEqual(defaults.size, 24);
 assert.strictEqual(defaults.icons, true);
 
+var builtIns = context.configuredThemes();
+assert.strictEqual(builtIns.length, 5);
+assert.deepStrictEqual(Array.prototype.map.call(builtIns, function(theme) { return theme.name; }),
+  ["Classic", "Pome Amber", "Midnight", "Forest", "Berry"]);
+assert.ok(Array.prototype.every.call(builtIns, function(theme) { return theme.builtIn; }));
+
 var configurationHtml = decodeURIComponent(context.configurationPage().split(",")[1]);
 var embeddedScript = configurationHtml.match(/<script>([\s\S]*)<\/script>/);
 assert.ok(embeddedScript);
@@ -63,6 +69,11 @@ assert.ok(configurationHtml.indexOf("Roboto Condensed") !== -1);
 assert.ok(configurationHtml.indexOf("Droid Serif Bold") !== -1);
 assert.ok(configurationHtml.indexOf("Bitham Black") !== -1);
 assert.ok(configurationHtml.indexOf("gothic:[14,18,24,28]") !== -1);
+assert.ok(configurationHtml.indexOf('<option value="14">14 pt</option>') !== -1);
+assert.ok(configurationHtml.indexOf('<option value="30">30 pt</option>') !== -1);
+assert.ok(configurationHtml.indexOf("Pome Amber • Built-in") === -1);
+assert.ok(configurationHtml.indexOf("builtIn?' • Built-in'") !== -1);
+assert.ok(configurationHtml.indexOf("Built-in themes can’t be deleted") !== -1);
 assert.ok(configurationHtml.indexOf("function pebbleHex") !== -1);
 assert.ok(configurationHtml.indexOf("return_to=([^&]*)") !== -1);
 assert.ok(configurationHtml.indexOf("if(value&&!/^https?") !== -1);
@@ -86,9 +97,11 @@ handlers.webviewclosed({
   }))
 });
 
-assert.deepStrictEqual(JSON.parse(stored.pomeTheme), customTheme);
-assert.deepStrictEqual(JSON.parse(stored.pomeThemes), [customTheme]);
+var normalizedCustomTheme = Object.assign({}, customTheme, {builtIn: false});
+assert.deepStrictEqual(JSON.parse(stored.pomeTheme), normalizedCustomTheme);
+assert.deepStrictEqual(JSON.parse(stored.pomeThemes), [normalizedCustomTheme]);
 assert.strictEqual(context.configuredTheme().icons, false);
+assert.strictEqual(context.configuredThemes().length, 6);
 
 sent = [];
 context.sendDisplaySettings();
