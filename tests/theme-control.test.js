@@ -58,6 +58,7 @@ assert.ok(configurationHtml.indexOf("Background color") !== -1);
 assert.ok(configurationHtml.indexOf("Selection color") !== -1);
 assert.ok(configurationHtml.indexOf("Show device icons") !== -1);
 assert.ok(configurationHtml.indexOf("Save this theme") !== -1);
+assert.ok(configurationHtml.indexOf("function pebbleHex") !== -1);
 
 var customTheme = {
   name: "Amber Night",

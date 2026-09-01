@@ -1459,6 +1459,9 @@ function configurationPage() {
     'byId(\'themesTab\').className=name===\'themes\'?\'active\':\'\';' +
     'byId(\'setupPanel\').className=name===\'setup\'?\'panel active\':\'panel\';' +
     'byId(\'themesPanel\').className=name===\'themes\'?\'panel active\':\'panel\';}' +
+    'function pebbleHex(hex){var result=\'#\';for(var i=1;i<7;i+=2){var value=parseInt(hex.slice(i,i+2),16);' +
+    'var channel=Math.round(value*3/255)*85;var part=channel.toString(16);result+=(part.length<2?\'0\':\'\')+part;}' +
+    'return result;}' +
     'function contrast(hex){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),' +
     'b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>=150?\'#000000\':\'#ffffff\';}' +
     'function readTheme(){return{name:byId(\'themeName\').value.trim()||\'Custom\',' +
@@ -1470,11 +1473,12 @@ function configurationPage() {
     'byId(\'themeSelection\').value=theme.selection;byId(\'themeFont\').value=theme.font;' +
     'byId(\'themeSize\').value=theme.size;byId(\'themeIcons\').checked=theme.icons!==false;preview();}' +
     'function preview(){var theme=readTheme(),shell=byId(\'preview\'),rows=shell.querySelectorAll(\'.preview-row\');' +
-    'shell.style.background=theme.background;shell.style.color=theme.text;' +
+    'var background=pebbleHex(theme.background),text=pebbleHex(theme.text),selection=pebbleHex(theme.selection);' +
+    'shell.style.background=background;shell.style.color=text;' +
     'shell.style.fontFamily=theme.font===\'serif\'?\'Georgia,serif\':\'Arial,sans-serif\';' +
     'shell.style.fontWeight=theme.font===\'gothic-bold\'?\'700\':\'400\';' +
     'shell.style.fontSize=theme.size===\'small\'?\'16px\':theme.size===\'large\'?\'22px\':\'19px\';' +
-    'rows[0].style.background=theme.selection;rows[0].style.color=contrast(theme.selection);' +
+    'rows[0].style.background=selection;rows[0].style.color=contrast(selection);' +
     'var icons=shell.querySelectorAll(\'.preview-icon\');for(var i=0;i<icons.length;i++)' +
     'icons[i].style.display=theme.icons?\'inline-block\':\'none\';}' +
     'function refreshThemes(selected){var menu=byId(\'savedTheme\');menu.innerHTML=\'<option value="">Choose a saved theme</option>\';' +
