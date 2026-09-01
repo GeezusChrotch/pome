@@ -14,5 +14,10 @@ Downloaded from `google/fonts` commit
 - Montserrat: `ofl/montserrat/Montserrat[wght].ttf`
 - Poppins: `ofl/poppins/Poppins-Regular.ttf`
 
+The variable sources for Inter, Roboto, Open Sans, and Montserrat were converted to
+static Regular-weight 400 instances with FontTools before being committed, ensuring
+Pebble's rasterizer does not select the thinnest variation-axis value. Poppins was
+already supplied as a static Regular file.
+
 All five are distributed under the SIL Open Font License. The corresponding license
 texts are preserved in `resources/fonts/licenses/`.
