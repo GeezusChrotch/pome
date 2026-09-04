@@ -9,6 +9,8 @@
 #define MAX_VOICE_LENGTH 128
 #define MAX_SHORTCUT_LENGTH 72
 #define MAX_THEMES 25
+#define PIN_ORDER_KEY 1999
+#define PIN_NAME_KEY 2000
 #define COLOR_COUNT 6
 #define MARQUEE_STEP_PIXELS 2
 #define MARQUEE_FRAME_MS 80
@@ -50,6 +52,12 @@ typedef struct {
   bool active;
   bool reachable;
 } HomeItem;
+
+// Scene/favorite/room lists never use accessory type or reachability.
+typedef struct {
+  char name[MAX_NAME_LENGTH];
+  bool active;
+} SceneItem;
 
 typedef struct {
   char name[16];
@@ -100,6 +108,7 @@ static Window *s_action_window;
 static Window *s_preset_window;
 static Window *s_theme_window;
 static Window *s_settings_window;
+static Window *s_pin_window;
 static Window *s_shortcut_window;
 static Window *s_shortcut_target_window;
 static Window *s_confirm_window;
@@ -112,37 +121,22 @@ static MenuLayer *s_action_menu;
 static MenuLayer *s_preset_menu;
 static MenuLayer *s_theme_menu;
 static MenuLayer *s_settings_menu;
+static MenuLayer *s_pin_menu;
 static MenuLayer *s_shortcut_menu;
 static MenuLayer *s_shortcut_target_menu;
 static TextLayer *s_confirm_title;
 static TextLayer *s_confirm_hint;
 static DictationSession *s_dictation_session;
-static GBitmap *s_icon_light;
-static GBitmap *s_icon_fan;
-static GBitmap *s_icon_switch;
-static GBitmap *s_icon_outlet;
-static GBitmap *s_icon_blinds;
-static GBitmap *s_icon_lock;
-static GBitmap *s_icon_climate;
-static GBitmap *s_icon_garage;
-static GBitmap *s_icon_generic;
-static GBitmap *s_icon_light_selected;
-static GBitmap *s_icon_fan_selected;
-static GBitmap *s_icon_switch_selected;
-static GBitmap *s_icon_outlet_selected;
-static GBitmap *s_icon_blinds_selected;
-static GBitmap *s_icon_lock_selected;
-static GBitmap *s_icon_climate_selected;
-static GBitmap *s_icon_garage_selected;
-static GBitmap *s_icon_generic_selected;
+static GBitmap *s_device_icon;
+static uint32_t s_device_icon_resource;
 
-static HomeItem s_favorites[MAX_ITEMS];
-static HomeItem s_scenes[MAX_ITEMS];
-static HomeItem s_rooms[MAX_ITEMS];
+static SceneItem s_favorites[MAX_ITEMS];
+static SceneItem s_scenes[MAX_ITEMS];
+static SceneItem s_rooms[MAX_ITEMS];
 static HomeItem s_devices[MAX_ITEMS];
 static char s_device_display_names[MAX_ITEMS][MAX_NAME_LENGTH];
 static char s_device_ids[MAX_ITEMS][MAX_ID_LENGTH];
-static HomeItem s_room_scenes[MAX_ITEMS];
+static SceneItem s_room_scenes[MAX_ITEMS];
 static SensorItem s_sensors[MAX_ITEMS];
 static ThemeChoice s_themes[MAX_THEMES];
 static ColorChoice s_colors[COLOR_COUNT] = {
@@ -155,6 +149,8 @@ static ColorChoice s_colors[COLOR_COUNT] = {
 };
 static uint16_t s_favorite_count;
 static uint16_t s_scene_count;
+static uint8_t s_pin_slots[MAX_ITEMS];
+static uint16_t s_pin_count;
 static uint16_t s_room_count;
 static uint16_t s_device_count;
 static uint16_t s_sensor_count;
@@ -217,6 +213,7 @@ static MenuLayer *active_menu(void) {
   if (top == s_preset_window) return s_preset_menu;
   if (top == s_theme_window) return s_theme_menu;
   if (top == s_settings_window) return s_settings_menu;
+  if (top == s_pin_window) return s_pin_menu;
   if (top == s_shortcut_window) return s_shortcut_menu;
   if (top == s_shortcut_target_window) return s_shortcut_target_menu;
   return NULL;
@@ -322,31 +319,32 @@ static bool type_supports_light_controls(const char *type) {
 }
 
 static GBitmap *icon_for_device_type(const char *type, bool highlighted) {
+  if (!s_theme_icons) return NULL;
   highlighted = highlighted && gcolor_equal(s_theme_selection_text, GColorWhite);
-  if (strcmp(type, "light") == 0 || strcmp(type, "light-group") == 0) {
-    return highlighted ? s_icon_light_selected : s_icon_light;
+  uint32_t normal = RESOURCE_ID_DEVICE_GENERIC;
+  uint32_t selected = RESOURCE_ID_DEVICE_GENERIC_SELECTED;
+#define ICON_PAIR(name) do { normal = RESOURCE_ID_DEVICE_##name; selected = RESOURCE_ID_DEVICE_##name##_SELECTED; } while (0)
+  if (strcmp(type, "light") == 0 || strcmp(type, "light-group") == 0) { ICON_PAIR(LIGHT); }
+  else if (strcmp(type, "fan") == 0) { ICON_PAIR(FAN); }
+  else if (strcmp(type, "switch") == 0) { ICON_PAIR(SWITCH); }
+  else if (strcmp(type, "outlet") == 0) { ICON_PAIR(OUTLET); }
+  else if (strcmp(type, "blinds") == 0) { ICON_PAIR(BLINDS); }
+  else if (strcmp(type, "lock") == 0) { ICON_PAIR(LOCK); }
+  else if (strcmp(type, "garage-door") == 0) { ICON_PAIR(GARAGE); }
+  else if (strcmp(type, "thermostat") == 0 || strcmp(type, "heater-cooler") == 0 ||
+           strcmp(type, "humidifier") == 0 || strcmp(type, "dehumidifier") == 0 ||
+           strcmp(type, "humidifier-dehumidifier") == 0 || strcmp(type, "air-purifier") == 0) {
+    ICON_PAIR(CLIMATE);
   }
-  if (strcmp(type, "fan") == 0) return highlighted ? s_icon_fan_selected : s_icon_fan;
-  if (strcmp(type, "switch") == 0) {
-    return highlighted ? s_icon_switch_selected : s_icon_switch;
+#undef ICON_PAIR
+  // Rows draw synchronously; only the current row's icon needs to occupy RAM.
+  uint32_t resource = highlighted ? selected : normal;
+  if (!s_device_icon || resource != s_device_icon_resource) {
+    gbitmap_destroy(s_device_icon);
+    s_device_icon = gbitmap_create_with_resource(resource);
+    s_device_icon_resource = resource;
   }
-  if (strcmp(type, "outlet") == 0) {
-    return highlighted ? s_icon_outlet_selected : s_icon_outlet;
-  }
-  if (strcmp(type, "blinds") == 0) {
-    return highlighted ? s_icon_blinds_selected : s_icon_blinds;
-  }
-  if (strcmp(type, "lock") == 0) return highlighted ? s_icon_lock_selected : s_icon_lock;
-  if (strcmp(type, "garage-door") == 0) {
-    return highlighted ? s_icon_garage_selected : s_icon_garage;
-  }
-  if (strcmp(type, "thermostat") == 0 || strcmp(type, "heater-cooler") == 0 ||
-      strcmp(type, "humidifier") == 0 || strcmp(type, "dehumidifier") == 0 ||
-      strcmp(type, "humidifier-dehumidifier") == 0 ||
-      strcmp(type, "air-purifier") == 0) {
-    return highlighted ? s_icon_climate_selected : s_icon_climate;
-  }
-  return highlighted ? s_icon_generic_selected : s_icon_generic;
+  return s_device_icon;
 }
 
 #if defined(PBL_PLATFORM_EMERY)
@@ -509,7 +507,7 @@ static void apply_theme_to_menu(MenuLayer *menu) {
 static void apply_theme(void) {
   Window *windows[] = {s_root_window, s_list_window, s_device_window, s_sensor_window,
                        s_room_scene_window, s_action_window, s_preset_window, s_theme_window,
-                       s_settings_window, s_shortcut_window, s_shortcut_target_window,
+                       s_settings_window, s_pin_window, s_shortcut_window, s_shortcut_target_window,
                        s_confirm_window};
   for (size_t i = 0; i < ARRAY_LENGTH(windows); i++) {
     if (windows[i]) window_set_background_color(windows[i], s_theme_background);
@@ -523,6 +521,7 @@ static void apply_theme(void) {
   apply_theme_to_menu(s_preset_menu);
   apply_theme_to_menu(s_theme_menu);
   apply_theme_to_menu(s_settings_menu);
+  apply_theme_to_menu(s_pin_menu);
   apply_theme_to_menu(s_shortcut_menu);
   apply_theme_to_menu(s_shortcut_target_menu);
   if (s_confirm_title) {
@@ -661,6 +660,126 @@ static void run_scene(const char *name) {
   send_command(COMMAND_RUN_SCENE, name, NULL, NULL);
 }
 
+// Store names separately to keep the original Time's RAM usage small. Updating
+// the ordered slot list commits a pin/unpin only after its name has been saved.
+static void pin_name(uint16_t index, char *name) {
+  name[0] = '\0';
+  if (index < s_pin_count) {
+    persist_read_string(PIN_NAME_KEY + s_pin_slots[index], name, MAX_NAME_LENGTH);
+  }
+}
+
+static int pin_index(const char *name) {
+  char saved[MAX_NAME_LENGTH];
+  for (uint16_t i = 0; i < s_pin_count; i++) {
+    pin_name(i, saved);
+    if (strcmp(saved, name) == 0) return i;
+  }
+  return -1;
+}
+
+static void load_pins(void) {
+  int size = persist_get_size(PIN_ORDER_KEY);
+  if (size <= 0 || size > MAX_ITEMS) return;
+  uint8_t slots[MAX_ITEMS];
+  if (persist_read_data(PIN_ORDER_KEY, slots, size) != size) return;
+  char name[MAX_NAME_LENGTH];
+  for (int i = 0; i < size; i++) {
+    if (slots[i] >= MAX_ITEMS) continue;
+    name[0] = '\0';
+    persist_read_string(PIN_NAME_KEY + slots[i], name, sizeof(name));
+    if (name[0] && pin_index(name) < 0) s_pin_slots[s_pin_count++] = slots[i];
+  }
+}
+
+static bool toggle_pin(const char *name) {
+  int index = pin_index(name);
+  uint8_t slots[MAX_ITEMS];
+  memcpy(slots, s_pin_slots, s_pin_count);
+  uint16_t count = s_pin_count;
+  if (index >= 0) {
+    memmove(slots + index, slots + index + 1, count - index - 1);
+    count--;
+  } else {
+    if (!name[0] || count == MAX_ITEMS) return false;
+    uint8_t slot = 0;
+    for (; slot < MAX_ITEMS; slot++) {
+      bool used = false;
+      for (uint16_t i = 0; i < count; i++) if (slots[i] == slot) used = true;
+      if (!used) break;
+    }
+    if (persist_write_string(PIN_NAME_KEY + slot, name) < 0) return false;
+    slots[count++] = slot;
+  }
+  if (count == 0) {
+    if (persist_delete(PIN_ORDER_KEY) < 0) return false;
+  } else if (persist_write_data(PIN_ORDER_KEY, slots, count) != count) {
+    return false;
+  }
+  if (index >= 0) persist_delete(PIN_NAME_KEY + s_pin_slots[index]);
+  memcpy(s_pin_slots, slots, count);
+  s_pin_count = count;
+  return true;
+}
+
+// Keep missing/renamed scenes available here so their old pins can be removed.
+static bool pin_is_missing(uint16_t index) {
+  char name[MAX_NAME_LENGTH];
+  pin_name(index, name);
+  for (uint16_t i = 0; i < s_scene_count; i++) {
+    if (strcmp(s_scenes[i].name, name) == 0) return false;
+  }
+  return true;
+}
+
+static uint16_t pin_picker_count(void) {
+  uint16_t count = s_scene_count;
+  for (uint16_t i = 0; i < s_pin_count; i++) if (pin_is_missing(i)) count++;
+  return count;
+}
+
+static void pin_picker_name(uint16_t row, char *name) {
+  name[0] = '\0';
+  if (row < s_scene_count) {
+    snprintf(name, MAX_NAME_LENGTH, "%s", s_scenes[row].name);
+    return;
+  }
+  row -= s_scene_count;
+  for (uint16_t i = 0; i < s_pin_count; i++) {
+    if (pin_is_missing(i)) {
+      if (row == 0) { pin_name(i, name); return; }
+      row--;
+    }
+  }
+}
+
+static uint16_t pin_get_num_rows(MenuLayer *menu, uint16_t section, void *context) {
+  uint16_t count = pin_picker_count();
+  return count ? count : 1;
+}
+
+static void pin_draw_header(GContext *ctx, const Layer *layer, uint16_t section, void *context) {
+  theme_header_draw(ctx, layer, "Pinned Scenes");
+}
+
+static void pin_draw_row(GContext *ctx, const Layer *layer, MenuIndex *index, void *context) {
+  char name[MAX_NAME_LENGTH];
+  pin_picker_name(index->row, name);
+  theme_cell_draw(ctx, layer, name[0] ? name : s_loading ? "Loading..." : "No scenes",
+                  name[0] ? (pin_index(name) >= 0 ? "Pinned - select to unpin" : "Select to pin") : NULL,
+                  NULL);
+}
+
+static void pin_select_click(MenuLayer *menu, MenuIndex *index, void *context) {
+  char name[MAX_NAME_LENGTH];
+  pin_picker_name(index->row, name);
+  if (!name[0]) return;
+  if (!toggle_pin(name)) { show_voice_info("Could not save pin"); return; }
+  marquee_reset();
+  menu_layer_reload_data(s_pin_menu);
+  if (s_root_menu) menu_layer_reload_data(s_root_menu);
+}
+
 static void load_devices(const char *room) {
   snprintf(s_selected_room, sizeof(s_selected_room), "%s", room);
   s_device_count = 0;
@@ -681,7 +800,7 @@ static uint16_t list_count(void) {
   }
 }
 
-static HomeItem *list_items(void) {
+static SceneItem *list_items(void) {
   switch (s_current_kind) {
     case ITEM_KIND_FAVORITE: return s_favorites;
     case ITEM_KIND_SCENE: return s_scenes;
@@ -728,20 +847,27 @@ static bool sensors_visible(void) {
 
 static uint16_t root_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                   void *context) {
-  return visible_root_count() + 3;
+  return visible_root_count() + 3 + s_pin_count;
 }
 
 static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                           void *context) {
   uint16_t visible_count = visible_root_count();
-  if (cell_index->row == 0) {
+  if (cell_index->row < s_pin_count) {
+    char name[MAX_NAME_LENGTH];
+    pin_name(cell_index->row, name);
+    theme_cell_draw(ctx, cell_layer, name, "Scene", NULL);
+    return;
+  }
+  uint16_t row = cell_index->row - s_pin_count;
+  if (row == 0) {
     theme_cell_draw(ctx, cell_layer, "Voice",
                     voice_supported_platform() ? "Speak a command" : "Requires Time 2", NULL);
-  } else if (cell_index->row <= visible_count) {
-    ItemKind kind = root_kind_at(cell_index->row - 1);
+  } else if (row <= visible_count) {
+    ItemKind kind = root_kind_at(row - 1);
     theme_cell_draw(ctx, cell_layer, root_kind_label(kind),
                     s_loading ? "Loading..." : NULL, NULL);
-  } else if (cell_index->row == visible_count + 1) {
+  } else if (row == visible_count + 1) {
     theme_cell_draw(ctx, cell_layer, "Refresh", s_status, NULL);
   } else {
     theme_cell_draw(ctx, cell_layer, "Settings", NULL, NULL);
@@ -755,7 +881,7 @@ static uint16_t list_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
 
 static void list_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                           void *context) {
-  HomeItem *item = &list_items()[cell_index->row];
+  SceneItem *item = &list_items()[cell_index->row];
   const char *subtitle = NULL;
   if (s_current_kind != ITEM_KIND_ROOM && item->active) subtitle = "Active";
   theme_cell_draw(ctx, cell_layer, item->name, subtitle, NULL);
@@ -873,7 +999,7 @@ static void room_scene_draw_row(GContext *ctx, const Layer *cell_layer,
     theme_cell_draw(ctx, cell_layer, "No scenes", NULL, NULL);
     return;
   }
-  HomeItem *scene = &s_room_scenes[cell_index->row];
+  SceneItem *scene = &s_room_scenes[cell_index->row];
   theme_cell_draw(ctx, cell_layer, scene->name, scene->active ? "Active" : NULL, NULL);
 }
 
@@ -885,7 +1011,7 @@ static void room_scene_draw_header(GContext *ctx, const Layer *cell_layer,
 static void room_scene_select_click(MenuLayer *menu_layer, MenuIndex *cell_index,
                                     void *context) {
   if (s_room_scene_count == 0) return;
-  HomeItem *scene = &s_room_scenes[cell_index->row];
+  SceneItem *scene = &s_room_scenes[cell_index->row];
   if (scene_is_sensitive(scene->name)) {
     show_scene_confirmation(scene->name);
   } else {
@@ -1038,13 +1164,14 @@ static const char *shortcut_target_label(const char *target, char *buffer, size_
 
 static uint16_t settings_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                       void *context) {
-  return 2;
+  return 3;
 }
 
 static void settings_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                               void *context) {
-  theme_cell_draw(ctx, cell_layer, cell_index->row == 0 ? "Themes" : "Long Press Buttons",
-                  cell_index->row == 0 ? "Choose a theme" : "Up, Select, Down", NULL);
+  const char *titles[] = {"Themes", "Long Press Buttons", "Pinned Scenes"};
+  const char *subtitles[] = {"Choose a theme", "Up, Select, Down", "Pin or unpin scenes"};
+  theme_cell_draw(ctx, cell_layer, titles[cell_index->row], subtitles[cell_index->row], NULL);
 }
 
 static void settings_draw_header(GContext *ctx, const Layer *cell_layer,
@@ -1054,7 +1181,8 @@ static void settings_draw_header(GContext *ctx, const Layer *cell_layer,
 
 static void settings_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   if (cell_index->row == 0) show_theme_picker();
-  else window_stack_push(s_shortcut_window, true);
+  else if (cell_index->row == 1) window_stack_push(s_shortcut_window, true);
+  else window_stack_push(s_pin_window, true);
 }
 
 static uint16_t shortcut_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
@@ -1264,7 +1392,7 @@ static void show_voice_info(const char *text) {
 }
 
 static void list_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
-  HomeItem *item = &list_items()[cell_index->row];
+  SceneItem *item = &list_items()[cell_index->row];
   if (s_current_kind == ITEM_KIND_ROOM) {
     load_devices(item->name);
   } else if (scene_is_sensitive(item->name)) {
@@ -1329,11 +1457,19 @@ static void refresh_lists(void) {
 
 static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   uint16_t visible_count = visible_root_count();
-  if (cell_index->row == 0) {
+  if (cell_index->row < s_pin_count) {
+    char name[MAX_NAME_LENGTH];
+    pin_name(cell_index->row, name);
+    if (scene_is_sensitive(name)) show_scene_confirmation(name);
+    else if (name[0]) run_scene(name);
+    return;
+  }
+  uint16_t row = cell_index->row - s_pin_count;
+  if (row == 0) {
     start_voice();
-  } else if (cell_index->row <= visible_count) {
-    push_list(root_kind_at(cell_index->row - 1));
-  } else if (cell_index->row == visible_count + 1) {
+  } else if (row <= visible_count) {
+    push_list(root_kind_at(row - 1));
+  } else if (row == visible_count + 1) {
     refresh_lists();
   } else {
     window_stack_push(s_settings_window, true);
@@ -1398,7 +1534,7 @@ static void root_shortcut_click_config_provider(void *context) {
 }
 
 static void maybe_auto_open(void) {
-  if (!s_auto_opened && visible_root_count() == 1) {
+  if (!s_auto_opened && s_pin_count == 0 && visible_root_count() == 1) {
     s_auto_opened = true;
     push_list(root_kind_at(0));
   }
@@ -1587,8 +1723,9 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       if (index >= s_sensor_count) s_sensor_count = index + 1;
       return;
     }
-    if (index < MAX_ITEMS) {
-      HomeItem *items;
+    if (index < MAX_ITEMS && (kind == ITEM_KIND_FAVORITE || kind == ITEM_KIND_SCENE ||
+                             kind == ITEM_KIND_ROOM || kind == ITEM_KIND_ROOM_SCENE)) {
+      SceneItem *items;
       uint16_t *count;
       if (kind == ITEM_KIND_FAVORITE) {
         items = s_favorites;
@@ -1599,14 +1736,17 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       } else if (kind == ITEM_KIND_ROOM) {
         items = s_rooms;
         count = &s_room_count;
-      } else if (kind == ITEM_KIND_ROOM_SCENE) {
+      } else {
         items = s_room_scenes;
         count = &s_room_scene_count;
-      } else {
-        items = s_devices;
-        count = &s_device_count;
       }
-
+      snprintf(items[index].name, sizeof(items[index].name), "%s", name_tuple->value->cstring);
+      Tuple *active_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_ACTIVE);
+      items[index].active = active_tuple && active_tuple->value->int8 != 0;
+      if (index >= *count) *count = index + 1;
+    } else if (index < MAX_ITEMS && kind == ITEM_KIND_DEVICE) {
+      HomeItem *items = s_devices;
+      uint16_t *count = &s_device_count;
       snprintf(items[index].name, sizeof(items[index].name), "%s", name_tuple->value->cstring);
       Tuple *type_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_TYPE);
       snprintf(items[index].type, sizeof(items[index].type), "%s",
@@ -1633,6 +1773,7 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
     if (done_kind == ITEM_KIND_FAVORITE) {
       send_command(COMMAND_LOAD_SCENES, NULL, NULL, NULL);
     } else if (done_kind == ITEM_KIND_SCENE) {
+      if (s_pin_menu) menu_layer_reload_data(s_pin_menu);
       send_command(COMMAND_LOAD_ROOMS, NULL, NULL, NULL);
     } else if (done_kind == ITEM_KIND_ROOM) {
       s_loading = false;
@@ -1855,6 +1996,28 @@ static void settings_window_unload(Window *window) {
   s_settings_menu = NULL;
 }
 
+static void pin_window_load(Window *window) {
+  Layer *root = window_get_root_layer(window);
+  s_pin_menu = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_pin_menu, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = pin_get_num_rows,
+    .get_cell_height = theme_cell_height,
+    .get_header_height = list_get_header_height,
+    .draw_header = pin_draw_header,
+    .draw_row = pin_draw_row,
+    .select_click = pin_select_click,
+    .selection_changed = marquee_selection_changed,
+  });
+  apply_theme_to_menu(s_pin_menu);
+  menu_layer_set_click_config_onto_window(s_pin_menu, window);
+  layer_add_child(root, menu_layer_get_layer(s_pin_menu));
+}
+
+static void pin_window_unload(Window *window) {
+  menu_layer_destroy(s_pin_menu);
+  s_pin_menu = NULL;
+}
+
 static void shortcut_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   s_shortcut_menu = menu_layer_create(layer_get_bounds(root));
@@ -1936,24 +2099,7 @@ static void confirm_window_unload(Window *window) {
 }
 
 static void init(void) {
-  s_icon_light = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_LIGHT);
-  s_icon_fan = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_FAN);
-  s_icon_switch = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_SWITCH);
-  s_icon_outlet = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_OUTLET);
-  s_icon_blinds = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_BLINDS);
-  s_icon_lock = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_LOCK);
-  s_icon_climate = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_CLIMATE);
-  s_icon_garage = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GARAGE);
-  s_icon_generic = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GENERIC);
-  s_icon_light_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_LIGHT_SELECTED);
-  s_icon_fan_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_FAN_SELECTED);
-  s_icon_switch_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_SWITCH_SELECTED);
-  s_icon_outlet_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_OUTLET_SELECTED);
-  s_icon_blinds_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_BLINDS_SELECTED);
-  s_icon_lock_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_LOCK_SELECTED);
-  s_icon_climate_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_CLIMATE_SELECTED);
-  s_icon_garage_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GARAGE_SELECTED);
-  s_icon_generic_selected = gbitmap_create_with_resource(RESOURCE_ID_DEVICE_GENERIC_SELECTED);
+  load_pins();
 
   s_root_window = window_create();
   s_list_window = window_create();
@@ -1964,6 +2110,7 @@ static void init(void) {
   s_preset_window = window_create();
   s_theme_window = window_create();
   s_settings_window = window_create();
+  s_pin_window = window_create();
   s_shortcut_window = window_create();
   s_shortcut_target_window = window_create();
   s_confirm_window = window_create();
@@ -2013,6 +2160,11 @@ static void init(void) {
     .appear = menu_window_appear,
     .unload = settings_window_unload,
   });
+  window_set_window_handlers(s_pin_window, (WindowHandlers) {
+    .load = pin_window_load,
+    .appear = menu_window_appear,
+    .unload = pin_window_unload,
+  });
   window_set_window_handlers(s_shortcut_window, (WindowHandlers) {
     .load = shortcut_window_load,
     .appear = menu_window_appear,
@@ -2048,6 +2200,7 @@ static void deinit(void) {
   window_destroy(s_shortcut_target_window);
   window_destroy(s_shortcut_window);
   window_destroy(s_settings_window);
+  window_destroy(s_pin_window);
   window_destroy(s_theme_window);
   window_destroy(s_preset_window);
   window_destroy(s_action_window);
@@ -2059,24 +2212,7 @@ static void deinit(void) {
 #if defined(PBL_PLATFORM_EMERY)
   unload_custom_theme_font();
 #endif
-  gbitmap_destroy(s_icon_generic_selected);
-  gbitmap_destroy(s_icon_garage_selected);
-  gbitmap_destroy(s_icon_climate_selected);
-  gbitmap_destroy(s_icon_lock_selected);
-  gbitmap_destroy(s_icon_blinds_selected);
-  gbitmap_destroy(s_icon_outlet_selected);
-  gbitmap_destroy(s_icon_switch_selected);
-  gbitmap_destroy(s_icon_fan_selected);
-  gbitmap_destroy(s_icon_light_selected);
-  gbitmap_destroy(s_icon_generic);
-  gbitmap_destroy(s_icon_garage);
-  gbitmap_destroy(s_icon_climate);
-  gbitmap_destroy(s_icon_lock);
-  gbitmap_destroy(s_icon_blinds);
-  gbitmap_destroy(s_icon_outlet);
-  gbitmap_destroy(s_icon_switch);
-  gbitmap_destroy(s_icon_fan);
-  gbitmap_destroy(s_icon_light);
+  gbitmap_destroy(s_device_icon);
 }
 
 int main(void) {

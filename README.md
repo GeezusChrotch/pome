@@ -1,5 +1,15 @@
 # Pome
 
+### Pinned scenes
+
+On the watch, open **Settings → Pinned Scenes** and select any scene to pin or
+unpin it. You can pin multiple scenes; they appear above Voice on the main menu,
+in the order you pinned them. Select a pinned scene on the main menu to run it.
+Pins are saved on the watch across app restarts. Removing and re-pinning a scene
+moves it to the end of your pins. If a scene is renamed or deleted, unpin its old
+name in Settings. Pins keep the main menu visible even with only one category
+enabled. Long-press button assignments continue to work as configured.
+
 Pome is an open-source Pebble Time and Pebble Time 2 controller for Apple Home
 accessories exposed by [Itsyhome for macOS](https://itsyhome.app/macos).
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.0
+
+- Pin multiple scenes above Voice on the main menu using Settings → Pinned Scenes.
+- Save pin order across watch app restarts; select again in Settings to unpin.
+- Keep the main menu visible when scenes are pinned, including with one category enabled.
+- Reduce memory use on the original Time by compacting scene lists and loading device icons on demand.
+
 ## 2.6.0
 
 - Add Settings as the bottom item on the watch's main menu.
