@@ -12,24 +12,34 @@
 
 ## Description (maximum 1,600 characters)
 
-Pome puts Apple Home controls on a Pebble Time or Pebble Time 2.
+Pome puts Apple Home controls on Pebble Time and Pebble Time 2.
 
-Voice is the first menu item on dictation-capable watches. Say "Set Lounge TV," "Turn lounge lights green," or ask for a sensor reading. Pome discovers names from Itsyhome, runs clear safe matches immediately, and refuses ambiguous targets.
+Browse favorites, scenes, rooms, devices and read-only sensors. Control lights, brightness and
+colors; move blinds in small steps; and run favorite scenes from pinned shortcuts. Use Voice on
+dictation-capable watches for home commands and sensor questions.
 
-Browse favorites, scenes, rooms, devices, and read-only sensors. Lights include toggle, brightness, six custom colors, and a paced All Lights control. Fans include speed, while blinds include open, close, position, and three movement steps. Devices are grouped by type and name with redundant room prefixes hidden.
+Make it yours with themes, fonts, text sizes, colors, optional device icons and configurable
+long-press shortcuts. Pinned scenes stay at the top of the main menu.
 
-Make Pome your own from the Themes tab: preview and save named combinations of menu font, font size, background and selection colors, and optional device icons.
+Pome connects through Itsyhome on your Mac. For guided private setup, install Organik Apps Pebble
+Connector and open its Pome page. It checks your Itsyhome service and helps configure Tailscale.
+Itsyhome remains required and installed separately. Existing phone URLs and watch settings are
+preserved. Direct LAN connections also remain supported.
 
-Pome uses PebbleKit JS on the paired phone to contact Itsyhome on your Mac. It has no account, analytics, hosted backend, or cloud relay. Voice transcription is handled by the provider configured in the Pebble mobile app.
+Keep the Mac awake, Itsyhome running and Tailscale connected on Mac and phone for home-and-away
+control. Voice uses the transcription service configured in Pebble. No Pome account, analytics
+or hosted relay. Never expose the Itsyhome service through public Funnel or router forwarding.
 
-Required setup:
-1. Install Itsyhome for macOS: https://itsyhome.app/macos
-2. In Itsyhome, open Settings > Webhooks/CLI and enable the server (port 8423 by default).
-3. Open Pome's settings in the Pebble phone app and enter a reachable Itsyhome URL.
+Setup: https://github.com/GeezusChrotch/pome
 
-For LAN-only use, enter a local HTTP URL. For private home-and-away access, install Tailscale on the Mac and phone, sign both into the same tailnet, and run `tailscale serve --bg --https=10443 localhost:8423`. Paste the HTTPS URL reported by `tailscale serve status` into Pome.
+Free MIT open-source software. Independent of Apple, Itsyhome, Tailscale and Pebble. Third-party
+products have their own terms.
 
-Never use Tailscale Funnel or router port forwarding for this server. Pome is an independent open-source community project and is not affiliated with Apple, Itsyhome, Tailscale, or Pebble.
+## Unified connector setup
+
+The recommended guided setup is now [Organik Apps Pebble Connector](https://github.com/GeezusChrotch/organik-pebble-connector).
+Use its Pome page; Itsyhome remains installed separately. [Migration guide](docs/UNIFIED_CONNECTOR.md).
+Publish the connector link only after its coordinated release is available.
 
 ## Extended setup and troubleshooting
 

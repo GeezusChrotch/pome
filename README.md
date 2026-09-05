@@ -1,5 +1,10 @@
 # Pome
 
+Use **Organik Apps Pebble Connector** for the coordinated Mac release: one free MIT app for
+Notesy, Beepster, Reminderz and Pome. [Setup and migration](docs/UNIFIED_CONNECTOR.md).
+Existing Pome watch pairing is retained. Standalone connector details below describe the older
+implementation and remain useful for source builds or rollback.
+
 ### Pinned scenes
 
 On the watch, open **Settings → Pinned Scenes** and select any scene to pin or
@@ -35,7 +40,18 @@ Itsyhome, Tailscale, or Pebble.
 Do not expose Itsyhome through Tailscale Funnel or router port forwarding. The
 webhook server should remain private.
 
-## Setup
+## Setup with the unified connector
+
+1. Keep Itsyhome installed and enable Settings → Webhooks/CLI.
+2. Install Organik Apps Pebble Connector and select **Pome** in its sidebar.
+3. Enter the existing Itsyhome host and port (default 8423), then follow **Connect** to check it
+   and configure private access. Keep Tailscale connected on the Mac and phone.
+4. Paste the provided private address into Pome's phone settings and refresh the watch.
+
+The connector does not replace Itsyhome. Existing direct LAN connections still work.
+See [setup and migration](docs/UNIFIED_CONNECTOR.md).
+
+## Manual setup (optional)
 
 1. In Itsyhome, open **Settings → Webhooks/CLI** and enable the server. Its default
    port is `8423`.
