@@ -157,3 +157,10 @@ Itsyhome or Tailscale URL, access token, tailnet name, or home-accessory invento
 ## License
 
 Pome is available under the [MIT License](LICENSE).
+
+## Thank you
+
+Thank you to ChatGPT and Codex, especially ChatGPT 5.6 Sol and ChatGPT 6 Astra, and to the people at OpenAI who build these tools, for allowing a nerd with an idea to make cool stuff.
+
+We also thank the developers and communities behind the apps, libraries, fonts and tools we build
+on. [Full acknowledgments](ACKNOWLEDGMENTS.md).
