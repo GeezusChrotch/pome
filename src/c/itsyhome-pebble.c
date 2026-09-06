@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include "touch_menu.h"
 #include <ctype.h>
 
 #define MAX_ITEMS 60
@@ -1802,7 +1803,7 @@ static void outbox_failed(DictionaryIterator *iterator, AppMessageResult reason,
 
 static void root_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_root_menu = menu_layer_create(layer_get_bounds(root));
+  s_root_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_root_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = root_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1823,7 +1824,7 @@ static void root_window_unload(Window *window) {
 
 static void list_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_list_menu = menu_layer_create(layer_get_bounds(root));
+  s_list_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_list_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = list_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1845,7 +1846,7 @@ static void list_window_unload(Window *window) {
 
 static void device_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_device_menu = menu_layer_create(layer_get_bounds(root));
+  s_device_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_device_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = device_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1867,7 +1868,7 @@ static void device_window_unload(Window *window) {
 
 static void sensor_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_sensor_menu = menu_layer_create(layer_get_bounds(root));
+  s_sensor_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_sensor_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = sensor_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1888,7 +1889,7 @@ static void sensor_window_unload(Window *window) {
 
 static void room_scene_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_room_scene_menu = menu_layer_create(layer_get_bounds(root));
+  s_room_scene_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_room_scene_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = room_scene_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1910,7 +1911,7 @@ static void room_scene_window_unload(Window *window) {
 
 static void action_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_action_menu = menu_layer_create(layer_get_bounds(root));
+  s_action_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_action_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = action_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1932,7 +1933,7 @@ static void action_window_unload(Window *window) {
 
 static void preset_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_preset_menu = menu_layer_create(layer_get_bounds(root));
+  s_preset_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_preset_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = preset_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1954,7 +1955,7 @@ static void preset_window_unload(Window *window) {
 
 static void theme_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_theme_menu = menu_layer_create(layer_get_bounds(root));
+  s_theme_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_theme_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = theme_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1976,7 +1977,7 @@ static void theme_window_unload(Window *window) {
 
 static void settings_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_settings_menu = menu_layer_create(layer_get_bounds(root));
+  s_settings_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_settings_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = settings_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -1998,7 +1999,7 @@ static void settings_window_unload(Window *window) {
 
 static void pin_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_pin_menu = menu_layer_create(layer_get_bounds(root));
+  s_pin_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_pin_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = pin_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -2020,7 +2021,7 @@ static void pin_window_unload(Window *window) {
 
 static void shortcut_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_shortcut_menu = menu_layer_create(layer_get_bounds(root));
+  s_shortcut_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_shortcut_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = shortcut_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -2042,7 +2043,7 @@ static void shortcut_window_unload(Window *window) {
 
 static void shortcut_target_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
-  s_shortcut_target_menu = menu_layer_create(layer_get_bounds(root));
+  s_shortcut_target_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_shortcut_target_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = shortcut_target_get_num_rows,
     .get_cell_height = theme_cell_height,
@@ -2099,6 +2100,9 @@ static void confirm_window_unload(Window *window) {
 }
 
 static void init(void) {
+#if defined(PBL_TOUCH)
+  app_touch_navigation_enable(true);
+#endif
   load_pins();
 
   s_root_window = window_create();
@@ -2114,6 +2118,9 @@ static void init(void) {
   s_shortcut_window = window_create();
   s_shortcut_target_window = window_create();
   s_confirm_window = window_create();
+#if defined(PBL_TOUCH)
+  window_set_touch_bridge_disabled(s_confirm_window, true);
+#endif
 
   window_set_window_handlers(s_root_window, (WindowHandlers) {
     .load = root_window_load,

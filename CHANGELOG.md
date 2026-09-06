@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.0
+
+- Refresh the phone settings with Setup, Themes, and Shortcuts tabs, a live watch preview, and the supported Pebble color palette.
+- Preserve saved themes, existing connection settings, light-color slots, and button shortcuts in the new layout.
+- Add two-step touch menu navigation on touch-capable watches: tap a different row to focus it, then tap the focused row to activate it. Swipe to scroll.
+- Keep physical-button navigation and confirmation controls available.
+- Add settings documentation and guided setup information for the unified connector.
+
 ## 2.7.0
 
 - Pin multiple scenes above Voice on the main menu using Settings → Pinned Scenes.

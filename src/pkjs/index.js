@@ -1,3 +1,137 @@
+// BEGIN ORGANIK SETTINGS UI
+// Organik settings UI v1. Vendored by sync.py; no network or storage dependencies.
+function organikSettingsHTML(html, options) {
+  var script = '(' + organikSettingsClient.toString() + ')(' + JSON.stringify(options).replace(/</g, '\\u003c') + ');';
+  // Run after the app's own controls and event handlers have been initialized.
+  var at = html.lastIndexOf('</script>');
+  return html.slice(0, at) + ';' + script + html.slice(at);
+}
+function organikSettingsClient(options) {
+  var d = document, app = options.app;
+  function id(name) { return d.getElementById(name); }
+  function all(selector, root) { return Array.prototype.slice.call((root || d).querySelectorAll(selector)); }
+  function el(tag, text, cls) { var n = d.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n; }
+  function button(text, fn) { var b = el('button', text); b.type = 'button'; b.onclick = fn; return b; }
+  var style = el('style');
+  style.textContent = 'html{color-scheme:light}*{box-sizing:border-box}body{font:17px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;background:#f2f2f7!important;color:#111!important;margin:0 auto!important;padding:20px 20px 40px!important;max-width:620px!important;line-height:1.45}.wrap{padding:0!important}h1{font-size:28px!important;color:#111!important;margin:4px 0 16px!important}h2{font-size:20px!important;margin:24px 0 12px}h3{font-size:17px}p,.hint{color:#61616b!important;font-size:14px;line-height:1.45}label{display:block;font-weight:600;margin:14px 0 6px}input,select,textarea{font:16px -apple-system,sans-serif!important;width:100%;min-width:0;padding:13px!important;border:1px solid #bbb!important;border-radius:10px!important;background:#fff!important;color:#111!important;margin:8px 0 16px!important}textarea{min-height:130px}input[type=checkbox]{width:auto!important;margin:0 10px 0 0!important;accent-color:#34a853}button{font:600 16px -apple-system,sans-serif!important;min-height:44px;padding:13px!important;border:0;border-radius:10px!important;background:#34a853;color:white;cursor:pointer}button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #0878d1;outline-offset:3px}.secondary,.palette-done{background:#e5e5ea!important;color:#111!important}.danger{background:#fff!important;color:#b42318!important;border:1px solid #d7d7dc!important}.card,.theme-card,.threads,details{background:white;border:1px solid #d7d7dc;border-radius:12px;padding:14px;margin:12px 0 20px}.card h2{margin-top:0}.organik-tabs{display:flex!important;gap:3px!important;padding:3px!important;background:#dedee3!important;border-radius:11px!important;margin:0 0 22px!important;position:static!important;overflow-x:auto}.organik-tabs button{flex:1;min-width:max-content;width:auto!important;font-size:14px!important;min-height:44px;padding:9px 12px!important;background:transparent!important;color:#555!important}.organik-tabs button[aria-selected=true]{background:white!important;color:#111!important;box-shadow:0 1px 3px #aaa}.organik-panel{padding:0!important}.organik-panel[hidden]{display:none!important}.organik-help{background:#fff7df;border:1px solid #e3bd5c;border-radius:12px;padding:13px;color:#604500!important;font-size:14px}.organik-preview{width:216px!important;height:244px!important;margin:16px auto 24px!important;border:8px solid #252525!important;border-radius:24px!important;overflow:hidden!important;padding:8px!important;box-shadow:0 8px 22px #ccc;line-height:1.2}.organik-preview .preview-row{padding:10px 4px;display:block;height:auto;min-height:47px}.organik-preview small{font:14px/1.3 Arial,sans-serif}.organik-palette-trigger{width:100%;height:58px;display:flex;align-items:center;gap:12px;background:white!important;color:#111!important;border:1px solid #bbb!important;margin:8px 0 16px;text-align:left}.organik-swatch{width:36px;height:36px;border-radius:7px;border:1px solid #888;flex:none}.organik-color-value{font:15px ui-monospace,monospace}.organik-overlay{position:fixed;inset:0;background:#0008;z-index:30;display:flex;align-items:center;justify-content:center;padding:14px}.organik-overlay[hidden]{display:none}.organik-dialog{background:#f2f2f7;border-radius:16px;padding:16px;max-width:390px;width:100%;max-height:90vh;overflow:auto}.organik-dialog h2{margin-top:0}.organik-colors{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}.organik-colors button{min-height:32px;height:38px;padding:0!important;border:1px solid #888;border-radius:7px!important}.organik-colors button[aria-pressed=true]{outline:3px solid #0878d1;outline-offset:1px}.organik-dialog>button{width:100%;margin-top:16px}.organik-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.organik-apply{background:#0878d1!important;color:white!important;width:100%;margin:14px 0}.error,[role=alert]{color:#b42318!important}.emoji-picker-card{background:#f2f2f7!important}.emoji-choice,.emoji-grid button{background:#fff!important;color:#111!important}.emoji-slot{grid-template-columns:28px minmax(0,1fr) 40px 40px}.emoji-slot button{padding:6px!important}.button-grid,.row,.grid,.swatches{min-width:0}.button-grid>*,.row>*,.grid>*,.swatches>*{min-width:0}@media(max-width:380px){body{padding:16px 12px 32px!important}.button-grid,.swatches{grid-template-columns:1fr!important}.organik-tabs button{padding:9px!important}}';
+  d.body.setAttribute('data-organik-app',app);
+  style.textContent += '[data-organik-app=pome] .organik-preview{padding:0!important}[data-organik-app=pome] .organik-preview .preview-row{display:flex;padding:0 3px 0 6px;min-height:0}';
+  d.head.appendChild(style);
+  var panels = {}, tabs, host = app === 'beepster' ? id('form') : d.body;
+  function panel(name, title) { var p = el('section', '', 'organik-panel'); p.id = 'organik-' + name; p.setAttribute('aria-label', title); panels[name] = p; host.appendChild(p); return p; }
+  function move(n, p) { if (n) p.appendChild(n); }
+  function split(root, mapping, initial) {
+    var dest = initial;
+    Array.prototype.slice.call(root.children).forEach(function(n) {
+      if (n.tagName === 'SCRIPT' || n.tagName === 'STYLE' || n.tagName === 'H1' || n === tabs || n.classList.contains('organik-panel')) return;
+      if (n.tagName === 'H2' && mapping[n.textContent]) dest = mapping[n.textContent];
+      move(n, panels[dest]);
+    });
+  }
+  if (app === 'pome' || app === 'tesla') {
+    ['setup','themes','shortcuts'].forEach(function(name) { panels[name] = id(name + 'Panel'); panels[name].classList.add('organik-panel'); });
+    tabs = d.querySelector('.tabs');
+    if (app === 'tesla') { var title = el('h1', 'Gandalf+Gilda'); d.body.insertBefore(title, tabs); }
+  } else {
+    tabs = el('nav');
+    panel('setup', 'Setup'); panel('themes', 'Themes');
+    if (app !== 'pebclaw') panel('shortcuts', 'Shortcuts');
+    if (app === 'notesy') panel('vault', 'Vault');
+    if (app === 'beepster') panel('replies', 'Replies');
+    var heading = d.querySelector('h1'); heading.parentNode.insertBefore(tabs, heading.nextSibling);
+    if (app === 'notesy') {
+      var save = id('save'), status = id('status'), pending = id('pending').parentNode;
+      split(d.body, {'Hidden folders':'vault','Dictation':'shortcuts','Button shortcuts':'shortcuts','Appearance':'themes'}, 'setup');
+      move(id('auto').parentNode, panels.shortcuts); move(pending, panels.vault);
+      d.body.appendChild(save); d.body.appendChild(status);
+    } else if (app === 'reminderz') {
+      all('body > .card').forEach(function(n) { var title = n.querySelector('h2').textContent; move(n, panels[title === 'Theme' ? 'themes' : title === 'Button actions' ? 'shortcuts' : 'setup']); });
+      // Keep the original save action and status reachable from every tab.
+      var save = all('body > button').filter(function(n) { return n.getAttribute('onclick') === 'save()'; })[0];
+      move(save, d.body); move(id('status'), d.body);
+    } else if (app === 'pebclaw') {
+      var save = all('body > button').filter(function(n) { return n.getAttribute('onclick') === 'save()'; })[0];
+      split(d.body, {'Appearance':'themes'}, 'setup'); d.body.appendChild(save); move(id('status'), d.body);
+    } else {
+      var oldTabs = id('generalTab').parentNode; oldTabs.parentNode.removeChild(oldTabs);
+      split(id('generalPanel'), {'Saved themes':'themes','Theme editor':'themes','Quick replies':'replies','Emoji replies':'replies','Included services':'setup'}, 'setup');
+      while (id('buttonsPanel').firstChild) move(id('buttonsPanel').firstChild, panels.shortcuts);
+      move(id('pairing'), panels.setup);
+      id('generalPanel').remove(); id('buttonsPanel').remove();
+      host.appendChild(id('save')); host.appendChild(id('status'));
+    }
+  }
+  tabs.className = 'organik-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Settings sections'); tabs.innerHTML = '';
+  var keys = Object.keys(panels);
+  function show(name, focus) {
+    keys.forEach(function(key) { var selected = key === name, b = id('organik-tab-' + key), p = panels[key]; p.hidden = !selected; p.classList.toggle('active', selected); p.classList.remove('hidden'); b.setAttribute('aria-selected', String(selected)); b.tabIndex = selected ? 0 : -1; });
+    if (focus) id('organik-tab-' + name).focus();
+  }
+  keys.forEach(function(name, index) {
+    var b = button(name.charAt(0).toUpperCase() + name.slice(1), function() { show(name); }); b.id = 'organik-tab-' + name; b.setAttribute('role', 'tab'); b.setAttribute('aria-controls', panels[name].id);
+    panels[name].setAttribute('role', 'tabpanel'); panels[name].setAttribute('aria-labelledby', b.id);
+    b.onkeydown = function(e) { var i = index; if (e.key === 'ArrowRight') i = (i + 1) % keys.length; else if (e.key === 'ArrowLeft') i = (i + keys.length - 1) % keys.length; else if (e.key === 'Home') i = 0; else if (e.key === 'End') i = keys.length - 1; else return; e.preventDefault(); show(keys[i], true); }; tabs.appendChild(b);
+  });
+  // Reveal validation errors and expired pairing even when another tab is open.
+  var observer = new MutationObserver(function() { all('.error,#buttonError,#status,#folder-status').forEach(function(n) { if (!n.textContent || !/error|failed|cannot|could not|keep move|expired|enter the current/i.test(n.textContent)) return; keys.forEach(function(key) { if (panels[key].contains(n)) show(key); }); }); if (id('pairing') && !id('pairing').classList.contains('hidden') && app === 'beepster') show('setup'); });
+  ['status','buttonError','pairing'].forEach(function(name) { if(id(name)) observer.observe(id(name), {childList:true,subtree:true,attributes:true,attributeFilter:['class']}); });
+  show('setup');
+  all('label').forEach(function(label, i) { if (label.querySelector('input,select,textarea') || label.htmlFor) return; var next = label.nextElementSibling; if (next && /^(INPUT|SELECT|TEXTAREA)$/.test(next.tagName)) { if (!next.id) next.id = 'organik-control-' + i; label.htmlFor = next.id; } });
+  all('#status,#buttonError,#folder-status').forEach(function(n) { n.setAttribute('role','status'); n.setAttribute('aria-live','polite'); });
+  var themePanel = panels.themes;
+  if (app !== 'pome') themePanel.insertBefore(el('p', 'Choose a preset or edit your own colors, font and size. The preview updates as you edit. Save and apply sends your settings to the watch.', 'organik-help'), themePanel.firstChild);
+  var preview = id('preview');
+  if (!preview) { preview = el('div'); preview.id = 'preview'; preview.innerHTML = '<div class="preview-title">Notesy</div><div class="preview-row selected">Meeting notes<small><br>Today · Pebble</small></div><div class="preview-row">Ideas<small><br>Capture a thought</small></div><div class="preview-row">Shopping list</div>'; }
+  if(app==='pebclaw')preview.innerHTML='<strong>PebClaw</strong><div class=preview-row>You: What is next?</div><div class=preview-row>Agent: Review notes.</div>';
+  preview.classList.add('organik-preview'); preview.setAttribute('aria-label', 'Watch theme preview'); themePanel.insertBefore(preview, themePanel.children[1] || null);
+  var map = options.fields || {}, raw = [], watch = options.watchColors;
+  for (var c = 0; c < 64; c++) raw.push('#' + [Math.floor(c/16),Math.floor(c/4)%4,c%4].map(function(v) { var s=(v*85).toString(16);return s.length<2?'0'+s:s; }).join(''));
+  function colorIndex(hex) { if (!/^#[0-9a-f]{6}$/i.test(hex)) return 0; return Math.round(parseInt(hex.slice(1,3),16)/85)*16 + Math.round(parseInt(hex.slice(3,5),16)/85)*4 + Math.round(parseInt(hex.slice(5,7),16)/85); }
+  function display(hex) { return watch[colorIndex(hex)]; }
+  function value(key) { return id(map[key]) && id(map[key]).value; }
+  function fire(control) { ['input','change'].forEach(function(type) { var e = d.createEvent('HTMLEvents'); e.initEvent(type, true, false); control.dispatchEvent(e); }); }
+  var swatches = [];
+  function refresh() {
+    swatches.forEach(function(s) { s.swatch.style.background = display(s.input.value); s.value.textContent = s.input.value.toUpperCase(); });
+    if (app === 'pome') {window.preview();return;}
+    var text = value('text') || '#000000', bg = value('background') || '#ffffff', selected = value('selection') || value('accent') || '#000000';
+    preview.style.color = display(text); preview.style.background = display(bg);
+    var font = value('font'), families = {inter:'Inter,Arial,sans-serif',roboto:'Roboto,Arial,sans-serif','open-sans':'Open Sans,Arial,sans-serif',montserrat:'Montserrat,Arial,sans-serif',poppins:'Poppins,Arial,sans-serif','droid-serif':'Georgia,serif','3':'Georgia,serif','roboto-condensed':'Arial Narrow,Arial,sans-serif'};
+    preview.style.fontFamily = families[font] || 'Arial,sans-serif'; preview.style.fontWeight = /^(gothic-bold|droid-serif|bitham-black|1|3|4)$/.test(font) ? '700' : '400'; preview.style.fontSize = (Number(value('size')) || 22) + 'px';
+    all('.selected', preview).forEach(function(row) { row.style.background=display(selected); var h=display(selected), luminance=parseInt(h.slice(1,3),16)*299+parseInt(h.slice(3,5),16)*587+parseInt(h.slice(5,7),16)*114; row.style.color=luminance>=150000?'#000':'#fff'; });
+    var muted=preview.querySelector('.preview-muted'), accent=preview.querySelector('.preview-button'); if(muted) muted.style.color=display(value('muted')||text); if(accent) {accent.style.background=display(selected);accent.style.color=display(value('accentText')||'#ffffff');}
+  }
+  var overlay = el('div','','organik-overlay'), dialog = el('div','','organik-dialog'), grid=el('div','','organik-colors'), target=null, returnFocus=null;
+  overlay.hidden=true; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','true'); dialog.setAttribute('aria-label','Choose a Pebble color'); dialog.appendChild(el('h2','Choose a Pebble color')); dialog.appendChild(grid);
+  function close() {overlay.hidden=true;if(returnFocus)returnFocus.focus();}
+  dialog.appendChild(button('Done',close)); overlay.appendChild(dialog); d.body.appendChild(overlay);
+  raw.forEach(function(hex,index) {var b=button('',function(){target.value=hex;fire(target);refresh();close();});b.style.background=watch[index];b.setAttribute('aria-label','Pebble color '+hex.toUpperCase());b.dataset.color=hex;grid.appendChild(b);});
+  overlay.onclick=function(e){if(e.target===overlay)close();}; overlay.onkeydown=function(e){if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){var bs=all('button',dialog),first=bs[0],last=bs[bs.length-1];if(e.shiftKey&&d.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&d.activeElement===last){e.preventDefault();first.focus();}}};
+  Object.keys(map).forEach(function(key){if(['font','size'].indexOf(key)>=0)return;var input=id(map[key]);if(!input)return;
+    if(input.tagName==='SELECT') { var selected=input.value; raw.forEach(function(hex){if(!all('option',input).some(function(o){return o.value.toLowerCase()===hex;})){var option=el('option',hex.toUpperCase());option.value=hex;input.appendChild(option);}});input.value=selected; }
+    // Keep original form controls as the source of truth; the palette changes them through normal events.
+    var previous=input.previousElementSibling;if(previous&&previous.classList.contains('palette-trigger')){previous.hidden=true;previous.style.setProperty('display','none','important');}
+    input.hidden=true; input.style.setProperty('display','none','important');
+    var b=button('',function(){target=input;returnFocus=b;all('button',grid).forEach(function(o){o.setAttribute('aria-pressed',String(o.dataset.color===raw[colorIndex(input.value)]));});overlay.hidden=false;grid.children[colorIndex(input.value)].focus();});b.className='organik-palette-trigger';b.setAttribute('aria-label','Choose '+key.replace(/([A-Z])/g,' $1').toLowerCase()+' color');var swatch=el('span','','organik-swatch'),label=el('span','','organik-color-value');b.appendChild(swatch);b.appendChild(label);input.parentNode.insertBefore(b,input.nextSibling);swatches.push({input:input,swatch:swatch,value:label});
+  });
+  if(app==='reminderz'){var preset=id('preset'),custom=el('option','Custom');custom.value='custom';custom.disabled=true;preset.appendChild(custom);themePanel.addEventListener('change',function(e){if(Object.keys(map).some(function(k){return map[k]===e.target.id;}))preset.value='custom';});}
+  themePanel.addEventListener('input',refresh);themePanel.addEventListener('change',refresh);themePanel.addEventListener('click',function(){setTimeout(refresh,0);});
+  // Older apps have presets but no custom library. Store only appearance fields in the app callback.
+  if(options.library) {
+    var library=Array.isArray(options.savedThemes)?options.savedThemes.slice(0,20):[],card=el('div','','theme-card'),menu=el('select'),name=el('input');menu.id='organik-saved-theme';name.id='organik-theme-name';name.maxLength=32;name.placeholder='My theme';
+    var label=el('label','Saved custom themes');label.htmlFor=menu.id;card.appendChild(label);card.appendChild(menu);label=el('label','Theme name');label.htmlFor=name.id;card.appendChild(label);card.appendChild(name);
+    function renderLibrary(){menu.innerHTML='';var o=el('option','Current preview');o.value='';menu.appendChild(o);library.forEach(function(t,i){var o=el('option',t.name);o.value=i;menu.appendChild(o);});}
+    function readLibraryTheme(){var t={name:name.value.trim()||'My theme'};Object.keys(map).forEach(function(k){t[k]=value(k);});return t;}
+    function setControl(input,v){if(!input)return;if(input.tagName==='SELECT'&&!all('option',input).some(function(o){return o.value===String(v)&&!o.disabled;}))return;input.value=v;fire(input);}
+    menu.onchange=function(){if(menu.value==='')return;var t=library[Number(menu.value)];name.value=t.name;Object.keys(map).forEach(function(k){if(k==='size')return;var input=id(map[k]);if(input&&t[k]!==undefined){setControl(input,t[k]);}});if(id(map.size)){setControl(id(map.size),t.size);}refresh();};
+    var row=el('div','','organik-actions');row.appendChild(button('Save custom theme',function(){var t=readLibraryTheme(),found=-1;library.forEach(function(v,i){if(v.name.toLowerCase()===t.name.toLowerCase())found=i;});if(found<0&&library.length>=20){alert('You can save up to 20 custom themes. Delete one first.');return;}if(found<0){library.push(t);found=library.length-1;}else library[found]=t;renderLibrary();menu.value=String(found);}));var remove=button('Delete custom theme',function(){if(menu.value==='')return;library.splice(Number(menu.value),1);renderLibrary();});remove.className='danger';row.appendChild(remove);card.appendChild(row);card.appendChild(el('p','Custom themes are kept on this phone when you save and apply settings. Built-in presets remain available below.'));renderLibrary();themePanel.insertBefore(card,preview.nextSibling);
+    window.organikSavedThemes=function(){return library;};
+  }
+  if(options.apply) {var mainSave=id('save') || all('body > button').filter(function(n){return n.getAttribute('onclick')==='save()';})[0]; if(mainSave){mainSave.classList.add('organik-apply');if(app!=='beepster')mainSave.textContent='Save & Apply to Watch';}}
+  refresh();
+}
+
+// END ORGANIK SETTINGS UI
 var DEFAULT_BASE_URL = "";
 var MAX_ITEMS = 60;
 var MAX_THEME_CHOICES = 25;
@@ -148,10 +282,10 @@ var THEME_FONT_SIZES = {
 
 function time2Enhanced() {
   try {
-    return typeof Pebble.getActiveWatchInfo === "function" &&
+  return typeof Pebble.getActiveWatchInfo === "function" &&
       Pebble.getActiveWatchInfo().platform === "emery";
   } catch (error) {
-    return false;
+  return false;
   }
 }
 
@@ -203,7 +337,7 @@ function displayNameInRoom(name, room) {
   var roomName = room || "";
   if (fullName.length <= roomName.length ||
       fullName.substring(0, roomName.length).toLowerCase() !== roomName.toLowerCase()) {
-    return fullName;
+  return fullName;
   }
   var start = roomName.length;
   if (!/[\s\-:/. _]/.test(fullName.charAt(start))) return fullName;
@@ -213,7 +347,7 @@ function displayNameInRoom(name, room) {
 
 function compareByRoomName(room) {
   return function(left, right) {
-    return compareByName(
+  return compareByName(
       {name: displayNameInRoom(left.name, room)},
       {name: displayNameInRoom(right.name, room)}
     );
@@ -234,7 +368,7 @@ function compareByDeviceTypeAndRoomName(room) {
       if (leftType < rightType) return -1;
       if (leftType > rightType) return 1;
     }
-    return nameComparator(left, right);
+  return nameComparator(left, right);
   };
 }
 
@@ -252,7 +386,7 @@ function sceneBelongsToRoom(scene, room) {
   var prefixes = roomScenePrefixes(room);
   for (var i = 0; i < prefixes.length; i += 1) {
     if (sceneName === prefixes[i] || sceneName.indexOf(prefixes[i] + " ") === 0) {
-      return true;
+  return true;
     }
   }
   return false;
@@ -293,7 +427,7 @@ function sensorValue(sensor, info) {
   if (formatted) return formatted;
   if (state.value !== undefined && state.value !== null) return String(state.value);
   if (state.sensorReading !== undefined && state.sensorReading !== null) {
-    return String(state.sensorReading) + (state.sensorUnit || "");
+  return String(state.sensorReading) + (state.sensorUnit || "");
   }
   return "Unknown";
 }
@@ -376,7 +510,7 @@ function setShortcutAtIndex(index, target) {
 function cacheShortcutScenes(items) {
   if (!Array.isArray(items)) return;
   var names = items.map(function(item) {
-    return item && typeof item.name === "string" ? item.name.trim() : "";
+  return item && typeof item.name === "string" ? item.name.trim() : "";
   }).filter(function(name) { return name.length > 0 && name.length <= 64; })
     .sort(function(left, right) { return left.toLowerCase().localeCompare(right.toLowerCase()); });
   localStorage.setItem("pomeShortcutScenes", JSON.stringify(names.slice(0, MAX_ITEMS)));
@@ -385,10 +519,10 @@ function cacheShortcutScenes(items) {
 function configuredShortcutScenes() {
   try {
     var scenes = JSON.parse(localStorage.getItem("pomeShortcutScenes") || "[]");
-    return Array.isArray(scenes) ? scenes.slice(0, MAX_ITEMS) : [];
+  return Array.isArray(scenes) ? scenes.slice(0, MAX_ITEMS) : [];
   } catch (error) {
     console.log("Invalid cached shortcut scenes: " + error.message);
-    return [];
+  return [];
   }
 }
 
@@ -451,10 +585,10 @@ function themeForCurrentWatch(theme) {
 
 function configuredTheme() {
   try {
-    return themeForCurrentWatch(JSON.parse(localStorage.getItem("pomeTheme") || "null"));
+  return themeForCurrentWatch(JSON.parse(localStorage.getItem("pomeTheme") || "null"));
   } catch (error) {
     console.log("Invalid saved theme: " + error.message);
-    return themeForCurrentWatch(DEFAULT_THEME);
+  return themeForCurrentWatch(DEFAULT_THEME);
   }
 }
 
@@ -532,7 +666,7 @@ function hsvToHex(hue, saturation) {
   var match = 1 - chroma;
   function component(value) {
     var hex = Math.round((value + match) * 255).toString(16);
-    return hex.length === 1 ? "0" + hex : hex;
+  return hex.length === 1 ? "0" + hex : hex;
   }
   return "#" + component(red) + component(green) + component(blue);
 }
@@ -668,7 +802,7 @@ function sendColorChoices(done) {
 
 function sendItems(items, kind, done) {
   var filtered = items.filter(function(item) {
-    return item && typeof item.name === "string" &&
+  return item && typeof item.name === "string" &&
       (kind !== ITEM_KIND_FAVORITE || item.kind === "scene");
   }).slice(0, MAX_ITEMS);
 
@@ -702,7 +836,7 @@ function sendItems(items, kind, done) {
 
 function duplicateTypeLabel(type) {
   return String(type || "Device").split("-").map(function(part) {
-    return part ? part.charAt(0).toUpperCase() + part.slice(1) : part;
+  return part ? part.charAt(0).toUpperCase() + part.slice(1) : part;
   }).join(" ");
 }
 
@@ -890,7 +1024,7 @@ function roomLights(room, callback) {
     }
     enrichDuplicateServices(items, room, function() {
       var lights = items.filter(function(item) {
-        return item && item.type === "light" && item.reachable !== false &&
+  return item && item.type === "light" && item.reachable !== false &&
           typeof item.name === "string";
       });
       if (lights.length === 0) {
@@ -948,36 +1082,36 @@ function controlRoomLights(room, action, value, saturation) {
     }
     if (action === "toggle") {
       var anyOn = lights.some(function(light) {
-        return light.state && light.state.on === true;
+  return light.state && light.state.on === true;
       });
       var powerAction = anyOn ? "off" : "on";
       runLightCommands(lights, function(light) {
-        return "/" + powerAction + "/" +
+  return "/" + powerAction + "/" +
           encodedDeviceTarget(room, light.name, light.serviceId);
       }, anyOn ? "All lights off" : "All lights on");
     } else if (action === "on" || action === "off") {
       runLightCommands(lights, function(light) {
-        return "/" + action + "/" +
+  return "/" + action + "/" +
           encodedDeviceTarget(room, light.name, light.serviceId);
       }, action === "on" ? "All lights on" : "All lights off");
     } else if (action === "brightness") {
       runLightCommands(lights, function(light) {
-        return "/brightness/" + value + "/" +
+  return "/brightness/" + value + "/" +
           encodedDeviceTarget(room, light.name, light.serviceId);
       }, "Room brightness set");
     } else if (action === "color") {
       runLightCommands(lights, function(light) {
-        return "/color/" + value + "/" + saturation + "/" +
+  return "/color/" + value + "/" + saturation + "/" +
           encodedDeviceTarget(room, light.name, light.serviceId);
       }, "Room color set");
     } else if (action === "rainbow") {
       lights.sort(function(left, right) {
-        return (normalizeVoice(left.name) + " " + (left.serviceId || "")).localeCompare(
+  return (normalizeVoice(left.name) + " " + (left.serviceId || "")).localeCompare(
           normalizeVoice(right.name) + " " + (right.serviceId || ""));
       });
       runLightCommands(lights, function(light, index) {
         var hue = Math.round(index * 360 / lights.length) % 360;
-        return "/color/" + hue + "/100/" +
+  return "/color/" + hue + "/100/" +
           encodedDeviceTarget(room, light.name, light.serviceId);
       }, "Room rainbow set");
     }
@@ -1067,7 +1201,7 @@ function cachedBlindPosition(target) {
   if (!cached) return null;
   if (Date.now() - cached.updatedAt > BLIND_POSITION_CACHE_TTL_MS) {
     delete BLIND_POSITION_CACHE[target];
-    return null;
+  return null;
   }
   return cached.position;
 }
@@ -1240,13 +1374,13 @@ function buildVoiceCatalog(devices, scenes, rooms) {
     pushUnique(roomNames, typeof room === "string" ? room : room && room.name);
   });
   var usableDevices = (devices || []).filter(function(device) {
-    return device && typeof device.name === "string" && typeof device.room === "string";
+  return device && typeof device.name === "string" && typeof device.room === "string";
   });
   usableDevices.forEach(function(device) { pushUnique(roomNames, device.room); });
   var entities = usableDevices.slice();
   roomNames.forEach(function(room) {
     var hasLights = usableDevices.some(function(device) {
-      return device.room.toLowerCase() === room.toLowerCase() && device.type === "light" &&
+  return device.room.toLowerCase() === room.toLowerCase() && device.type === "light" &&
         device.reachable !== false;
     });
     if (hasLights) {
@@ -1257,7 +1391,7 @@ function buildVoiceCatalog(devices, scenes, rooms) {
     devices: usableDevices,
     entities: entities,
     scenes: (scenes || []).filter(function(scene) {
-      return scene && typeof scene.name === "string";
+  return scene && typeof scene.name === "string";
     }),
     rooms: roomNames,
     fetchedAt: Date.now()
@@ -1273,7 +1407,7 @@ function loadVoiceCatalog(done) {
   var remaining = 3;
   var finished = false;
   function loaded(key) {
-    return function(error, value) {
+  return function(error, value) {
       if (finished) return;
       if (error) {
         finished = true;
@@ -1319,7 +1453,7 @@ function voiceEntityAliases(entity) {
 
 function findVoiceRoom(text, catalog) {
   var matches = catalog.rooms.filter(function(room) {
-    return voicePhraseContains(text, room) || voicePhraseContains(text, room.replace(/ room$/i, ""));
+  return voicePhraseContains(text, room) || voicePhraseContains(text, room.replace(/ room$/i, ""));
   }).sort(function(left, right) { return right.length - left.length; });
   return matches.length ? matches[0] : null;
 }
@@ -1359,14 +1493,14 @@ function findVoiceEntity(text, catalog) {
     var matchedRoom = findVoiceRoom(text, catalog);
     if (matchedRoom && spoken.length) {
       var typedRoomDevices = catalog.devices.filter(function(device) {
-        return device.reachable !== false &&
+  return device.reachable !== false &&
           normalizeVoice(device.room) === normalizeVoice(matchedRoom) &&
           spoken.indexOf(device.type) !== -1;
       });
       if (typedRoomDevices.length === 1) return {entity: typedRoomDevices[0]};
     }
-    return {error: "Which device? " + top.slice(0, 2).map(function(item) {
-      return item.entity.name;
+  return {error: "Which device? " + top.slice(0, 2).map(function(item) {
+  return item.entity.name;
     }).join(" or ")};
   }
 
@@ -1374,7 +1508,7 @@ function findVoiceEntity(text, catalog) {
   var types = spokenVoiceTypes(text);
   if (room && types.length) {
     var roomDevices = catalog.devices.filter(function(device) {
-      return device.reachable !== false && device.room.toLowerCase() === room.toLowerCase() &&
+  return device.reachable !== false && device.room.toLowerCase() === room.toLowerCase() &&
         types.indexOf(device.type) !== -1;
     });
     if (roomDevices.length === 1) return {entity: roomDevices[0]};
@@ -1394,7 +1528,7 @@ function exactVoiceScene(text, scenes) {
   for (var index = 0; index < sceneNames.length; index += 1) {
     var candidate = sceneNames[index];
     var matches = scenes.filter(function(scene) {
-      return normalizeVoice(scene.name) === candidate;
+  return normalizeVoice(scene.name) === candidate;
     });
     if (matches.length === 1) return matches[0];
   }
@@ -1430,7 +1564,7 @@ function voiceColor(text) {
     var name = normalizeVoice(color.name);
     if (!name || seen[name]) return false;
     seen[name] = true;
-    return voicePhraseContains(text, name);
+  return voicePhraseContains(text, name);
   }).sort(function(left, right) { return right.name.length - left.name.length; });
   return matches.length ? matches[0] : null;
 }
@@ -1450,20 +1584,20 @@ function parseVoiceCommand(transcription, catalog) {
 
   var scene = exactVoiceScene(text, catalog.scenes);
   if (scene) {
-    return {intent: {action: "scene", scene: scene.name}, prompt: "Scene\n" + scene.name};
+  return {intent: {action: "scene", scene: scene.name}, prompt: "Scene\n" + scene.name};
   }
 
   if (voicePhraseContains(text, "rainbow")) {
     var rainbowRoom = findVoiceRoom(text, catalog);
     var rainbowGroups = rainbowRoom ? catalog.entities.filter(function(candidate) {
-      return candidate.reachable !== false && candidate.type === "light-group" &&
+  return candidate.reachable !== false && candidate.type === "light-group" &&
         normalizeVoice(candidate.room) === normalizeVoice(rainbowRoom);
     }) : [];
     if (rainbowGroups.length === 1) {
-      return {intent: {action: "rainbow", entity: rainbowGroups[0]},
+  return {intent: {action: "rainbow", entity: rainbowGroups[0]},
         prompt: voicePrompt(rainbowGroups[0], "Rainbow")};
     }
-    return {error: "I couldn't match that room"};
+  return {error: "I couldn't match that room"};
   }
 
   var query = /^(?:what is|whats|show|check|read|is)\b/.test(text);
@@ -1472,7 +1606,7 @@ function parseVoiceCommand(transcription, catalog) {
   if (found.error && color) {
     var matchedRoom = findVoiceRoom(text, catalog);
     var roomLightGroups = matchedRoom ? catalog.entities.filter(function(candidate) {
-      return candidate.reachable !== false && candidate.type === "light-group" &&
+  return candidate.reachable !== false && candidate.type === "light-group" &&
         normalizeVoice(candidate.room) === normalizeVoice(matchedRoom);
     }) : [];
     if (roomLightGroups.length === 1) found = {entity: roomLightGroups[0]};
@@ -1480,14 +1614,14 @@ function parseVoiceCommand(transcription, catalog) {
   if (found.error) return found;
   var entity = found.entity;
   if (query) {
-    return {intent: {action: "query", entity: entity}};
+  return {intent: {action: "query", entity: entity}};
   }
 
   if (entity.type === "blinds") {
     var number = voiceNumber(text);
     if (number !== null && (voicePhraseContains(text, "percent") || text.indexOf("%") !== -1 ||
         voicePhraseContains(text, "position"))) {
-      return {intent: {action: "position", entity: entity, value: number},
+  return {intent: {action: "position", entity: entity, value: number},
         prompt: voicePrompt(entity, number + "% open")};
     }
     var blindAction = null;
@@ -1508,10 +1642,10 @@ function parseVoiceCommand(transcription, catalog) {
       blindAction = 3; blindLabel = "Down 5%";
     }
     if (blindAction !== null) {
-      return {intent: {action: "blind", entity: entity, value: blindAction},
+  return {intent: {action: "blind", entity: entity, value: blindAction},
         prompt: voicePrompt(entity, blindLabel)};
     }
-    return {error: "Say open, close, up, down, or a position"};
+  return {error: "Say open, close, up, down, or a position"};
   }
 
   var turnOn = voicePhraseContains(text, "on") || voicePhraseContains(text, "power on");
@@ -1519,30 +1653,30 @@ function parseVoiceCommand(transcription, catalog) {
     voicePhraseContains(text, "power off");
   if (turnOn || turnOff) {
     if (!TOGGLE_SAFE_TYPES[entity.type] && entity.type !== "light-group") {
-      return {error: "That device isn't safe for voice power control"};
+  return {error: "That device isn't safe for voice power control"};
     }
-    return {intent: {action: "power", entity: entity, value: turnOn},
+  return {intent: {action: "power", entity: entity, value: turnOn},
       prompt: voicePrompt(entity, turnOn ? "Turn on" : "Turn off")};
   }
   if (voicePhraseContains(text, "toggle")) {
     if (!TOGGLE_SAFE_TYPES[entity.type] && entity.type !== "light-group") {
-      return {error: "That device isn't safe for voice control"};
+  return {error: "That device isn't safe for voice control"};
     }
-    return {intent: {action: "toggle", entity: entity}, prompt: voicePrompt(entity, "Toggle")};
+  return {intent: {action: "toggle", entity: entity}, prompt: voicePrompt(entity, "Toggle")};
   }
 
   if (color && (entity.type === "light" || entity.type === "light-group")) {
-    return {intent: {action: "color", entity: entity, hue: color.hue,
+  return {intent: {action: "color", entity: entity, hue: color.hue,
       saturation: color.saturation}, prompt: voicePrompt(entity, color.name)};
   }
 
   var level = voiceNumber(text);
   if (entity.type === "fan" && level !== null) {
-    return {intent: {action: "speed", entity: entity, value: level},
+  return {intent: {action: "speed", entity: entity, value: level},
       prompt: voicePrompt(entity, "Speed " + level + "%")};
   }
   if ((entity.type === "light" || entity.type === "light-group") && level !== null) {
-    return {intent: {action: "brightness", entity: entity, value: level},
+  return {intent: {action: "brightness", entity: entity, value: level},
       prompt: voicePrompt(entity, "Brightness " + level + "%")};
   }
   if (voicePhraseContains(text, "low") || voicePhraseContains(text, "medium") ||
@@ -1550,11 +1684,11 @@ function parseVoiceCommand(transcription, catalog) {
     var preset = voicePhraseContains(text, "low") ? 25 :
       voicePhraseContains(text, "medium") ? 50 : 100;
     if (entity.type === "fan") {
-      return {intent: {action: "speed", entity: entity, value: preset},
+  return {intent: {action: "speed", entity: entity, value: preset},
         prompt: voicePrompt(entity, "Speed " + preset + "%")};
     }
     if (entity.type === "light" || entity.type === "light-group") {
-      return {intent: {action: "brightness", entity: entity, value: preset},
+  return {intent: {action: "brightness", entity: entity, value: preset},
         prompt: voicePrompt(entity, "Brightness " + preset + "%")};
     }
   }
@@ -1578,7 +1712,7 @@ function executeVoiceQuery(intent) {
     if (error) { sendError(error); return; }
     if (!Array.isArray(items)) { sendError(new Error("Status unavailable")); return; }
     var matches = items.filter(function(item) {
-      return item && normalizeVoice(item.name) === normalizeVoice(entity.name) &&
+  return item && normalizeVoice(item.name) === normalizeVoice(entity.name) &&
         item.type === entity.type;
     });
     if (matches.length !== 1) { sendError(new Error("Status target is ambiguous")); return; }
@@ -1593,7 +1727,7 @@ function resolveVoiceServiceId(intent, done) {
     return;
   }
   var duplicates = VOICE_CATALOG.devices.filter(function(device) {
-    return normalizeVoice(device.room) === normalizeVoice(entity.room) &&
+  return normalizeVoice(device.room) === normalizeVoice(entity.room) &&
       normalizeVoice(device.name) === normalizeVoice(entity.name);
   });
   if (duplicates.length <= 1) { done(null); return; }
@@ -1601,7 +1735,7 @@ function resolveVoiceServiceId(intent, done) {
     if (error) { done(error); return; }
     var details = Array.isArray(response) ? response : [response];
     var matches = details.filter(function(detail) {
-      return detail && detail.serviceTypeLabel === entity.type &&
+  return detail && detail.serviceTypeLabel === entity.type &&
         (!detail.room || normalizeVoice(detail.room) === normalizeVoice(entity.room)) &&
         typeof detail.serviceId === "string";
     });
@@ -1702,13 +1836,13 @@ function configurationPage() {
     '<option value="bitham-black">Bitham Black</option>';
   var sizeValues = enhancedFonts ? [14, 18, 22, 26, 30] : [14, 18, 21, 24, 28, 30];
   var sizeOptions = sizeValues.map(function(size) {
-    return '<option value="' + size + '">' + size + ' pt</option>';
+  return '<option value="' + size + '">' + size + ' pt</option>';
   }).join("");
   var fontNotice = enhancedFonts ?
     '<p><strong>Time 2 enhanced fonts:</strong> five bundled fonts, each available in all five sizes.</p>' :
     '<p>Pebble Time uses the sizes supplied by each built-in system font.</p>';
   function escapeHtml(value) {
-    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
       .replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
   }
   function shortcutOptions(selected) {
@@ -1716,17 +1850,17 @@ function configurationPage() {
       ["off", "Off"], ["voice", "Voice"], ["scenes", "Scenes"],
       ["rooms", "Rooms"], ["favorites", "Favorites"], ["themes", "Themes"]
     ].map(function(option) {
-      return '<option value="' + option[0] + '"' + (selected === option[0] ? " selected" : "") +
+  return '<option value="' + option[0] + '"' + (selected === option[0] ? " selected" : "") +
         '>' + option[1] + '</option>';
     }).join("");
     if (shortcutScenes.length) {
       options += '<optgroup label="Run a scene">' + shortcutScenes.map(function(name) {
         var value = "scene:" + name;
-        return '<option value="' + escapeHtml(value) + '"' + (selected === value ? " selected" : "") +
+  return '<option value="' + escapeHtml(value) + '"' + (selected === value ? " selected" : "") +
           '>' + escapeHtml(name) + '</option>';
       }).join("") + '</optgroup>';
     }
-    return options;
+  return options;
   }
   var shortcutFields = '<label>Long press Up</label><select id="shortcutUp">' +
     shortcutOptions(selectedShortcuts.up) + '</select><label>Long press Select</label><select id="shortcutSelect">' +
@@ -1961,6 +2095,7 @@ function configurationPage() {
     'byId(controls[j]).addEventListener(\'change\',preview);byId(controls[j]).addEventListener(\'input\',preview);}' +
     'byId(\'themeFont\').addEventListener(\'change\',function(){updateSizes(null);preview();});' +
     'refreshThemes(\'\');applyTheme(currentTheme);</script></html>';
+  html = organikSettingsHTML(html, {"app":"pome","fields":{"text":"themeText","background":"themeBackground","selection":"themeSelection","font":"themeFont","size":"themeSize"},"watchColors":["#000000","#001e41","#004387","#0068ca","#2b4a2c","#27514f","#16638d","#007dce","#5e9860","#5c9b72","#57a5a2","#4cb4db","#8ee391","#8ee69e","#8aebc0","#84f5f1","#4a161b","#482748","#40488a","#2f6bcc","#564e36","#545454","#4f6790","#4180d0","#759a64","#759d76","#71a6a4","#69b5dd","#9ee594","#9de7a0","#9becc2","#95f6f2","#99353f","#983e5a","#955694","#8f74d2","#9d5b4d","#9d6064","#9a7099","#9587d5","#afa072","#aea382","#ababab","#a7bae2","#c9e89d","#c9eaa7","#c7f0c8","#c3f9f7","#e35462","#e25874","#e16aa3","#de83dc","#e66e6b","#e6727c","#e37fa7","#e194df","#f1aa86","#f1ad93","#efb5b8","#ecc3eb","#ffeeab","#fff1b5","#fff6d3","#ffffff"],"library":false,"apply":false});
   return "data:text/html;charset=utf-8," + encodeURIComponent(html);
 }
 
@@ -2076,7 +2211,7 @@ Pebble.addEventListener("webviewclosed", function(event) {
     }
     if (Array.isArray(config.themes)) {
       var customThemes = config.themes.filter(function(theme) {
-        return theme && theme.builtIn !== true;
+  return theme && theme.builtIn !== true;
       }).slice(0, 20).map(normalizeTheme);
       localStorage.setItem("pomeThemes", JSON.stringify(customThemes));
     }

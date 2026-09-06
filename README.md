@@ -164,3 +164,11 @@ Thank you to ChatGPT and Codex, especially ChatGPT 5.6 Sol and ChatGPT 6 Astra, 
 
 We also thank the developers and communities behind the apps, libraries, fonts and tools we build
 on. [Full acknowledgments](ACKNOWLEDGMENTS.md).
+
+## Consistent phone settings
+
+The Pome-style tabbed settings and theme editor are described in [Phone settings](docs/SETTINGS.md).
+
+## Touch menu selection
+
+On a touch-capable watch, tap a different menu item to highlight it and read its scrolling title. Tap the highlighted item again to open or activate it; there is no need to tap quickly. Physical Select still activates the highlighted item.
