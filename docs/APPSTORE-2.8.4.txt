@@ -1,0 +1,13 @@
+Pome puts Apple Home controls on Pebble Time and Time 2 through Itsyhome on your Mac.
+
+Browse scenes, rooms, devices, favorites, and read-only sensors. Control light brightness and colors, all lights in a room, fan speed, and blinds. On dictation-capable watches, try "Set Lounge TV" or "Turn lounge lights green."
+
+Pin scenes, accessories, and sensors above Voice. Assign Pin / unpin to a button hold or Double Back in phone settings. Opening an accessory pin refreshes its room and highlights the matching item; it never toggles a device from cached data. Existing pins are preserved.
+
+Customize themes and shortcuts in the phone's Setup, Themes, and Shortcuts tabs. Double Back defaults to Off. Touch menus start at the top; tap a different row to focus, then tap again to activate. Physical buttons remain available.
+
+Setup: install Itsyhome (https://itsyhome.app/macos), enable its Webhooks/CLI server, then enter a reachable server URL in Pome's phone settings. For private access away from home, use Tailscale on your Mac and iPhone with Tailscale Serve. Never expose the server using Funnel or router port forwarding.
+
+Setup and optional Organik Apps Pebble Connector instructions: https://github.com/GeezusChrotch/pome
+
+Pome has no analytics or hosted relay. Voice transcription uses your Pebble phone app's provider. Independent open-source community project; not affiliated with Apple, Itsyhome, Tailscale, or Pebble.

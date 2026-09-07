@@ -2,6 +2,11 @@
 
 ## 2.8.4
 
+- Pin scenes, room accessories, and sensors using a configurable Up/Select/Down hold or Double Back action. Use the same action on a pinned main-menu item to unpin it.
+- Preserve existing scene pins and keep watch pin changes independent of phone settings sync.
+- Refresh a pinned accessory's room before locating it; sensor pins open the sensor list. Missing or ambiguous matches show a message, and opening a pin never toggles a device from cached data.
+- Move theme and shortcut customization to the phone's Setup, Themes, and Shortcuts tabs; remove the watch Settings entry and obsolete theme shortcuts.
+- Add configurable Double Back, Off by default. Other shortcut assignments are preserved.
 - Start menus at the top instead of leaving blank space above the first row on touch watches.
 - Apply the same positive-offset correction after menu creation, refresh, and selection restoration while preserving scrolled positions and two-step touch activation.
 

@@ -5,7 +5,7 @@ Notesy, Beepster, Reminderz and Pome. [Setup and migration](docs/UNIFIED_CONNECT
 Existing Pome watch pairing is retained. Standalone connector details below describe the older
 implementation and remain useful for source builds or rollback.
 
-### Pinned scenes
+### Pinned scenes, accessories, and sensors
 
 In phone settings → **Shortcuts**, assign **Pin / unpin** to Up/Select/Down
 hold or Double Back. On the watch, highlight a scene in Favorites, Scenes, or a
