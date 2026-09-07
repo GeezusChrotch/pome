@@ -5,13 +5,19 @@ test('Double Back dispatches Pome shortcuts while obsolete theme shortcuts remai
  const src=fs.readFileSync(path.join(__dirname,'../src/c/itsyhome-pebble.c'),'utf8');
  const run=src.slice(src.indexOf('static void run_shortcut('),src.indexOf('static void root_long_click('));
  const back=src.slice(src.indexOf('static void root_double_back('),src.indexOf('static void root_shortcut_click_config_provider(void *context) {'));
- check(run+back,`typedef int ClickRecognizerRef;static char*s_shortcut_double_back="off";enum{ITEM_KIND_FAVORITE=1,ITEM_KIND_SCENE,ITEM_KIND_ROOM};static int opened,voice,scenes;static void vibes_short_pulse(void){}static void start_voice(void){voice++;}static void push_list(int kind){opened=kind;}static void run_scene(const char*name){assert(!strcmp(name,"Lights"));scenes++;}`,
- `root_double_back(0,0);assert(!opened&&!voice&&!scenes);s_shortcut_double_back="scenes";root_double_back(0,0);assert(opened==ITEM_KIND_SCENE);s_shortcut_double_back="scene:Lights";root_double_back(0,0);assert(scenes==1);s_shortcut_double_back="themes";opened=0;root_double_back(0,0);assert(!opened&&scenes==1);`);
+ check(run+back,`typedef int ClickRecognizerRef;static char*s_shortcut_double_back="off";enum{ITEM_KIND_FAVORITE=1,ITEM_KIND_SCENE,ITEM_KIND_ROOM};static int opened,voice,scenes,pins;static void toggle_highlighted_scene_pin(void){pins++;}static void vibes_short_pulse(void){}static void start_voice(void){voice++;}static void push_list(int kind){opened=kind;}static void run_scene(const char*name){assert(!strcmp(name,"Lights"));scenes++;}`,
+ `root_double_back(0,0);assert(!opened&&!voice&&!scenes);s_shortcut_double_back="scenes";root_double_back(0,0);assert(opened==ITEM_KIND_SCENE);s_shortcut_double_back="scene:Lights";root_double_back(0,0);assert(scenes==1);s_shortcut_double_back="themes";opened=0;root_double_back(0,0);assert(!opened&&scenes==1);s_shortcut_double_back="pin_toggle";root_double_back(0,0);assert(pins==1);`);
 });
-test('phone pin commands are idempotent and leave other saved pins untouched',()=>{
+
+test('Pin shortcut targets highlighted scenes and pinned root rows, never rooms or action rows',()=>{
  const src=fs.readFileSync(path.join(__dirname,'../src/c/itsyhome-pebble.c'),'utf8');
- const body=src.slice(src.indexOf('  Tuple *pin_scene ='),src.indexOf('  Tuple *item_kind_tuple',src.indexOf('  Tuple *pin_scene =')));
- check('static void receive(void*iterator){'+body+'}',`#define MAX_NAME_LENGTH 64
- enum{MESSAGE_KEY_PIN_SCENE,MESSAGE_KEY_PIN_STATE};typedef struct{const char*cstring;int int32;}Value;typedef struct{Value*value;}Tuple;static Value name={"Scene",0},state={0,1};static Tuple names={&name},states={&state};static int changes,errors;static bool pinned;static void*s_root_menu;static Tuple*dict_find(void*i,int key){return key==MESSAGE_KEY_PIN_SCENE?&names:&states;}static int pin_index(const char*n){return pinned?0:-1;}static bool toggle_pin(const char*n){changes++;pinned=!pinned;return true;}static void set_status(const char*t){errors++;}static void menu_layer_reload_data(void*m){}`,
- `receive(0);receive(0);assert(pinned&&changes==1);state.int32=0;receive(0);receive(0);assert(!pinned&&changes==2);name.cstring="";state.int32=1;receive(0);assert(changes==2&&!errors);`);
+ const body=src.slice(src.indexOf('static void toggle_highlighted_scene_pin('),src.indexOf('static void run_shortcut('));
+ check(body,`#include <stdio.h>
+#define MAX_NAME_LENGTH 64
+ typedef void Window;typedef struct{int section,row;}MenuIndex;
+#define MenuIndex(s,r) ((MenuIndex){s,r})
+ enum{ITEM_KIND_SCENE,ITEM_KIND_ROOM,MenuRowAlignNone};static void*s_root_window=(void*)1,*s_list_window=(void*)2,*s_room_scene_window=(void*)3,*top;static void*s_root_menu=(void*)1,*s_list_menu=(void*)2,*s_room_scene_menu=(void*)3;static int row,s_pin_count=1,s_room_scene_count=1,s_current_kind,changes;static char last[64];static bool fail;
+ static struct Scene{char name[64];}items[]={{"Favorite"},{"Scene"}},s_room_scenes[]={{"Room scene"}};
+ static int list_count(void){return 2;}static struct Scene*list_items(void){return items;}static void*window_stack_get_top_window(void){return top;}static MenuIndex menu_layer_get_selected_index(void*m){return(MenuIndex){0,row};}static void pin_name(int r,char*n){strcpy(n,"Old pinned scene");}static bool toggle_pin(const char*n){strcpy(last,n);changes++;return !fail;}static void show_voice_info(const char*t){}static void marquee_reset(void){}static int root_get_num_rows(void*m,int section,void*c){return 3;}static void menu_layer_reload_data(void*m){}static void menu_layer_set_selected_index(void*m,MenuIndex i,int align,bool animated){row=i.row;}`,
+ `top=s_list_window;row=1;toggle_highlighted_scene_pin();assert(!strcmp(last,"Scene")&&changes==1);s_current_kind=ITEM_KIND_ROOM;toggle_highlighted_scene_pin();assert(changes==1);top=s_room_scene_window;row=0;toggle_highlighted_scene_pin();assert(!strcmp(last,"Room scene")&&changes==2);top=s_root_window;row=0;toggle_highlighted_scene_pin();assert(!strcmp(last,"Old pinned scene")&&changes==3);row=1;toggle_highlighted_scene_pin();assert(changes==3);top=s_list_window;s_current_kind=ITEM_KIND_SCENE;row=9;toggle_highlighted_scene_pin();assert(changes==3);`);
 });

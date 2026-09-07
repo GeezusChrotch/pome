@@ -7,12 +7,12 @@ implementation and remain useful for source builds or rollback.
 
 ### Pinned scenes
 
-In the phone settings, open **Shortcuts → Pinned scenes** and choose Pin or Unpin.
-Keep current preserves pins from older watch versions. Pins appear above Voice on the
-main watch menu, in the order you pinned them. Select a pinned scene to run it.
-Pins remain saved on the watch across app restarts. To remove a renamed or deleted
-scene, enter its exact old name in the phone's removal field. Pins keep the main menu
-visible even with only one category enabled.
+In phone settings → **Shortcuts**, assign **Pin / unpin scene** to Up/Select/Down
+hold or Double Back. On the watch, highlight a scene in Favorites, Scenes, or a
+room's scene list and use that gesture to toggle its pin. Use the same gesture on
+a pinned main-page row to unpin it, including a renamed or deleted scene.
+Other rows are unaffected. Pinned scenes appear above Voice; normal Select still
+runs the scene. Pins persist on the watch, and phone settings sync preserves them.
 
 Theme and button customization are phone-only. Shortcuts includes Up/Select/Down holds
 and Double Back (two quick presses, Off by default). Single Back still returns.

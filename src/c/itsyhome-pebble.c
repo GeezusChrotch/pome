@@ -885,6 +885,7 @@ static void list_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
   SceneItem *item = &list_items()[cell_index->row];
   const char *subtitle = NULL;
   if (s_current_kind != ITEM_KIND_ROOM && item->active) subtitle = "Active";
+  if (s_current_kind != ITEM_KIND_ROOM && pin_index(item->name)>=0) subtitle="Pinned";
   theme_cell_draw(ctx, cell_layer, item->name, subtitle, NULL);
 }
 
@@ -1001,7 +1002,7 @@ static void room_scene_draw_row(GContext *ctx, const Layer *cell_layer,
     return;
   }
   SceneItem *scene = &s_room_scenes[cell_index->row];
-  theme_cell_draw(ctx, cell_layer, scene->name, scene->active ? "Active" : NULL, NULL);
+  theme_cell_draw(ctx, cell_layer, scene->name, pin_index(scene->name)>=0 ? "Pinned" : scene->active ? "Active" : NULL, NULL);
 }
 
 static void room_scene_draw_header(GContext *ctx, const Layer *cell_layer,
@@ -1476,10 +1477,38 @@ static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void
   }
 }
 
+static void toggle_highlighted_scene_pin(void) {
+  Window *top=window_stack_get_top_window();
+  char name[MAX_NAME_LENGTH]={0};
+  if(top==s_root_window && s_root_menu){
+    uint16_t row=menu_layer_get_selected_index(s_root_menu).row;
+    if(row<s_pin_count)pin_name(row,name);
+  }else if(top==s_list_window && s_list_menu && s_current_kind!=ITEM_KIND_ROOM){
+    uint16_t row=menu_layer_get_selected_index(s_list_menu).row;
+    if(row<list_count())snprintf(name,sizeof(name),"%s",list_items()[row].name);
+  }else if(top==s_room_scene_window && s_room_scene_menu){
+    uint16_t row=menu_layer_get_selected_index(s_room_scene_menu).row;
+    if(row<s_room_scene_count)snprintf(name,sizeof(name),"%s",s_room_scenes[row].name);
+  }
+  if(!name[0])return;
+  if(!toggle_pin(name)){show_voice_info("Could not save pin");return;}
+  marquee_reset();
+  if(s_root_menu){
+    uint16_t row=menu_layer_get_selected_index(s_root_menu).row;
+    uint16_t count=root_get_num_rows(s_root_menu,0,NULL);
+    menu_layer_reload_data(s_root_menu);
+    if(row>=count)menu_layer_set_selected_index(s_root_menu,MenuIndex(0,count-1),MenuRowAlignNone,false);
+  }
+  if(s_list_menu)menu_layer_reload_data(s_list_menu);
+  if(s_room_scene_menu)menu_layer_reload_data(s_room_scene_menu);
+}
+
 static void run_shortcut(const char *target) {
   if (!target || !target[0] || strcmp(target, "off") == 0) return;
   vibes_short_pulse();
-  if (strcmp(target, "voice") == 0) {
+  if (strcmp(target, "pin_toggle") == 0) {
+    toggle_highlighted_scene_pin();
+  } else if (strcmp(target, "voice") == 0) {
     start_voice();
   } else if (strcmp(target, "favorites") == 0) {
     push_list(ITEM_KIND_FAVORITE);
@@ -1536,6 +1565,24 @@ static void root_shortcut_click_config_provider(void *context) {
   }
 }
 
+// Only the Pin / unpin binding extends into scene lists; other shortcuts remain main-screen actions.
+static void scene_single_click(ClickRecognizerRef recognizer,void *context){
+  MenuLayer *menu=context;ButtonId button=click_recognizer_get_button_id(recognizer);
+  if(button==BUTTON_ID_BACK){window_stack_pop(true);return;}
+  if(button==BUTTON_ID_SELECT){MenuIndex row=menu_layer_get_selected_index(menu);if(menu==s_room_scene_menu){if(row.row<s_room_scene_count)room_scene_select_click(menu,&row,NULL);}else if(row.row<list_count())list_select_click(menu,&row,NULL);}
+  else menu_layer_set_selected_next(menu,button==BUTTON_ID_UP,MenuRowAlignCenter,true);
+}
+static void scene_pin_click(ClickRecognizerRef recognizer,void *context){run_shortcut("pin_toggle");}
+static void scene_click_config(void *context){
+  window_single_click_subscribe(BUTTON_ID_BACK,scene_single_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_UP,100,scene_single_click);
+  window_single_click_subscribe(BUTTON_ID_SELECT,scene_single_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN,100,scene_single_click);
+  const char *bindings[]={s_shortcut_up,s_shortcut_select,s_shortcut_down};
+  for(int i=0;i<3;i++)if(strcmp(bindings[i],"pin_toggle")==0){window_single_click_subscribe(BUTTON_ID_UP+i,scene_single_click);window_long_click_subscribe(BUTTON_ID_UP+i,700,scene_pin_click,NULL);}
+  if(strcmp(s_shortcut_double_back,"pin_toggle")==0)window_multi_click_subscribe(BUTTON_ID_BACK,2,2,300,true,scene_pin_click);
+}
+
 static void maybe_auto_open(void) {
   if (!s_auto_opened && s_pin_count == 0 && visible_root_count() == 1) {
     s_auto_opened = true;
@@ -1544,17 +1591,6 @@ static void maybe_auto_open(void) {
 }
 
 static void inbox_received(DictionaryIterator *iterator, void *context) {
-  Tuple *pin_scene = dict_find(iterator, MESSAGE_KEY_PIN_SCENE);
-  Tuple *pin_state = dict_find(iterator, MESSAGE_KEY_PIN_STATE);
-  if(pin_scene && pin_state){
-    const char *name=pin_scene->value->cstring;
-    bool wanted=pin_state->value->int32!=0;
-    if(name[0] && strlen(name)<MAX_NAME_LENGTH && ((pin_index(name)>=0)!=wanted)){
-      if(!toggle_pin(name)){set_status("Could not save scene pin");return;}
-      if(s_root_menu)menu_layer_reload_data(s_root_menu);
-    }
-    return;
-  }
   Tuple *item_kind_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_KIND);
   bool is_theme_catalog_item = item_kind_tuple &&
     item_kind_tuple->value->uint8 == ITEM_KIND_THEME;
@@ -1575,6 +1611,8 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       window_set_click_config_provider_with_context(
         s_root_window, root_shortcut_click_config_provider, s_root_menu);
     }
+    if(s_list_menu)window_set_click_config_provider_with_context(s_list_window,scene_click_config,s_list_menu);
+    if(s_room_scene_menu)window_set_click_config_provider_with_context(s_room_scene_window,scene_click_config,s_room_scene_menu);
     if (s_shortcut_menu) menu_layer_reload_data(s_shortcut_menu);
     if (s_shortcut_target_menu) menu_layer_reload_data(s_shortcut_target_menu);
   }
@@ -1850,7 +1888,8 @@ static void list_window_load(Window *window) {
     .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_list_menu);
-  menu_layer_set_click_config_onto_window(s_list_menu, window);
+  menu_layer_set_click_config_onto_window(s_list_menu,window);
+  window_set_click_config_provider_with_context(window,scene_click_config,s_list_menu);
   layer_add_child(root, menu_layer_get_layer(s_list_menu));
 }
 
@@ -1915,7 +1954,8 @@ static void room_scene_window_load(Window *window) {
     .selection_changed = marquee_selection_changed,
   });
   apply_theme_to_menu(s_room_scene_menu);
-  menu_layer_set_click_config_onto_window(s_room_scene_menu, window);
+  menu_layer_set_click_config_onto_window(s_room_scene_menu,window);
+  window_set_click_config_provider_with_context(window,scene_click_config,s_room_scene_menu);
   layer_add_child(root, menu_layer_get_layer(s_room_scene_menu));
 }
 
