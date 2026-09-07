@@ -17,6 +17,7 @@
    ```sh
    node tests/group-control.test.js
    node tests/voice-control.test.js
+   node tests/menu-start-position.test.cjs
    pebble clean
    pebble build
    unzip -p build/itsyhome-pebble.pbw appinfo.json | jq
@@ -24,6 +25,12 @@
 
 4. Inspect every file under `appstore-assets/`. Screenshots must use generic demo
    names only.
+
+5. Check startup and post-refresh menus on a touch-watch emulator. The first row
+   must start at the top, with no positive scroll offset. Preserve two-step touch
+   activation and negative offsets for scrolled history. When updating the shared
+   `touch_menu.h`, apply and test the fix in Pome, Notesy, Beepster, Reminderz, and
+   Gandalf+Gilda rather than relying on per-screen fixes.
 
 ## GitHub release
 

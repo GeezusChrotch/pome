@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.4
+
+- Start menus at the top instead of leaving blank space above the first row on touch watches.
+- Apply the same positive-offset correction after menu creation, refresh, and selection restoration while preserving scrolled positions and two-step touch activation.
+
 ## 2.8.0
 
 - Refresh the phone settings with Setup, Themes, and Shortcuts tabs, a live watch preview, and the supported Pebble color palette.
