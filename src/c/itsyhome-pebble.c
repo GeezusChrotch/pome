@@ -187,6 +187,7 @@ static bool s_theme_icons = true;
 static char s_shortcut_up[MAX_SHORTCUT_LENGTH] = "off";
 static char s_shortcut_select[MAX_SHORTCUT_LENGTH] = "off";
 static char s_shortcut_down[MAX_SHORTCUT_LENGTH] = "off";
+static char s_shortcut_double_back[MAX_SHORTCUT_LENGTH] = "off";
 static uint8_t s_selected_shortcut_button;
 static AppTimer *s_marquee_timer;
 static int16_t s_marquee_offset;
@@ -848,7 +849,7 @@ static bool sensors_visible(void) {
 
 static uint16_t root_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                   void *context) {
-  return visible_root_count() + 3 + s_pin_count;
+  return visible_root_count() + 2 + s_pin_count;
 }
 
 static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
@@ -870,8 +871,7 @@ static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
                     s_loading ? "Loading..." : NULL, NULL);
   } else if (row == visible_count + 1) {
     theme_cell_draw(ctx, cell_layer, "Refresh", s_status, NULL);
-  } else {
-    theme_cell_draw(ctx, cell_layer, "Settings", NULL, NULL);
+
   }
 }
 
@@ -1472,8 +1472,7 @@ static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void
     push_list(root_kind_at(row - 1));
   } else if (row == visible_count + 1) {
     refresh_lists();
-  } else {
-    window_stack_push(s_settings_window, true);
+
   }
 }
 
@@ -1488,8 +1487,7 @@ static void run_shortcut(const char *target) {
     push_list(ITEM_KIND_SCENE);
   } else if (strcmp(target, "rooms") == 0) {
     push_list(ITEM_KIND_ROOM);
-  } else if (strcmp(target, "themes") == 0) {
-    show_theme_picker();
+
   } else if (strncmp(target, "scene:", 6) == 0 && target[6]) {
     run_scene(target + 6);
   }
@@ -1515,7 +1513,11 @@ static void root_single_click(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
+static void root_back_click(ClickRecognizerRef recognizer, void *context) { window_stack_pop(true); }
+static void root_double_back(ClickRecognizerRef recognizer, void *context) { run_shortcut(s_shortcut_double_back); }
 static void root_shortcut_click_config_provider(void *context) {
+  window_single_click_subscribe(BUTTON_ID_BACK,root_back_click);
+  window_multi_click_subscribe(BUTTON_ID_BACK,2,2,300,true,root_double_back);
   if (strcmp(s_shortcut_up, "off") == 0) {
     window_single_repeating_click_subscribe(BUTTON_ID_UP, 100, root_single_click);
   } else {
@@ -1542,13 +1544,26 @@ static void maybe_auto_open(void) {
 }
 
 static void inbox_received(DictionaryIterator *iterator, void *context) {
+  Tuple *pin_scene = dict_find(iterator, MESSAGE_KEY_PIN_SCENE);
+  Tuple *pin_state = dict_find(iterator, MESSAGE_KEY_PIN_STATE);
+  if(pin_scene && pin_state){
+    const char *name=pin_scene->value->cstring;
+    bool wanted=pin_state->value->int32!=0;
+    if(name[0] && strlen(name)<MAX_NAME_LENGTH && ((pin_index(name)>=0)!=wanted)){
+      if(!toggle_pin(name)){set_status("Could not save scene pin");return;}
+      if(s_root_menu)menu_layer_reload_data(s_root_menu);
+    }
+    return;
+  }
   Tuple *item_kind_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_KIND);
   bool is_theme_catalog_item = item_kind_tuple &&
     item_kind_tuple->value->uint8 == ITEM_KIND_THEME;
   Tuple *shortcut_up = dict_find(iterator, MESSAGE_KEY_SHORTCUT_UP);
   Tuple *shortcut_select = dict_find(iterator, MESSAGE_KEY_SHORTCUT_SELECT);
   Tuple *shortcut_down = dict_find(iterator, MESSAGE_KEY_SHORTCUT_DOWN);
-  if (shortcut_up || shortcut_select || shortcut_down) {
+  Tuple *double_back = dict_find(iterator, MESSAGE_KEY_SHORTCUT_DOUBLE_BACK);
+  if (shortcut_up || shortcut_select || shortcut_down || double_back) {
+    if(double_back)snprintf(s_shortcut_double_back,sizeof(s_shortcut_double_back),"%s",double_back->value->cstring);
     if (shortcut_up) snprintf(s_shortcut_up, sizeof(s_shortcut_up), "%s", shortcut_up->value->cstring);
     if (shortcut_select) {
       snprintf(s_shortcut_select, sizeof(s_shortcut_select), "%s", shortcut_select->value->cstring);

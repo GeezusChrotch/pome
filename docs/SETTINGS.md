@@ -21,3 +21,9 @@ Verified with generated-page browser checks on 320px and 390px viewports, Time/T
 ## Basic touch navigation
 
 Tap a different menu row to focus it, then tap the focused row to activate it. Swipe to scroll through menus. Confirmation screens keep their button controls. Touch-capable watches must have touch enabled under Settings → Display → Touch. Wake the watch before using touch navigation. All existing physical-button controls remain available; non-touch watches keep their existing behavior.
+
+## Double Back and phone-only customization
+
+Configure Double Back in Shortcuts for the main watch screen. It supports the existing navigation, voice, and scene shortcuts and defaults to Off. Press Back twice quickly to run it; single Back returns and long Back retains the watch OS exit behavior. The watch Settings menu and theme shortcut have been removed. Old theme shortcuts become Off; other shortcuts are preserved.
+
+Pinned scenes are now managed in the phone Shortcuts tab. Choose Pin or Unpin per scene. Keep current preserves existing watch pins from earlier versions. Pin choices are applied idempotently when settings sync, so retries cannot toggle them back. Use the exact-name field to unpin a renamed or deleted scene. Pinned scenes still run from the watch main page.

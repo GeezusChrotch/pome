@@ -465,19 +465,20 @@ function configuredSections() {
 
 function validShortcut(value) {
   if (value === "off" || value === "voice" || value === "scenes" ||
-      value === "rooms" || value === "favorites" || value === "themes") return value;
+      value === "rooms" || value === "favorites") return value;
   return typeof value === "string" && value.indexOf("scene:") === 0 &&
     value.length > 6 && value.length <= 70 ? value : "off";
 }
 
 function configuredShortcuts() {
-  var shortcuts = {up: "off", select: "off", down: "off"};
+  var shortcuts = {up: "off", select: "off", down: "off", doubleBack: "off"};
   try {
     var saved = JSON.parse(localStorage.getItem("pomeShortcuts") || "null");
     if (saved && typeof saved === "object") {
       shortcuts.up = validShortcut(saved.up);
       shortcuts.select = validShortcut(saved.select);
       shortcuts.down = validShortcut(saved.down);
+      shortcuts.doubleBack = validShortcut(saved.doubleBack);
     }
   } catch (error) {
     console.log("Invalid saved shortcuts: " + error.message);
@@ -688,6 +689,16 @@ function send(payload, onSuccess) {
   attempt();
 }
 
+function configuredScenePins() {
+  try { var pins=JSON.parse(localStorage.getItem("pomeScenePins")||"{}");if(pins && typeof pins==="object" && !Array.isArray(pins))return pins; } catch(error) {}
+  return {};
+}
+function sendScenePins(done) {
+  var pins=configuredScenePins(),names=Object.keys(pins).filter(function(name){return name && name.length<64 && (pins[name]===true||pins[name]===false);}),i=0;
+  function next(){if(i===names.length){if(done)done();return;}var name=names[i++];send({PIN_SCENE:name,PIN_STATE:pins[name]?1:0},next);}
+  next();
+}
+
 function sendDisplaySettings(done) {
   var sections = configuredSections();
   var theme = configuredTheme();
@@ -700,7 +711,8 @@ function sendDisplaySettings(done) {
   payload.SHORTCUT_UP = shortcuts.up;
   payload.SHORTCUT_SELECT = shortcuts.select;
   payload.SHORTCUT_DOWN = shortcuts.down;
-  send(payload, done);
+  payload.SHORTCUT_DOUBLE_BACK = shortcuts.doubleBack;
+  send(payload, function(){sendScenePins(done);});
 }
 
 function watchThemeChoices() {
@@ -1815,6 +1827,9 @@ function configurationPage() {
   var selectedSections = configuredSections();
   var selectedShortcuts = configuredShortcuts();
   var shortcutScenes = configuredShortcutScenes();
+  var scenePins=configuredScenePins(),pinScenes=shortcutScenes.slice();
+  Object.keys(scenePins).forEach(function(name){if(pinScenes.indexOf(name)<0)pinScenes.push(name);});
+  var pinFields='<h2>Pinned scenes</h2><p>Choose Pin or Unpin to change the main watch page. Keep current preserves pins from older versions.</p>'+pinScenes.map(function(name,i){return '<label>'+escapeHtml(name)+'</label><select id="scenePin'+i+'">'+[['keep','Keep current'],['pin','Pin'],['unpin','Unpin']].map(function(option){var selected=scenePins[name]===true?'pin':scenePins[name]===false?'unpin':'keep';return '<option value="'+option[0]+'"'+(option[0]===selected?' selected':'')+'>'+option[1]+'</option>';}).join('')+'</select>';}).join('')+'<label>Remove an old or renamed pin</label><input id="removeScenePin" placeholder="Exact scene name (optional)">';
   var selectedTheme = configuredTheme();
   var savedThemes = configuredThemes();
   var enhancedFonts = time2Enhanced();
@@ -1848,7 +1863,7 @@ function configurationPage() {
   function shortcutOptions(selected) {
     var options = [
       ["off", "Off"], ["voice", "Voice"], ["scenes", "Scenes"],
-      ["rooms", "Rooms"], ["favorites", "Favorites"], ["themes", "Themes"]
+      ["rooms", "Rooms"], ["favorites", "Favorites"]
     ].map(function(option) {
   return '<option value="' + option[0] + '"' + (selected === option[0] ? " selected" : "") +
         '>' + option[1] + '</option>';
@@ -1865,7 +1880,7 @@ function configurationPage() {
   var shortcutFields = '<label>Long press Up</label><select id="shortcutUp">' +
     shortcutOptions(selectedShortcuts.up) + '</select><label>Long press Select</label><select id="shortcutSelect">' +
     shortcutOptions(selectedShortcuts.select) + '</select><label>Long press Down</label><select id="shortcutDown">' +
-    shortcutOptions(selectedShortcuts.down) + '</select>';
+    shortcutOptions(selectedShortcuts.down) + '</select><label>Double Back</label><select id="shortcutDoubleBack">' + shortcutOptions(selectedShortcuts.doubleBack) + '</select>';
   var namedColors = {};
   COLOR_PALETTE.forEach(function(color) {
     namedColors[hsvToHex(color.hue, color.saturation)] = color.name;
@@ -1971,8 +1986,8 @@ function configurationPage() {
     '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
     '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
     '</section><section id="shortcutsPanel" class="panel"><p class="help"><strong>Main-screen shortcuts:</strong> ' +
-    'Hold a side button for about one second. Short presses keep their normal navigation behavior.</p>' +
-    shortcutFields + (shortcutScenes.length ? '<p>Scenes refreshed from Itsyhome.</p>' :
+    'Hold a side button for about one second. Short presses keep their normal navigation behavior. Press Back twice quickly for its shortcut (Off by default); single Back returns. Themes and button customization are only on the phone.</p>' +
+    shortcutFields + pinFields + (shortcutScenes.length ? '<p>Scenes refreshed from Itsyhome.</p>' :
       '<p>No scenes are cached yet. Open settings while the Itsyhome server is reachable to load them.</p>') +
     '<button class="save-main" onclick="save()">Save shortcuts</button></section></div>' +
     '<div id="paletteOverlay" class="palette-overlay" onclick="overlayClick(event)">' +
@@ -2085,9 +2100,9 @@ function configurationPage() {
     'alert(\'Choose at least one of Favorites, Scenes, or Rooms.\');return;}var colors=[];' +
     'for(var i=0;i<6;i++){colors.push(color(document.getElementById(\'c\'+i).value,i));}' +
     'var shortcuts={up:byId(\'shortcutUp\').value,select:byId(\'shortcutSelect\').value,' +
-    'down:byId(\'shortcutDown\').value};' +
+    'down:byId(\'shortcutDown\').value,doubleBack:byId(\'shortcutDoubleBack\').value};' +
     'var response=encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,' +
-    'shortcuts:shortcuts,theme:readTheme(),themes:savedThemes}));' +
+    'shortcuts:shortcuts,scenePins:(function(){var names=' + JSON.stringify(pinScenes).replace(/<\//g,'<\\/') + ',pins={};names.forEach(function(name,i){var value=byId(\'scenePin\'+i).value;if(value!==\'keep\')pins[name]=value===\'pin\'});var old=byId(\'removeScenePin\').value.trim();if(old)pins[old]=false;return pins;})(),theme:readTheme(),themes:savedThemes}));' +
     'var match=location.search.match(/[?&]return_to=([^&]*)/);' +
     'location.href=(match?decodeURIComponent(match[1]):\'pebblejs://close#\')+response;}' +
     'var controls=[\'themeSize\',\'themeIcons\'];' +
@@ -2199,11 +2214,13 @@ Pebble.addEventListener("webviewclosed", function(event) {
     if (config.sections) {
       localStorage.setItem("pomeSections", JSON.stringify(config.sections));
     }
+    if (config.scenePins && typeof config.scenePins === "object" && !Array.isArray(config.scenePins)) localStorage.setItem("pomeScenePins",JSON.stringify(config.scenePins));
     if (config.shortcuts) {
       localStorage.setItem("pomeShortcuts", JSON.stringify({
         up: validShortcut(config.shortcuts.up),
         select: validShortcut(config.shortcuts.select),
-        down: validShortcut(config.shortcuts.down)
+        down: validShortcut(config.shortcuts.down),
+        doubleBack: validShortcut(config.shortcuts.doubleBack)
       }));
     }
     if (config.theme) {

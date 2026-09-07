@@ -19,8 +19,8 @@ assert.ok(watchSource.indexOf("theme_select_click") !== -1);
 assert.ok(watchSource.indexOf('theme->active ? "Current"') !== -1);
 assert.ok(watchSource.indexOf("title_height") !== -1);
 assert.ok(watchSource.indexOf("GRect(text_x, title_y, title_width, title_height)") !== -1);
-assert.ok(watchSource.indexOf('theme_cell_draw(ctx, cell_layer, "Settings"') !== -1);
-assert.ok(watchSource.indexOf("return visible_root_count() + 3") !== -1);
+assert.ok(watchSource.indexOf('theme_cell_draw(ctx, cell_layer, "Settings"') === -1);
+assert.ok(watchSource.indexOf("return visible_root_count() + 2") !== -1);
 assert.ok(watchSource.indexOf("settings_select_click") !== -1);
 assert.ok(watchSource.indexOf("shortcut_target_select_click") !== -1);
 assert.ok(watchSource.indexOf("COMMAND_SET_SHORTCUT = 16") !== -1);
@@ -69,8 +69,8 @@ assert.strictEqual(defaults.font, "gothic");
 assert.strictEqual(defaults.size, 24);
 assert.strictEqual(defaults.icons, true);
 assert.deepStrictEqual(JSON.parse(JSON.stringify(context.configuredShortcuts())),
-  {up: "off", select: "off", down: "off"});
-assert.strictEqual(context.validShortcut("themes"), "themes");
+  {up: "off", select: "off", down: "off", doubleBack:"off"});
+assert.strictEqual(context.validShortcut("themes"), "off");
 
 context.cacheShortcutScenes([{name: "Good Night"}, {name: "Movie Time"}]);
 
@@ -91,7 +91,7 @@ assert.ok(configurationHtml.indexOf("id=\"shortcutsTab\"") !== -1);
 assert.ok(configurationHtml.indexOf("Long press Up") !== -1);
 assert.ok(configurationHtml.indexOf("Long press Select") !== -1);
 assert.ok(configurationHtml.indexOf("Long press Down") !== -1);
-assert.ok(configurationHtml.indexOf('<option value="themes">Themes</option>') !== -1);
+assert.ok(configurationHtml.indexOf('<option value="themes">Themes</option>') === -1);
 assert.ok(configurationHtml.indexOf("scene:Good Night") !== -1);
 assert.ok(configurationHtml.indexOf("id=\"preview\"") !== -1);
 assert.ok(configurationHtml.indexOf("Font color") !== -1);
@@ -147,7 +147,7 @@ var normalizedCustomTheme = Object.assign({}, customTheme, {builtIn: false});
 assert.deepStrictEqual(JSON.parse(stored.pomeTheme), normalizedCustomTheme);
 assert.deepStrictEqual(JSON.parse(stored.pomeThemes), [normalizedCustomTheme]);
 assert.deepStrictEqual(JSON.parse(stored.pomeShortcuts),
-  {up: "favorites", select: "voice", down: "scene:Good Night"});
+  {up: "favorites", select: "voice", down: "scene:Good Night", doubleBack:"off"});
 assert.strictEqual(context.configuredTheme().icons, false);
 assert.strictEqual(context.configuredThemes().length, 6);
 
@@ -200,13 +200,30 @@ assert.strictEqual(sent[0].STATUS, "Theme applied");
 assert.strictEqual(sent[0].THEME_FONT, 6);
 
 sent = [];
-context.setShortcutAtIndex(0, "themes");
-assert.strictEqual(JSON.parse(stored.pomeShortcuts).up, "themes");
+context.setShortcutAtIndex(0, "rooms");
+assert.strictEqual(JSON.parse(stored.pomeShortcuts).up, "rooms");
 assert.strictEqual(sent.length, 1);
-assert.strictEqual(sent[0].SHORTCUT_UP, "themes");
+assert.strictEqual(sent[0].SHORTCUT_UP, "rooms");
 assert.strictEqual(sent[0].STATUS, "Shortcut saved");
 
 handlers.showConfiguration();
 assert.ok(/^data:text\/html/.test(openedUrl));
 
 console.log("Theme control tests passed");
+
+stored.pomeShortcuts=JSON.stringify({up:"themes",select:"voice",down:"off",doubleBack:"scenes"});
+assert.strictEqual(context.configuredShortcuts().up,"off");
+sent=[];context.sendDisplaySettings();assert.strictEqual(sent[0].SHORTCUT_DOUBLE_BACK,"scenes");
+stored.pomeScenePins=JSON.stringify({"Living room":true,"Old scene":false});
+sent=[];context.sendDisplaySettings();
+assert.strictEqual(sent[1].PIN_SCENE,"Living room");assert.strictEqual(sent[1].PIN_STATE,1);assert.strictEqual(sent[2].PIN_STATE,0);
+configurationHtml=decodeURIComponent(context.configurationPage().split(',')[1]);
+assert.ok(configurationHtml.includes('Double Back'));assert.ok(configurationHtml.includes('Keep current'));
+assert.doesNotThrow(()=>new vm.Script(configurationHtml.match(/<script>([\s\S]*)<\/script>/)[1]));
+// Exercise the exact function serialized into the phone Save response.
+var pinReader=configurationHtml.match(/scenePins:\((function\(\)\{var names=[\s\S]*?return pins;\})\)\(\)/);
+assert.ok(pinReader);
+var pinValues={scenePin0:{value:'unpin'},scenePin1:{value:'keep'},removeScenePin:{value:'Retired'}};
+var savePins=vm.runInNewContext('('+pinReader[1]+')()', {byId:function(id){return pinValues[id]||{value:'keep'};}});
+assert.strictEqual(savePins.Retired,false);
+assert.strictEqual(Object.values(savePins).every(function(value){return value===false;}),true);

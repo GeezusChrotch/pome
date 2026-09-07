@@ -1,7 +1,7 @@
 {
   "name": "pome",
   "author": "Organik Apps",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
@@ -51,7 +51,10 @@
       "THEME_ICONS": 29,
       "SHORTCUT_UP": 30,
       "SHORTCUT_SELECT": 31,
-      "SHORTCUT_DOWN": 32
+      "SHORTCUT_DOWN": 32,
+      "SHORTCUT_DOUBLE_BACK": 33,
+      "PIN_SCENE": 34,
+      "PIN_STATE": 35
     },
     "resources": {
       "media": [
