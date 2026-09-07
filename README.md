@@ -7,9 +7,9 @@ implementation and remain useful for source builds or rollback.
 
 ### Pinned scenes
 
-In phone settings → **Shortcuts**, assign **Pin / unpin scene** to Up/Select/Down
+In phone settings → **Shortcuts**, assign **Pin / unpin** to Up/Select/Down
 hold or Double Back. On the watch, highlight a scene in Favorites, Scenes, or a
-room's scene list and use that gesture to toggle its pin. Use the same gesture on
+room's scene list, or an accessory/sensor in a room and use that gesture to toggle its pin. Use the same gesture on
 a pinned main-page row to unpin it, including a renamed or deleted scene.
 Other rows are unaffected. Pinned scenes appear above Voice; normal Select still
 runs the scene. Pins persist on the watch, and phone settings sync preserves them.
@@ -175,3 +175,5 @@ The Pome-style tabbed settings and theme editor are described in [Phone settings
 ## Touch menu selection
 
 On a touch-capable watch, tap a different menu item to highlight it and read its scrolling title. Tap the highlighted item again to open or activate it; there is no need to tap quickly. Physical Select still activates the highlighted item.
+
+Accessory pins appear alongside scenes on the main page, with the room as their subtitle. Selecting one refreshes its room and highlights the accessory (or opens the sensor list); select the accessory normally to operate it. Pinning never switches a device. Service IDs distinguish same-named accessories; devices without an ID and sensors use room, name, and type. Missing or ambiguous matches show a message instead of operating another item. Existing scene pins are preserved.

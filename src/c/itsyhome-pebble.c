@@ -12,6 +12,10 @@
 #define MAX_THEMES 25
 #define PIN_ORDER_KEY 1999
 #define PIN_NAME_KEY 2000
+#define PIN_ACCESSORY_KEY 2100
+typedef struct { char room[MAX_NAME_LENGTH], id[MAX_ID_LENGTH], type[MAX_TYPE_LENGTH]; uint8_t sensor; } PinAccessory;
+static PinAccessory s_open_pin;
+static char s_open_pin_name[MAX_NAME_LENGTH];
 #define COLOR_COUNT 6
 #define MARQUEE_STEP_PIXELS 2
 #define MARQUEE_FRAME_MS 80
@@ -671,14 +675,26 @@ static void pin_name(uint16_t index, char *name) {
   }
 }
 
-static int pin_index(const char *name) {
-  char saved[MAX_NAME_LENGTH];
-  for (uint16_t i = 0; i < s_pin_count; i++) {
-    pin_name(i, saved);
-    if (strcmp(saved, name) == 0) return i;
+static bool pin_accessory_slot(uint8_t slot,PinAccessory *item){
+  memset(item,0,sizeof(*item));
+  if(persist_get_size(PIN_ACCESSORY_KEY+slot)!=sizeof(*item))return false;
+  if(persist_read_data(PIN_ACCESSORY_KEY+slot,item,sizeof(*item))!=sizeof(*item))return false;
+  item->room[MAX_NAME_LENGTH-1]=0;item->id[MAX_ID_LENGTH-1]=0;item->type[MAX_TYPE_LENGTH-1]=0;
+  return item->room[0]!=0;
+}
+static bool pin_accessory(uint16_t row,PinAccessory *item){return row<s_pin_count && pin_accessory_slot(s_pin_slots[row],item);}
+static int pin_identity_index(const char *name,const PinAccessory *accessory){
+  char saved[MAX_NAME_LENGTH];PinAccessory candidate;
+  for(uint16_t i=0;i<s_pin_count;i++){
+    bool device=pin_accessory(i,&candidate);pin_name(i,saved);
+    if(!accessory){if(!device && strcmp(saved,name)==0)return i;continue;}
+    if(!device || candidate.sensor!=accessory->sensor)continue;
+    if(accessory->id[0] && candidate.id[0]){if(strcmp(accessory->id,candidate.id)==0)return i;}
+    else if(strcmp(saved,name)==0 && strcmp(candidate.room,accessory->room)==0 && strcmp(candidate.type,accessory->type)==0)return i;
   }
   return -1;
 }
+static int pin_index(const char *name){return pin_identity_index(name,NULL);}
 
 static void load_pins(void) {
   int size = persist_get_size(PIN_ORDER_KEY);
@@ -690,12 +706,13 @@ static void load_pins(void) {
     if (slots[i] >= MAX_ITEMS) continue;
     name[0] = '\0';
     persist_read_string(PIN_NAME_KEY + slots[i], name, sizeof(name));
-    if (name[0] && pin_index(name) < 0) s_pin_slots[s_pin_count++] = slots[i];
+    PinAccessory accessory;bool device=pin_accessory_slot(slots[i],&accessory);
+    if (name[0] && pin_identity_index(name,device?&accessory:NULL) < 0) s_pin_slots[s_pin_count++] = slots[i];
   }
 }
 
-static bool toggle_pin(const char *name) {
-  int index = pin_index(name);
+static bool toggle_pin_record(const char *name,const PinAccessory *accessory) {
+  int index = pin_identity_index(name,accessory);
   uint8_t slots[MAX_ITEMS];
   memcpy(slots, s_pin_slots, s_pin_count);
   uint16_t count = s_pin_count;
@@ -711,6 +728,8 @@ static bool toggle_pin(const char *name) {
       if (!used) break;
     }
     if (persist_write_string(PIN_NAME_KEY + slot, name) < 0) return false;
+    PinAccessory empty={0};
+    if(persist_write_data(PIN_ACCESSORY_KEY+slot,accessory?accessory:&empty,sizeof(empty))!=sizeof(empty))return false;
     slots[count++] = slot;
   }
   if (count == 0) {
@@ -718,14 +737,17 @@ static bool toggle_pin(const char *name) {
   } else if (persist_write_data(PIN_ORDER_KEY, slots, count) != count) {
     return false;
   }
-  if (index >= 0) persist_delete(PIN_NAME_KEY + s_pin_slots[index]);
+  if (index >= 0) {persist_delete(PIN_NAME_KEY + s_pin_slots[index]);persist_delete(PIN_ACCESSORY_KEY+s_pin_slots[index]);}
   memcpy(s_pin_slots, slots, count);
   s_pin_count = count;
   return true;
 }
 
+static bool toggle_pin(const char *name){return toggle_pin_record(name,NULL);}
+
 // Keep missing/renamed scenes available here so their old pins can be removed.
 static bool pin_is_missing(uint16_t index) {
+  PinAccessory accessory;if(pin_accessory(index,&accessory))return false;
   char name[MAX_NAME_LENGTH];
   pin_name(index, name);
   for (uint16_t i = 0; i < s_scene_count; i++) {
@@ -783,6 +805,7 @@ static void pin_select_click(MenuLayer *menu, MenuIndex *index, void *context) {
 }
 
 static void load_devices(const char *room) {
+  s_open_pin_name[0]=0;
   snprintf(s_selected_room, sizeof(s_selected_room), "%s", room);
   s_device_count = 0;
   s_sensor_count = 0;
@@ -858,7 +881,8 @@ static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
   if (cell_index->row < s_pin_count) {
     char name[MAX_NAME_LENGTH];
     pin_name(cell_index->row, name);
-    theme_cell_draw(ctx, cell_layer, name, "Scene", NULL);
+    PinAccessory accessory;bool device=pin_accessory(cell_index->row,&accessory);
+    theme_cell_draw(ctx, cell_layer, name, device?accessory.room:"Scene", NULL);
     return;
   }
   uint16_t row = cell_index->row - s_pin_count;
@@ -1462,6 +1486,8 @@ static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void
   if (cell_index->row < s_pin_count) {
     char name[MAX_NAME_LENGTH];
     pin_name(cell_index->row, name);
+    PinAccessory accessory;
+    if(pin_accessory(cell_index->row,&accessory)){load_devices(accessory.room);s_open_pin=accessory;snprintf(s_open_pin_name,sizeof(s_open_pin_name),"%s",name);return;}
     if (scene_is_sensitive(name)) show_scene_confirmation(name);
     else if (name[0]) run_scene(name);
     return;
@@ -1479,10 +1505,10 @@ static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void
 
 static void toggle_highlighted_scene_pin(void) {
   Window *top=window_stack_get_top_window();
-  char name[MAX_NAME_LENGTH]={0};
+  char name[MAX_NAME_LENGTH]={0};PinAccessory accessory={0};bool device=false;
   if(top==s_root_window && s_root_menu){
     uint16_t row=menu_layer_get_selected_index(s_root_menu).row;
-    if(row<s_pin_count)pin_name(row,name);
+    if(row<s_pin_count){pin_name(row,name);device=pin_accessory(row,&accessory);}
   }else if(top==s_list_window && s_list_menu && s_current_kind!=ITEM_KIND_ROOM){
     uint16_t row=menu_layer_get_selected_index(s_list_menu).row;
     if(row<list_count())snprintf(name,sizeof(name),"%s",list_items()[row].name);
@@ -1490,8 +1516,18 @@ static void toggle_highlighted_scene_pin(void) {
     uint16_t row=menu_layer_get_selected_index(s_room_scene_menu).row;
     if(row<s_room_scene_count)snprintf(name,sizeof(name),"%s",s_room_scenes[row].name);
   }
+  if(top==s_device_window && s_device_menu && !s_device_loading && !s_device_error[0]){
+    int index=(int)menu_layer_get_selected_index(s_device_menu).row-(sensors_visible()?1:0)-1-(light_count()>0?1:0);
+    if(index>=0 && index<s_device_count){
+      snprintf(name,sizeof(name),"%s",s_devices[index].name);snprintf(accessory.id,sizeof(accessory.id),"%s",s_device_ids[index]);snprintf(accessory.type,sizeof(accessory.type),"%s",s_devices[index].type);device=true;
+    }
+  }else if(top==s_sensor_window && s_sensor_menu && !s_device_loading && !s_device_error[0]){
+    int row=menu_layer_get_selected_index(s_sensor_menu).row;
+    if(row<s_sensor_count){snprintf(name,sizeof(name),"%s",s_sensors[row].name);snprintf(accessory.type,sizeof(accessory.type),"%s",s_sensors[row].type);accessory.sensor=1;device=true;}
+  }
+  if(device && top!=s_root_window)snprintf(accessory.room,sizeof(accessory.room),"%s",s_selected_room);
   if(!name[0])return;
-  if(!toggle_pin(name)){show_voice_info("Could not save pin");return;}
+  if(!toggle_pin_record(name,device?&accessory:NULL)){show_voice_info("Could not save pin");return;}
   marquee_reset();
   if(s_root_menu){
     uint16_t row=menu_layer_get_selected_index(s_root_menu).row;
@@ -1499,6 +1535,8 @@ static void toggle_highlighted_scene_pin(void) {
     menu_layer_reload_data(s_root_menu);
     if(row>=count)menu_layer_set_selected_index(s_root_menu,MenuIndex(0,count-1),MenuRowAlignNone,false);
   }
+  if(s_device_menu)menu_layer_reload_data(s_device_menu);
+  if(s_sensor_menu)menu_layer_reload_data(s_sensor_menu);
   if(s_list_menu)menu_layer_reload_data(s_list_menu);
   if(s_room_scene_menu)menu_layer_reload_data(s_room_scene_menu);
 }
@@ -1569,7 +1607,7 @@ static void root_shortcut_click_config_provider(void *context) {
 static void scene_single_click(ClickRecognizerRef recognizer,void *context){
   MenuLayer *menu=context;ButtonId button=click_recognizer_get_button_id(recognizer);
   if(button==BUTTON_ID_BACK){window_stack_pop(true);return;}
-  if(button==BUTTON_ID_SELECT){MenuIndex row=menu_layer_get_selected_index(menu);if(menu==s_room_scene_menu){if(row.row<s_room_scene_count)room_scene_select_click(menu,&row,NULL);}else if(row.row<list_count())list_select_click(menu,&row,NULL);}
+  if(button==BUTTON_ID_SELECT){MenuIndex row=menu_layer_get_selected_index(menu);if(menu==s_device_menu){if(row.row<device_get_num_rows(menu,0,NULL))device_select_click(menu,&row,NULL);}else if(menu==s_sensor_menu){return;}else if(menu==s_room_scene_menu){if(row.row<s_room_scene_count)room_scene_select_click(menu,&row,NULL);}else if(row.row<list_count())list_select_click(menu,&row,NULL);}
   else menu_layer_set_selected_next(menu,button==BUTTON_ID_UP,MenuRowAlignCenter,true);
 }
 static void scene_pin_click(ClickRecognizerRef recognizer,void *context){run_shortcut("pin_toggle");}
@@ -1588,6 +1626,21 @@ static void maybe_auto_open(void) {
     s_auto_opened = true;
     push_list(root_kind_at(0));
   }
+}
+
+static void focus_open_pin(void){
+  if(!s_open_pin_name[0])return;
+  int found=-1,matches=0,count=s_open_pin.sensor?s_sensor_count:s_device_count;
+  for(int i=0;i<count;i++){
+    const char *name=s_open_pin.sensor?s_sensors[i].name:s_devices[i].name;
+    const char *type=s_open_pin.sensor?s_sensors[i].type:s_devices[i].type;
+    bool match=!s_open_pin.sensor && s_open_pin.id[0]?strcmp(s_open_pin.id,s_device_ids[i])==0:strcmp(name,s_open_pin_name)==0 && strcmp(type,s_open_pin.type)==0;
+    if(match){found=i;matches++;}
+  }
+  s_open_pin_name[0]=0;
+  if(matches!=1){show_voice_info("Pinned accessory not found in this room");return;}
+  if(s_open_pin.sensor){window_stack_push(s_sensor_window,true);menu_layer_set_selected_index(s_sensor_menu,MenuIndex(0,found),MenuRowAlignCenter,false);}
+  else{int row=found+(sensors_visible()?1:0)+1+(light_count()>0?1:0);menu_layer_set_selected_index(s_device_menu,MenuIndex(0,row),MenuRowAlignCenter,false);}
 }
 
 static void inbox_received(DictionaryIterator *iterator, void *context) {
@@ -1611,6 +1664,8 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       window_set_click_config_provider_with_context(
         s_root_window, root_shortcut_click_config_provider, s_root_menu);
     }
+    if(s_device_menu)window_set_click_config_provider_with_context(s_device_window,scene_click_config,s_device_menu);
+    if(s_sensor_menu)window_set_click_config_provider_with_context(s_sensor_window,scene_click_config,s_sensor_menu);
     if(s_list_menu)window_set_click_config_provider_with_context(s_list_window,scene_click_config,s_list_menu);
     if(s_room_scene_menu)window_set_click_config_provider_with_context(s_room_scene_window,scene_click_config,s_room_scene_menu);
     if (s_shortcut_menu) menu_layer_reload_data(s_shortcut_menu);
@@ -1839,6 +1894,7 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
     } else if (done_kind == ITEM_KIND_DEVICE) {
       s_device_loading = false;
       if (s_device_menu) menu_layer_reload_data(s_device_menu);
+      focus_open_pin();
     } else if (done_kind == ITEM_KIND_THEME) {
       s_theme_loading = false;
       if (s_theme_menu) menu_layer_reload_data(s_theme_menu);
@@ -1912,10 +1968,12 @@ static void device_window_load(Window *window) {
   });
   apply_theme_to_menu(s_device_menu);
   menu_layer_set_click_config_onto_window(s_device_menu, window);
+  window_set_click_config_provider_with_context(window,scene_click_config,s_device_menu);
   layer_add_child(root, menu_layer_get_layer(s_device_menu));
 }
 
 static void device_window_unload(Window *window) {
+  s_open_pin_name[0]=0;
   menu_layer_destroy(s_device_menu);
   s_device_menu = NULL;
 }
@@ -1933,6 +1991,7 @@ static void sensor_window_load(Window *window) {
   });
   apply_theme_to_menu(s_sensor_menu);
   menu_layer_set_click_config_onto_window(s_sensor_menu, window);
+  window_set_click_config_provider_with_context(window,scene_click_config,s_sensor_menu);
   layer_add_child(root, menu_layer_get_layer(s_sensor_menu));
 }
 

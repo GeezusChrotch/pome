@@ -1851,7 +1851,7 @@ function configurationPage() {
   function shortcutOptions(selected) {
     var options = [
       ["off", "Off"], ["voice", "Voice"], ["scenes", "Scenes"],
-      ["rooms", "Rooms"], ["favorites", "Favorites"], ["pin_toggle", "Pin / unpin scene"]
+      ["rooms", "Rooms"], ["favorites", "Favorites"], ["pin_toggle", "Pin / unpin"]
     ].map(function(option) {
   return '<option value="' + option[0] + '"' + (selected === option[0] ? " selected" : "") +
         '>' + option[1] + '</option>';
@@ -1974,7 +1974,7 @@ function configurationPage() {
     '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
     '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
     '</section><section id="shortcutsPanel" class="panel"><p class="help"><strong>Main-screen shortcuts:</strong> ' +
-    'Hold a side button for about one second. Short presses keep their normal navigation behavior. Press Back twice quickly for its shortcut (Off by default); single Back returns. Themes and button customization are only on the phone. Assign Pin / unpin scene to a hold or Double Back, then use it on a highlighted scene in Favorites, Scenes, room scenes, or the pinned main-page rows. Other rows are unaffected.</p>' +
+    'Hold a side button for about one second. Short presses keep their normal navigation behavior. Press Back twice quickly for its shortcut (Off by default); single Back returns. Themes and button customization are only on the phone. Assign Pin / unpin to a hold or Double Back, then use it on a highlighted scene, accessory, sensor, or pinned main-page row. Other rows are unaffected.</p>' +
     shortcutFields + (shortcutScenes.length ? '<p>Scenes refreshed from Itsyhome.</p>' :
       '<p>No scenes are cached yet. Open settings while the Itsyhome server is reachable to load them.</p>') +
     '<button class="save-main" onclick="save()">Save shortcuts</button></section></div>' +

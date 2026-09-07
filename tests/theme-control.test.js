@@ -220,5 +220,5 @@ sent=[];context.sendDisplaySettings();
 assert.strictEqual(sent.length,1,'old phone pin choices must not override watch pins');
 assert.strictEqual(sent[0].SHORTCUT_UP,'pin_toggle');assert.strictEqual(sent[0].SHORTCUT_DOUBLE_BACK,'pin_toggle');
 configurationHtml=decodeURIComponent(context.configurationPage().split(',')[1]);
-assert.ok(configurationHtml.includes('Pin / unpin scene'));assert.ok(!configurationHtml.includes('Keep current'));
+assert.ok(configurationHtml.includes('Pin / unpin'));assert.ok(!configurationHtml.includes('Keep current'));
 assert.doesNotThrow(()=>new vm.Script(configurationHtml.match(/<script>([\s\S]*)<\/script>/)[1]));

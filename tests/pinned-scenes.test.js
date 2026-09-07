@@ -19,8 +19,12 @@ const harness = `
 #define MAX_NAME_LENGTH 64
 #define PIN_ORDER_KEY 1999
 #define PIN_NAME_KEY 2000
-static unsigned char store[61][64];
-static int sizes[61];
+#define PIN_ACCESSORY_KEY 2100
+#define MAX_ID_LENGTH 40
+#define MAX_TYPE_LENGTH 24
+typedef struct {char room[64],id[40],type[24];uint8_t sensor;} PinAccessory;
+static unsigned char store[161][256];
+static int sizes[161];
 static int fail_key = -1;
 static uint8_t s_pin_slots[MAX_ITEMS];
 static uint16_t s_pin_count, s_scene_count;
@@ -73,6 +77,18 @@ int main(void) {
   // A corrupt order/absent name must not generate empty root menu pins.
   sizes[0] = 3; store[0][0] = 255; store[0][1] = 0; store[0][2] = 0;
   reboot(); assert(s_pin_count == 1); expect_pin(0, "Scene 0");
+  memset(store,0,sizeof(store));memset(sizes,0,sizeof(sizes));s_pin_count=0;
+  // Old releases saved only the scene name and order.
+  persist_write_string(PIN_NAME_KEY,"Lamp");uint8_t legacy=0;persist_write_data(PIN_ORDER_KEY,&legacy,1);reboot();assert(pin_index("Lamp")==0);
+  PinAccessory first={.room="Office",.id="service-1",.type="light"},second={.room="Bedroom",.id="service-2",.type="light"};
+  assert(toggle_pin_record("Lamp",&first));assert(toggle_pin_record("Lamp",&second));reboot();assert(s_pin_count==3&&pin_index("Lamp")==0);
+  assert(pin_identity_index("Renamed",&first)==1);assert(pin_identity_index("Lamp",&second)==2);
+  assert(toggle_pin_record("Renamed",&first));reboot();assert(s_pin_count==2&&pin_identity_index("Lamp",&second)==1);
+  assert(toggle_pin("Lamp"));reboot();assert(s_pin_count==1&&pin_index("Lamp")==-1);
+  assert(toggle_pin_record("Lamp",&second));reboot();assert(s_pin_count==0);
+  fail_key=PIN_ACCESSORY_KEY;assert(!toggle_pin_record("Lamp",&first));reboot();assert(s_pin_count==0);fail_key=-1;
+  assert(toggle_pin_record("Lamp",&first));fail_key=PIN_ORDER_KEY;assert(!toggle_pin_record("Lamp",&first));reboot();assert(s_pin_count==1);fail_key=-1;
+  assert(toggle_pin_record("Lamp",&first));assert(toggle_pin("New scene"));reboot();assert(pin_index("New scene")==0);
   puts("Pinned scene persistence, ordering, missing scenes, capacity, and failure tests passed");
 }
 `;
