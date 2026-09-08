@@ -16,6 +16,8 @@
     "emery": "Final public 3.0 installed; main menu navigated to Refresh, no Cameras row"
   },
   "physicalWatch": "Not installed: existing private camera test intentionally preserved. Public 3.0 hardware acceptance not claimed.",
-  "github": "pending publication",
+  "github": "published; downloaded public asset SHA-256 matches",
+  "githubUrl": "https://github.com/GeezusChrotch/pome/releases/tag/v3.0.0",
+  "releaseSourceCommit": "48914a0062abd23dd05bdb8e5a4265aa14fa320b",
   "pebbleDashboard": "owned by release coordinator, pending"
 }
