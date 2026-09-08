@@ -14,11 +14,13 @@
   "currentStoreFreshCapture": "Passed via authenticated private HTTPS: one powered camera, exact request/image identity, 405x228, 69255 packed bytes, 47 colors, age 1 second; no schedule changes",
   "currentStoreLifecycle": "Window-close and normal Quit/relaunch checks not completed: native UI control failed before the phase; earlier development-build checks are not substituted",
   "physicalWatch": {
-    "migrationAttempt": "LAN connection refused; installer exited 1",
-    "migrationInstalled": false,
-    "cleanInstallAttempted": false,
+    "migrationAttempt": "After explicit user retry, LAN installer exited 0 with App install succeeded",
+    "migrationInstalled": true,
+    "cleanInstallAttempted": true,
+    "cleanInstall": "LAN installer exited 0 with App install succeeded after migration initialization",
+    "installedArtifactSha256": "ccf176fa95ad06062ea78aae7d1759736aec79454f1b0a52faa0106b9d2a4f53",
     "savedPairingAndFreshWatchCapture": "pending",
-    "existingPrivateWatch": "preserved",
+    "existingPrivateWatch": "Updated in place with matching UUID; old private PBW retained locally for rollback",
     "installerActive": false
   },
   "publication": "Not published; existing public 3.0.0 artifact unchanged",
@@ -26,6 +28,6 @@
     "Store distribution signing and public installation path",
     "Fresh-user Home permission and camera pairing validation",
     "Current Store window-close and normal Quit/relaunch acceptance",
-    "Physical clean watch installation, persisted pairing, camera/history/pan acceptance"
+    "Physical persisted pairing, fresh camera/history/pan acceptance after successful clean watch installation"
   ]
 }
