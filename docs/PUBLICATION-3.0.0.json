@@ -19,5 +19,6 @@
   "github": "published; downloaded public asset SHA-256 matches",
   "githubUrl": "https://github.com/GeezusChrotch/pome/releases/tag/v3.0.0",
   "releaseSourceCommit": "48914a0062abd23dd05bdb8e5a4265aa14fa320b",
-  "pebbleDashboard": "owned by release coordinator, pending"
+  "pebbleDashboard": "published; release coordinator verified public version, description and downloaded package hash",
+  "storeDownloadSha256": "b1cb98570fb8d04ac124e272401c87b22581e0b78e5dde0957f8e0eed9e32cf3"
 }
