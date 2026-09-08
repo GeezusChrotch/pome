@@ -414,7 +414,21 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
             return (200, ["service": "org.organikapps.pome.cameras", "protocol": 1,
                           "homeAuthorized": authorized, "running": running,
                           "captureSupported": captureSupported,
-                          "enabledCameras": cameras.filter { schedules[$0.uniqueIdentifier.uuidString]?.enabled == true }.count])
+                          "enabledCameras": cameras.filter { schedules[$0.uniqueIdentifier.uuidString]?.enabled == true }.count,
+                          "renderSurface": (UIApplication.shared.delegate as? AppDelegate)?.windowHost?.state() ?? [:]])
+        }
+        if method == "POST", url.path == "/service/start" {
+            if !running { toggleCache() }; connectHome()
+            return (200, ["running": running])
+        }
+        if method == "POST", url.path == "/service/pause" {
+            if running { toggleCache() }
+            for id in Array(manualTickets.keys) { fail(id, "Camera capture paused") }
+            if let id = activeID { fail(id, "Camera capture paused") }
+            return (200, ["running": false])
+        }
+        if method == "POST", url.path == "/service/home" {
+            connectHome(); return (200, ["requested": true])
         }
         if method == "GET", url.path == "/camera-settings" {
             return (200, ["cameras": cameras.map { camera -> [String: Any] in

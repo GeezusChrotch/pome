@@ -4,9 +4,23 @@ import HomeKit
 import ScreenCaptureKit
 #endif
 
+@objc(PomeCameraWindowHosting) protocol PomeCameraWindowHosting: NSObjectProtocol {
+    init()
+    func start()
+    func state() -> NSDictionary
+}
+
 // Isolated feasibility test: no server, camera streams, desktop capture, or disk images.
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
+    var windowHost: PomeCameraWindowHosting?
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        if let url = Bundle.main.builtInPlugInsURL?.appendingPathComponent("CameraWindowHost.bundle"),
+           let bundle = Bundle(url: url), let type = bundle.principalClass as? PomeCameraWindowHosting.Type {
+            windowHost = type.init(); windowHost?.start()
+        }
+        return true
+    }
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         let configuration = UISceneConfiguration(name: "Camera Probe", sessionRole: connectingSceneSession.role)
         configuration.delegateClass = ProbeSceneDelegate.self
@@ -21,7 +35,7 @@ final class ProbeSceneDelegate: UIResponder, UIWindowSceneDelegate {
         scene.title = "Pome Camera Probe"
         let window = UIWindow(windowScene: scene)
         window.rootViewController = UINavigationController(rootViewController: CameraCacheController())
-        window.makeKeyAndVisible()
+        window.isHidden = false
         self.window = window
     }
 }
