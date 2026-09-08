@@ -19,7 +19,8 @@
     "cleanInstallAttempted": true,
     "cleanInstall": "LAN installer exited 0 with App install succeeded after migration initialization",
     "installedArtifactSha256": "ccf176fa95ad06062ea78aae7d1759736aec79454f1b0a52faa0106b9d2a4f53",
-    "savedPairingAndFreshWatchCapture": "pending",
+    "cameraFunctionalityAndPreservedSettings": "User accepted exact installed clean build: Camera is working great, settings are there.",
+    "historyAndPanning": "Not separately confirmed by user; no inference from general camera acceptance",
     "existingPrivateWatch": "Updated in place with matching UUID; old private PBW retained locally for rollback",
     "installerActive": false
   },
@@ -28,6 +29,6 @@
     "Store distribution signing and public installation path",
     "Fresh-user Home permission and camera pairing validation",
     "Current Store window-close and normal Quit/relaunch acceptance",
-    "Physical persisted pairing, fresh camera/history/pan acceptance after successful clean watch installation"
+    "Separate physical history and panning acceptance, if required; camera functionality and preserved settings already accepted"
   ]
 }
