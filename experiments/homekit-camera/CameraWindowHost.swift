@@ -7,7 +7,7 @@ import AppKit
 }
 
 // Loaded only inside the Catalyst helper. No other application's windows are
-// enumerated, moved, or captured. A miniaturized own render surface continues
+// enumerated, moved, or captured. An ordered-out own render surface continues
 // receiving HomeKit video while the Connector owns all user-facing controls.
 @objc(PomeCameraWindowHost) final class PomeCameraWindowHost: NSObject, PomeCameraWindowHosting {
     private var timer: Timer?
@@ -21,7 +21,9 @@ import AppKit
         for window in NSApp.windows where window.title == "Pome Camera Probe" {
             window.isExcludedFromWindowsMenu = true
             window.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
-            if !window.isMiniaturized { window.miniaturize(nil) }
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
+            window.orderOut(nil)
         }
     }
     func state() -> NSDictionary {
