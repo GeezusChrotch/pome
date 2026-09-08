@@ -1,6 +1,6 @@
 # Pome 3.0.1 — cameras on your wrist
 
-Camera-enabled release candidate. Publication is pending the matching Connector integration and a verified user-installable HomeKit helper path. This does not change the already-published 3.0.0 package.
+**Draft — not yet publicly released.** Requires the camera-enabled **Organik Apps Pebble Connector 1.0 from the Mac App Store**, which must be available before this release is published. This does not change the already-published 3.0.0 package.
 
 ## A fresh look at home
 
@@ -14,7 +14,9 @@ A persistent, outlined caption shows the capture time and elapsed age. Configure
 
 Pair using your own camera URL and token from the camera-enabled Organik Apps Pebble Connector. They are stored locally on the phone, never embedded in the public watch download. Saved tokens are not displayed in settings; changing the URL requires its token. Pairing is checked against the Connector, and schedule saves report completion or failure.
 
-The matching Mac App Store Connector contains the camera helper and its controls in one installation. Camera capture requires macOS 15.2 or later; the base Connector's macOS 14 support does not include camera capture. Store signing, first-install Home permission and watch acceptance remain release gates for this candidate.
+Connector 1.0's Mac App Store edition includes the camera helper and its controls in one installation. Camera capture requires macOS 15.2 or later; the base Connector's macOS 14 support does not include camera capture. [Camera setup instructions](https://github.com/GeezusChrotch/pome/blob/main/docs/CAMERA-SETUP.md).
+
+The exact credential-free build has been installed on a physical Time 2, and camera functionality and preserved settings were accepted by the tester. Separate history and panning acceptance has not been claimed. Public Connector availability, final lifecycle checks and fresh-install permission validation remain release gates.
 
 ## Privacy and freshness
 

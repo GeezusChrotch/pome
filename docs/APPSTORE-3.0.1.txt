@@ -11,7 +11,7 @@ Pin scenes, rooms, devices and sensors, and drag to reorder pins and sections in
 Browse scenes, favorites, rooms and sensors. Control lights individually or by room, set brightness and colors, adjust supported fans and blinds, and toggle switches and plugs. Controls stay open while you make adjustments. On dictation-capable watches, try "Set movie time" or "Turn living room lights green." Voice requires the phone companion's transcription service.
 
 SETUP
-Camera viewing requires Pebble Time 2, macOS 15.2 or later, and the camera-enabled Mac App Store edition of Organik Apps Pebble Connector. Its camera helper and controls are included in one installation. Allow Home access on your Mac, start the private camera connection, and copy the camera address and token into Pome's Cameras settings. Keep the Mac reachable and Tailscale connected on both Mac and iPhone.
+Camera viewing requires Pebble Time 2, macOS 15.2 or later, and Organik Apps Pebble Connector 1.0, camera-enabled Mac App Store edition. Its camera helper and controls are included in one installation. Allow Home access on your Mac, start the private camera connection, and copy the camera address and token into Pome's Cameras settings. Keep the Mac reachable and Tailscale connected on both Mac and iPhone.
 
 Scene and device control uses Itsyhome on the Mac: https://itsyhome.app/macos . Enable its Webhooks/CLI server and enter its reachable URL in Pome settings. This is separate from camera pairing. Original Time supports home controls, but not camera viewing.
 

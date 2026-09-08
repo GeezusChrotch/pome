@@ -1,11 +1,11 @@
-# Camera setup — 3.0.1 candidate
+# Camera setup — Pome 3.0.1 draft
 
-This setup contract is being validated with the camera-enabled Connector. Public Connector 0.8.7 and public Pome 3.0.0 do not provide this feature. Do not use a private development PBW as a public installation method.
+Requires camera-enabled **Organik Apps Pebble Connector 1.0 from the Mac App Store**. This release remains a draft until that dependency is available and validated. Public Connector 0.8.7 and public Pome 3.0.0 do not provide this feature. Do not use a private development PBW as a public installation method.
 
 ## Requirements
 
 - Pebble Time 2 and its iPhone companion app.
-- The camera-enabled Mac App Store edition of Organik Apps Pebble Connector. Its Store distribution and first-install validation are still release gates for this candidate; the installed development build is not a public download.
+- Organik Apps Pebble Connector 1.0, camera-enabled Mac App Store edition. Store availability and first-install validation remain release gates; the installed development build is not a public download.
 - macOS 15.2 or later for camera capture. The base Connector supports macOS 14, but camera capture requires the newer system APIs.
 - Home access permission granted on the Mac, with the desired cameras visible in Apple Home.
 - Tailscale on the Mac and phone, signed in to the same authorized private network. Keep the Mac reachable and the camera service running.

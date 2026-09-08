@@ -1,5 +1,12 @@
 # Pome
 
+## Camera release in preparation
+
+Pome 3.0.1 adds Time 2 camera snapshots and is currently a **draft, not a public release**.
+It requires the camera-enabled **Organik Apps Pebble Connector 1.0 from the Mac App Store**
+and macOS 15.2 or later. Publication waits for that Connector dependency.
+[Camera release notes](docs/RELEASE-3.0.1.md) · [Setup instructions](docs/CAMERA-SETUP.md).
+
 ## Pome 3.0
 
 Your home, your way: pin rooms, scenes, devices and sensors; drag to reorder pins

@@ -5,7 +5,7 @@
   "platforms": ["basalt", "emery"],
   "cameraViewingPlatform": "emery (Pebble Time 2)",
   "cameraMinimumMacOS": "15.2",
-  "dependency": "Camera-enabled Mac App Store Organik Apps Pebble Connector; Store distribution and first-install validation pending",
+  "dependency": "Organik Apps Pebble Connector 1.0, camera-enabled Mac App Store edition; Store availability and first-install validation pending",
   "cameraPairing": "Per-user HTTPS address and token; no camera pairing-code flow currently implemented",
   "credentials": "Public pairing placeholder empty; actual private token and hostname absent from PBW and source map",
   "cleanBuild": "passed",
