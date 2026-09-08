@@ -87,6 +87,17 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
                 try data.write(to: file, options: .atomic)
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
             }
+            // Publish the existing token through an entitled App Group for the
+            // sandboxed Connector. The helper retains its own token/preferences.
+            if let group = Bundle.main.object(forInfoDictionaryKey: "OrganikCameraAppGroup") as? String {
+                guard let shared = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) else {
+                    throw NSError(domain: "CameraAppGroup", code: 1, userInfo: [NSLocalizedDescriptionKey: "Shared camera container is unavailable."])
+                }
+                let connection = shared.appendingPathComponent("cache-connection.json")
+                let data = try JSONSerialization.data(withJSONObject: ["token": token, "localURL": "http://127.0.0.1:7855"])
+                try data.write(to: connection, options: .atomic)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: connection.path)
+            }
             let context = JSContext()!
             context.evaluateScript("var module={exports:{}};")
             let js = try String(contentsOf: Bundle.main.url(forResource: "pebble-image", withExtension: "cjs")!)
