@@ -1,4 +1,4 @@
-var cameraController = typeof require === 'function' ? require('./cameras') : {settings:function(cb){cb({});},save:function(){}};
+var cameraController = typeof require === 'function' ? require('./cameras') : {settings:function(cb){cb({});},save:function(value,cb){if(cb)cb();}};
 var homeController = typeof require === 'function' ? require('./home-screen') : {read:function(c,cb){cb({error:'Open Pome on the watch to reorder.'});},save:function(h,cb){cb(null);}};
 // BEGIN ORGANIK SETTINGS UI
 // Organik settings UI v1. Vendored by sync.py; no network or storage dependencies.
@@ -2271,7 +2271,6 @@ Pebble.addEventListener("webviewclosed", function(event) {
   if (!event.response) return;
   try {
     var config = JSON.parse(decodeURIComponent(event.response));
-    cameraController.save(config.camera);
     if (config.baseUrl) {
       localStorage.setItem("itsyhomeBaseUrl", config.baseUrl);
     }
@@ -2299,9 +2298,11 @@ Pebble.addEventListener("webviewclosed", function(event) {
       localStorage.setItem("pomeThemes", JSON.stringify(customThemes));
     }
     VOICE_CATALOG = null;
+    cameraController.save(config.camera,function(cameraError){
     homeController.save(config.camera&&config.camera.home,function(homeError){
     sendDisplaySettings(function() {
-      sendColorChoices(function() { send(homeError?{ERROR:homeError}:{ "STATUS": "Settings saved" }); });
+      sendColorChoices(function() { var error=cameraError||homeError;send(error?{ERROR:error}:{ "STATUS": "Settings saved" }); });
+    });
     });
     });
   } catch (error) {

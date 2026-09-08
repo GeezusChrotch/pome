@@ -1,0 +1,31 @@
+{
+  "version": "3.0.1",
+  "artifact": "dist/Pome-3.0.1-camera-ccf176fa95ad.pbw",
+  "sha256": "ccf176fa95ad06062ea78aae7d1759736aec79454f1b0a52faa0106b9d2a4f53",
+  "platforms": ["basalt", "emery"],
+  "cameraViewingPlatform": "emery (Pebble Time 2)",
+  "cameraMinimumMacOS": "15.2",
+  "dependency": "Camera-enabled Mac App Store Organik Apps Pebble Connector; Store distribution and first-install validation pending",
+  "cameraPairing": "Per-user HTTPS address and token; no camera pairing-code flow currently implemented",
+  "credentials": "Public pairing placeholder empty; actual private token and hostname absent from PBW and source map",
+  "cleanBuild": "passed",
+  "javascriptTestFilesPassed": 18,
+  "basaltHeapBytes": 7351,
+  "currentStoreFreshCapture": "Passed via authenticated private HTTPS: one powered camera, exact request/image identity, 405x228, 69255 packed bytes, 47 colors, age 1 second; no schedule changes",
+  "currentStoreLifecycle": "Window-close and normal Quit/relaunch checks not completed: native UI control failed before the phase; earlier development-build checks are not substituted",
+  "physicalWatch": {
+    "migrationAttempt": "LAN connection refused; installer exited 1",
+    "migrationInstalled": false,
+    "cleanInstallAttempted": false,
+    "savedPairingAndFreshWatchCapture": "pending",
+    "existingPrivateWatch": "preserved",
+    "installerActive": false
+  },
+  "publication": "Not published; existing public 3.0.0 artifact unchanged",
+  "remainingGates": [
+    "Store distribution signing and public installation path",
+    "Fresh-user Home permission and camera pairing validation",
+    "Current Store window-close and normal Quit/relaunch acceptance",
+    "Physical clean watch installation, persisted pairing, camera/history/pan acceptance"
+  ]
+}

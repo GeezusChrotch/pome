@@ -1,6 +1,6 @@
 #pragma once
-// Public release: HomeKit camera distribution is not yet available.
-// The isolated private test builder explicitly opts in without changing this file.
+// Camera-enabled candidate. Distribution requires the matching Connector helper.
+// Credentials are supplied by each user through phone settings, never here.
 #ifndef POME_EXPERIMENTAL_CAMERAS
-#define POME_EXPERIMENTAL_CAMERAS 0
+#define POME_EXPERIMENTAL_CAMERAS 1
 #endif

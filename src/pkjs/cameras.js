@@ -1,7 +1,7 @@
 'use strict';
 var config = {}; try { config=require('./camera-private-config'); } catch(e) {}
 var connection = require('./camera-connection').create(localStorage,config);
-var camerasEnabled=config.experimental===true;
+var camerasEnabled=true;
 var generation = 0, platform = 'emery';
 var cameraSettings = require('./camera-settings');
 var pipeline='natural';
@@ -12,9 +12,9 @@ function autoPan(){var n=Number(localStorage.getItem('camera-auto-pan'));return 
 function request(method, path, callback) {
   if(!camerasEnabled){callback('Cameras are experimental and unavailable in this public release.');return;}
   var config=connection.read();
+  if(!config.url||!config.token){callback('Open Pome phone settings → Cameras to pair your Connector.');return;}
   var xhr = new XMLHttpRequest(), called = false;
   function done(error, data) { if (!called) { called = true; callback(error,data); } }
-  if(!config.url||!config.token){callback('Camera connector is not configured');return;}
   xhr.open(method, config.url + path, true);
   xhr.timeout = 12000;
   xhr.setRequestHeader('Authorization', 'Bearer ' + config.token);
@@ -144,8 +144,10 @@ function capture(rid,id){
 module.exports={
  order:function(){return sectionOrder(localStorage.getItem('pome-section-order'));},
  settings: function(done){request('GET','/camera-settings',function(err,data){done({enabled:camerasEnabled,connection:connection.publicState(),order:sectionOrder(localStorage.getItem('pome-section-order')),autoPan:autoPan(),mode:imageMode(),cameras:err?[]:data.cameras,error:err||localStorage.getItem('camera-save-error')});});},
- save:function(value){
-  if(!value)return;
+ save:function(value,callback){
+  var finished=false;
+  function finish(err){if(finished)return;finished=true;if(err)localStorage.setItem('camera-save-error',err);else localStorage.removeItem('camera-save-error');if(callback)callback(err||null);else if(err)error(generation,'Camera settings save failed; reopen settings.');}
+  if(!value){finish();return;}
   var previousConnection=connection.read();
   if(camerasEnabled)connection.save(value.connection);
   var currentConnection=connection.read();
@@ -155,9 +157,11 @@ module.exports={
   if([0,1,2,3,5,10,15,30].indexOf(value.autoPan)>=0)localStorage.setItem('camera-auto-pan',String(value.autoPan));
   if(['natural','high-contrast','original'].indexOf(value.mode)>=0)localStorage.setItem('pome-camera-mode',value.mode);
   // A catalog fetched from the old server must never configure the new one.
-  var changes=!connectionChanged&&Array.isArray(value.changes)?value.changes:[];
-  function next(){if(!changes.length)return;var c=changes.shift();if(typeof c.id!=='string'||[-1,0,15,30,60,300,900,3600].indexOf(c.interval)<0)return;
-   request('POST','/schedule/'+encodeURIComponent(c.id)+'?interval='+c.interval,function(err){if(err){localStorage.setItem('camera-save-error',err);error(generation,'Camera settings save failed; reopen settings.');return;}localStorage.removeItem('camera-save-error');next();});
-  }next();
+  var changes=!connectionChanged&&Array.isArray(value.changes)?value.changes.slice():[];
+  function next(){if(!changes.length){finish();return;}var c=changes.shift();if(typeof c.id!=='string'||[-1,0,15,30,60,300,900,3600].indexOf(c.interval)<0){finish('Invalid camera schedule');return;}
+   request('POST','/schedule/'+encodeURIComponent(c.id)+'?interval='+c.interval,function(err){if(err){finish(err);return;}next();});
+  }
+  if(connectionChanged&&currentConnection.url)request('GET','/camera-settings',function(err){if(err)finish('Camera pairing saved, but connection check failed: '+err);else next();});
+  else next();
  }
 };

@@ -1,0 +1,25 @@
+Pome brings Apple Home controls—and camera snapshots—to your Pebble.
+
+NEW: CAMERAS ON TIME 2
+Open Cameras, choose a camera, and capture a fresh image or browse its nine newest saved images. Pin a camera to your Home Screen for a direct Capture now shortcut. Images preserve their aspect ratio at the watch's full native height. Wide images pan automatically; drag or use Up/Down to explore. A persistent caption shows capture time and age.
+
+Choose each camera's refresh interval, from 15 seconds to an hour, on-demand only, or hidden. Customize pan duration and Natural, High contrast or Original image processing. Battery and solar cameras should normally use on-demand capture or a less frequent interval such as 15 minutes.
+
+YOUR HOME, YOUR WAY
+Pin scenes, rooms, devices and sensors, and drag to reorder pins and sections in phone settings. Device pins open controls directly. Choose ten built-in themes or save your own, with title and subtitle sizes, optional icons and previews. Time 2 offers five custom font families and five title sizes; original Time uses supported stock fonts.
+
+Browse scenes, favorites, rooms and sensors. Control lights individually or by room, set brightness and colors, adjust supported fans and blinds, and toggle switches and plugs. Controls stay open while you make adjustments. On dictation-capable watches, try "Set movie time" or "Turn living room lights green." Voice requires the phone companion's transcription service.
+
+SETUP
+Camera viewing requires Pebble Time 2, macOS 15.2 or later, and the camera-enabled Mac App Store edition of Organik Apps Pebble Connector. Its camera helper and controls are included in one installation. Allow Home access on your Mac, start the private camera connection, and copy the camera address and token into Pome's Cameras settings. Keep the Mac reachable and Tailscale connected on both Mac and iPhone.
+
+Scene and device control uses Itsyhome on the Mac: https://itsyhome.app/macos . Enable its Webhooks/CLI server and enter its reachable URL in Pome settings. This is separate from camera pairing. Original Time supports home controls, but not camera viewing.
+
+Setup: https://github.com/GeezusChrotch/pome/blob/main/docs/CAMERA-SETUP.md
+
+PRIVACY
+The helper keeps up to nine images per enabled camera in memory. Hiding a camera clears its history; quitting the helper clears all images. Manual capture briefly opens a muted HomeKit stream, captures a still from the helper's own rendering window, and stops the stream. It does not capture your desktop or other apps. Images travel through your authenticated private Tailscale connection and paired phone; Pome adds no cloud image storage or analytics.
+
+Scheduled HomeKit snapshots can contain old pixels despite a recent reported timestamp. Capture now uses a live-stream path and reports failure rather than silently showing a cached image. Protect the camera token and your paired devices. Never use Funnel or public port forwarding. Camera vendors, HomeKit and the operating system have their own caching and privacy behavior.
+
+Independent open-source community project; not affiliated with Apple, Itsyhome, Tailscale or Pebble.
