@@ -55,6 +55,8 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
     private var markerWhite = false
     private var lastCaptureOnScreen: Bool?
     private var token = ""
+    // A fresh launch credential shared only with the entitled owning Connector.
+    private let ownerToken = UUID().uuidString + UUID().uuidString
     private var connectionStatus = "Starting local service"
     private let prefsKey = "camera-cache-schedules-v1"
     private let enabledKey = "camera-service-enabled-v1"
@@ -95,7 +97,7 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
                 }
                 let connection = shared.appendingPathComponent("cache-connection.json")
                 let data = try JSONSerialization.data(withJSONObject: ["token": token, "localURL": "http://127.0.0.1:7855",
-                    "ownerToken": ProcessInfo.processInfo.environment["ORGANIK_CAMERA_OWNER_TOKEN"] ?? ""])
+                    "ownerToken": ownerToken])
                 try data.write(to: connection, options: .atomic)
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: connection.path)
             }
@@ -109,7 +111,7 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
             context.evaluateScript("function cameraQuantize(w,h,p,mode){return Array.from(module.exports.quantizeImage({width:w,height:h,rgba:p,mode:mode,kind:'photo'}));}")
             guard context.exception == nil else { throw NSError(domain: "Quantizer", code: 1) }
             quantizer = context
-            let server = CacheHTTP(token: token)
+            let server = CacheHTTP(token: token, ownerToken: ownerToken)
             server.shutdown = { (UIApplication.shared.delegate as? AppDelegate)?.windowHost?.requestTermination() }
             server.route = { [weak self] method, path in self?.route(method, path) ?? (503, ["error": "Not ready"]) }
             try server.start(); self.server = server
