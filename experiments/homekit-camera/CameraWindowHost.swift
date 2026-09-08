@@ -3,6 +3,7 @@ import AppKit
 @objc(PomeCameraWindowHosting) protocol PomeCameraWindowHosting: NSObjectProtocol {
     init()
     func start()
+    func requestTermination()
     func state() -> NSDictionary
 }
 
@@ -17,6 +18,7 @@ import AppKit
         positionSurface()
         timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.positionSurface() }
     }
+    func requestTermination() { NSApp.terminate(nil) }
     private func positionSurface() {
         for window in NSApp.windows where window.title == "Pome Camera Probe" {
             window.isExcludedFromWindowsMenu = true

@@ -7,6 +7,7 @@ import ScreenCaptureKit
 @objc(PomeCameraWindowHosting) protocol PomeCameraWindowHosting: NSObjectProtocol {
     init()
     func start()
+    func requestTermination()
     func state() -> NSDictionary
 }
 

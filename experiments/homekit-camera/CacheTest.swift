@@ -94,7 +94,8 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
                     throw NSError(domain: "CameraAppGroup", code: 1, userInfo: [NSLocalizedDescriptionKey: "Shared camera container is unavailable."])
                 }
                 let connection = shared.appendingPathComponent("cache-connection.json")
-                let data = try JSONSerialization.data(withJSONObject: ["token": token, "localURL": "http://127.0.0.1:7855"])
+                let data = try JSONSerialization.data(withJSONObject: ["token": token, "localURL": "http://127.0.0.1:7855",
+                    "ownerToken": ProcessInfo.processInfo.environment["ORGANIK_CAMERA_OWNER_TOKEN"] ?? ""])
                 try data.write(to: connection, options: .atomic)
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: connection.path)
             }
@@ -109,6 +110,7 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
             guard context.exception == nil else { throw NSError(domain: "Quantizer", code: 1) }
             quantizer = context
             let server = CacheHTTP(token: token)
+            server.shutdown = { (UIApplication.shared.delegate as? AppDelegate)?.windowHost?.requestTermination() }
             server.route = { [weak self] method, path in self?.route(method, path) ?? (503, ["error": "Not ready"]) }
             try server.start(); self.server = server
             connectionStatus = "Private service: loopback 7855 · shared Natural image pipeline"
