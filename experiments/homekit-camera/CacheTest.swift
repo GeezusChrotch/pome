@@ -57,12 +57,16 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
     private var token = ""
     private var connectionStatus = "Starting local service"
     private let prefsKey = "camera-cache-schedules-v1"
+    private let enabledKey = "camera-service-enabled-v1"
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Camera Cache Test"
+        title = "Pome Cameras"
         view.backgroundColor = .systemBackground
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Home access", style: .plain, target: self, action: #selector(connectHome))
+        navigationItem.rightBarButtonItems = [
+            UIBarButtonItem(title: "Allow Home access", style: .plain, target: self, action: #selector(connectHome)),
+            UIBarButtonItem(title: "Copy connection token", style: .plain, target: self, action: #selector(copyConnectionToken))
+        ]
         status.numberOfLines = 0
         status.font = .systemFont(ofSize: 13)
         toggle.setTitle("Start cache", for: .normal)
@@ -100,6 +104,16 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
         } catch { connectionStatus = "Setup error: \(error.localizedDescription)" }
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.tick() }
         updateStatus()
+        // Resume only after an explicit Start action in this app. Existing
+        // experiment preferences and schedules are not implicitly migrated.
+        if UserDefaults.standard.bool(forKey: enabledKey) { running = true; connectHome() }
+    }
+    @objc private func copyConnectionToken() {
+        guard server != nil, !token.isEmpty else { return }
+        UIPasteboard.general.setItems([["public.utf8-plain-text": token]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(120)])
+        let alert = UIAlertController(title: "Connection token copied", message: "Paste it into Pome camera setup in Organik Apps Pebble Connector. The clipboard copy expires in two minutes.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
     private func documents() throws -> URL {
         let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -125,6 +139,12 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
         updateStatus()
     }
     func homeManagerDidUpdateHomes(_ manager: HMHomeManager) {
+        // An authorization transition or initial empty Home response must not
+        // erase saved camera choices. Stop exposing old images while unavailable.
+        guard manager.authorizationStatus.contains(.authorized), !manager.homes.isEmpty else {
+            cameras = []; cache.removeAll(); history.removeAll()
+            table.reloadData(); updateStatus(); return
+        }
         cameras = manager.homes.flatMap { $0.accessories }.filter { !($0.cameraProfiles ?? []).isEmpty }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         let valid = Set(cameras.map { $0.uniqueIdentifier.uuidString })
         cache = cache.filter { valid.contains($0.key) }
@@ -147,11 +167,14 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
     }
     @objc private func toggleCache() {
         running.toggle()
+        UserDefaults.standard.set(running, forKey: enabledKey)
+        if running { connectHome() }
         if !running { manual.removeAll() }
         toggle.setTitle(running ? "Pause cache" : "Start cache", for: .normal)
         updateStatus(); tick()
     }
     private func updateStatus() {
+        toggle.setTitle(running ? "Pause cache" : "Start cache", for: .normal)
         let job = activeID.flatMap { id in cameras.first { $0.uniqueIdentifier.uuidString == id }?.name } ?? "Idle"
         status.text = "\(running ? "RUNNING" : "PAUSED") · \(cache.count)/\(cameras.count) cached · \(job)\n\(connectionStatus)\nBattery/solar: recommend 15 minutes or on demand. Tap a camera to change settings.\nLast capture on-screen: \(lastCaptureOnScreen.map(String.init) ?? "not tested") · nine newest images per camera, in memory"
     }
@@ -384,6 +407,15 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
     }
     private func route(_ method: String, _ rawPath: String) -> (Int, [String: Any]) {
         guard let url = URLComponents(string: rawPath) else { return (400, ["error": "Invalid URL"]) }
+        if method == "GET", url.path == "/health" {
+            let authorized = manager?.authorizationStatus.contains(.authorized) == true
+            var captureSupported = false
+            if #available(macCatalyst 18.2, *) { captureSupported = true }
+            return (200, ["service": "org.organikapps.pome.cameras", "protocol": 1,
+                          "homeAuthorized": authorized, "running": running,
+                          "captureSupported": captureSupported,
+                          "enabledCameras": cameras.filter { schedules[$0.uniqueIdentifier.uuidString]?.enabled == true }.count])
+        }
         if method == "GET", url.path == "/camera-settings" {
             return (200, ["cameras": cameras.map { camera -> [String: Any] in
                 let id = camera.uniqueIdentifier.uuidString
