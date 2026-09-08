@@ -28,4 +28,12 @@ Configure Double Back in Shortcuts for the main watch screen. It supports the ex
 
 Assign **Pin / unpin** to a long press or Double Back in the phone Shortcuts tab. The gesture toggles the highlighted scene in Favorites, Scenes, or a room's scene list, and accessories or sensors in room lists. On the main page it unpins the highlighted pinned item. Group and navigation rows do nothing. Pinned scenes show a Pinned subtitle in lists; normal Select continues to run them. Existing pins remain saved on the watch and are never overwritten by settings sync. The separate phone pin controls have been removed. Other shortcut actions remain main-screen actions.
 
-Accessory pins appear alongside scenes on the main page, with the room as their subtitle. Selecting one refreshes its room and highlights the accessory (or opens the sensor list); select the accessory normally to operate it. Pinning never switches a device. Service IDs distinguish same-named accessories; devices without an ID and sensors use room, name, and type. Missing or ambiguous matches show a message instead of operating another item. Existing scene pins are preserved.
+Accessory pins appear alongside scenes and room pins on the main page, with their item type as subtitle. Selecting a device pin refreshes its room and opens the controls directly; sensor pins open the sensor list. Pinning never switches a device. Service IDs distinguish same-named accessories; devices without an ID and sensors use room, name, and type. Missing or ambiguous matches show a message instead of operating another item. Existing scene pins are preserved.
+
+## Home Screen order
+
+Drag handles in Setup to reorder pins and sections together, then Save setup. Keyboard arrow keys also move a focused handle. Hidden sections are skipped on the watch. New pins start at the top.
+
+## Camera status
+
+Cameras are experimental and disabled in public Pome 3.0. The public Connector does not include the HomeKit helper, so public settings do not offer camera pairing or schedules.

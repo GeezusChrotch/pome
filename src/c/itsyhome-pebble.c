@@ -1,18 +1,33 @@
 #include <pebble.h>
 #include "touch_menu.h"
+#include "cameras.h"
+#include "root_order.h"
+#include "home_order.h"
 #include <ctype.h>
 
 #define MAX_ITEMS 60
+#if defined(PBL_PLATFORM_EMERY) && POME_EXPERIMENTAL_CAMERAS
+#define CAMERA_ROWS 1
+#else
+#define CAMERA_ROWS 0
+#endif
 #define MAX_NAME_LENGTH 64
 #define MAX_TYPE_LENGTH 24
 #define MAX_VALUE_LENGTH 32
 #define MAX_ID_LENGTH 40
 #define MAX_VOICE_LENGTH 128
 #define MAX_SHORTCUT_LENGTH 72
-#define MAX_THEMES 25
+#define MAX_THEMES 31
 #define PIN_ORDER_KEY 1999
 #define PIN_NAME_KEY 2000
 #define PIN_ACCESSORY_KEY 2100
+#define ROOT_ORDER_KEY 2200
+static char s_root_order[7]="012345";
+#define HOME_ORDER_KEY 2202
+static uint8_t s_home_order[HOME_CAPACITY];
+static int s_home_count;
+static void home_changed(void);
+static int home_pin_at_row(int row);
 typedef struct { char room[MAX_NAME_LENGTH], id[MAX_ID_LENGTH], type[MAX_TYPE_LENGTH]; uint8_t sensor; } PinAccessory;
 static PinAccessory s_open_pin;
 static char s_open_pin_name[MAX_NAME_LENGTH];
@@ -85,6 +100,7 @@ typedef struct {
   GColor selection_text;
   uint8_t font;
   uint8_t size;
+  uint8_t subtitle_size;
   bool icons;
   bool active;
 } ThemeChoice;
@@ -138,11 +154,27 @@ static uint32_t s_device_icon_resource;
 static SceneItem s_favorites[MAX_ITEMS];
 static SceneItem s_scenes[MAX_ITEMS];
 static SceneItem s_rooms[MAX_ITEMS];
+#if defined(PBL_PLATFORM_EMERY)
+typedef struct {
+  HomeItem devices[MAX_ITEMS];
+  char display_names[MAX_ITEMS][MAX_NAME_LENGTH];
+  char ids[MAX_ITEMS][MAX_ID_LENGTH];
+  SceneItem scenes[MAX_ITEMS];
+  SensorItem sensors[MAX_ITEMS];
+} RoomBuffers;
+static RoomBuffers *s_room_buffers;
+#define s_devices (s_room_buffers->devices)
+#define s_device_display_names (s_room_buffers->display_names)
+#define s_device_ids (s_room_buffers->ids)
+#define s_room_scenes (s_room_buffers->scenes)
+#define s_sensors (s_room_buffers->sensors)
+#else
 static HomeItem s_devices[MAX_ITEMS];
 static char s_device_display_names[MAX_ITEMS][MAX_NAME_LENGTH];
 static char s_device_ids[MAX_ITEMS][MAX_ID_LENGTH];
 static SceneItem s_room_scenes[MAX_ITEMS];
 static SensorItem s_sensors[MAX_ITEMS];
+#endif
 static ThemeChoice s_themes[MAX_THEMES];
 static ColorChoice s_colors[COLOR_COUNT] = {
   {"Amber", 35, 100},
@@ -175,6 +207,9 @@ static bool s_device_loading;
 static bool s_show_favorites = true;
 static bool s_show_scenes = true;
 static bool s_show_rooms = true;
+static bool s_show_cameras = true;
+#define CAMERA_VISIBLE (CAMERA_ROWS && s_show_cameras)
+#define SHOW_CAMERAS_KEY 2201
 static bool s_show_sensors = true;
 static bool s_auto_opened;
 static bool s_voice_pending;
@@ -187,6 +222,7 @@ static GColor s_theme_selection = GColorBlack;
 static GColor s_theme_selection_text = GColorWhite;
 static uint8_t s_theme_font;
 static uint8_t s_theme_size = 24;
+static uint8_t s_subtitle_size = 20;
 static bool s_theme_icons = true;
 static char s_shortcut_up[MAX_SHORTCUT_LENGTH] = "off";
 static char s_shortcut_select[MAX_SHORTCUT_LENGTH] = "off";
@@ -199,6 +235,7 @@ static int16_t s_marquee_max;
 static bool s_marquee_at_end;
 #if defined(PBL_PLATFORM_EMERY)
 static GFont s_custom_theme_font;
+static GFont s_subtitle_font;
 static uint8_t s_custom_theme_font_id = 255;
 static uint8_t s_custom_theme_font_size;
 #endif
@@ -422,12 +459,38 @@ static GFont theme_title_font(void) {
 }
 
 static int16_t theme_cell_height(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
-  if (s_theme_size <= 14) return 32;
-  if (s_theme_size <= 18) return 38;
-  if (s_theme_size <= 21) return 42;
-  if (s_theme_size <= 24) return 46;
-  if (s_theme_size <= 28) return 52;
-  return 56;
+  int16_t base = s_theme_size <= 14 ? 32 : s_theme_size <= 18 ? 38 :
+    s_theme_size <= 21 ? 42 : s_theme_size <= 24 ? 46 : s_theme_size <= 28 ? 52 : 56;
+  return base + s_subtitle_size - 12;
+}
+
+static GFont theme_subtitle_font(void){
+#if defined(PBL_PLATFORM_EMERY)
+  uint32_t resource = s_subtitle_size == 16 ? RESOURCE_ID_SUBTITLE_16 :
+    s_subtitle_size == 18 ? RESOURCE_ID_SUBTITLE_18 :
+    s_subtitle_size == 22 ? RESOURCE_ID_SUBTITLE_22 :
+    s_subtitle_size == 24 ? RESOURCE_ID_SUBTITLE_24 : RESOURCE_ID_SUBTITLE_20;
+  if(!s_subtitle_font)s_subtitle_font=fonts_load_custom_font(resource_get_handle(resource));
+  if(s_subtitle_font)return s_subtitle_font;
+#endif
+  if(s_subtitle_size == 14)return fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  if(s_subtitle_size == 18)return fonts_get_system_font(FONT_KEY_GOTHIC_18);
+  if(s_subtitle_size == 24)return fonts_get_system_font(FONT_KEY_GOTHIC_24);
+  return fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21);
+}
+static void release_subtitle_font(void){
+#if defined(PBL_PLATFORM_EMERY)
+  if(s_subtitle_font){fonts_unload_custom_font(s_subtitle_font);s_subtitle_font=NULL;}
+#endif
+}
+
+static void set_subtitle_size(uint8_t size) {
+#if defined(PBL_PLATFORM_EMERY)
+  if(size!=16 && size!=18 && size!=20 && size!=22 && size!=24)size=20;
+#else
+  if(size!=14 && size!=18 && size!=21 && size!=24)size=21;
+#endif
+  if(size!=s_subtitle_size){release_subtitle_font();s_subtitle_size=size;}
 }
 
 static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *title,
@@ -487,8 +550,8 @@ static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *
     graphics_draw_bitmap_in_rect(ctx, icon, icon_rect);
   }
   if (subtitle && subtitle[0]) {
-    graphics_draw_text(ctx, subtitle, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-      GRect(text_x, subtitle_y, bounds.size.w - text_x - 3, 18),
+    graphics_draw_text(ctx, subtitle, theme_subtitle_font(),
+      GRect(text_x, subtitle_y, bounds.size.w - text_x - 3, s_subtitle_size + 6),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   }
 }
@@ -740,10 +803,24 @@ static bool toggle_pin_record(const char *name,const PinAccessory *accessory) {
   if (index >= 0) {persist_delete(PIN_NAME_KEY + s_pin_slots[index]);persist_delete(PIN_ACCESSORY_KEY+s_pin_slots[index]);}
   memcpy(s_pin_slots, slots, count);
   s_pin_count = count;
+  home_changed();
   return true;
 }
 
 static bool toggle_pin(const char *name){return toggle_pin_record(name,NULL);}
+
+bool pome_camera_pinned(const char *id) {
+  PinAccessory camera={.sensor=2};snprintf(camera.id,sizeof(camera.id),"%s",id);
+  return pin_identity_index("",&camera)>=0;
+}
+bool pome_camera_toggle_pin(const char *id,const char *name) {
+  PinAccessory camera={.sensor=2};char label[MAX_NAME_LENGTH];
+  snprintf(camera.id,sizeof(camera.id),"%s",id);snprintf(camera.room,sizeof(camera.room),"Camera");snprintf(camera.type,sizeof(camera.type),"camera");
+  snprintf(label,sizeof(label),"%s",name);
+  bool ok=toggle_pin_record(label,&camera);
+  if(ok&&s_root_menu)menu_layer_reload_data(s_root_menu);
+  return ok;
+}
 
 // Keep missing/renamed scenes available here so their old pins can be removed.
 static bool pin_is_missing(uint16_t index) {
@@ -805,6 +882,10 @@ static void pin_select_click(MenuLayer *menu, MenuIndex *index, void *context) {
 }
 
 static void load_devices(const char *room) {
+#if defined(PBL_PLATFORM_EMERY)
+  if(!s_room_buffers)s_room_buffers=calloc(1,sizeof(RoomBuffers));
+  if(!s_room_buffers){set_status("Not enough memory for room");return;}
+#endif
   s_open_pin_name[0]=0;
   snprintf(s_selected_room, sizeof(s_selected_room), "%s", room);
   s_device_count = 0;
@@ -872,29 +953,75 @@ static bool sensors_visible(void) {
 
 static uint16_t root_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                   void *context) {
-  return visible_root_count() + 2 + s_pin_count;
+  return visible_root_count() + 2 + CAMERA_VISIBLE + s_pin_count;
+}
+
+static const char *pin_type(uint16_t index){PinAccessory a;if(!pin_accessory(index,&a))return "Scene";return a.sensor==3?"Room":a.sensor==2?"Camera":a.sensor==1?"Sensor":"Device";}
+static void home_changed(void){
+  uint8_t merged[HOME_CAPACITY];s_home_count=home_merge(merged,s_home_order,s_home_count,s_pin_slots,s_pin_count,s_root_order);
+  memcpy(s_home_order,merged,s_home_count);persist_write_data(HOME_ORDER_KEY,s_home_order,s_home_count);
+}
+static int home_pin_index(int token){for(int i=0;i<s_pin_count;i++)if(token==6+s_pin_slots[i])return i;return -1;}
+static bool home_token_visible(int token){if(token>=6)return home_pin_index(token)>=0;return token==1?s_show_favorites:token==2?s_show_scenes:token==3?s_show_rooms:token==4?CAMERA_VISIBLE:true;}
+static int home_token_at_row(int row){for(int i=0;i<s_home_count;i++)if(home_token_visible(s_home_order[i])&&row--==0)return s_home_order[i];return -1;}
+static int home_pin_at_row(int row){return home_pin_index(home_token_at_row(row));}
+static int home_logical_row(int row){int token=home_token_at_row(row);if(token<0||token>=6)return -1;return token==0?0:token==1?1:token==2?1+s_show_favorites:token==3?1+s_show_favorites+s_show_scenes:token==4?1+visible_root_count():1+visible_root_count()+CAMERA_VISIBLE;}
+static uint32_t home_revision(void){
+  uint32_t hash=2166136261u;char name[MAX_NAME_LENGTH];
+  for(int i=0;i<s_home_count;i++){hash=(hash^s_home_order[i])*16777619u;int pin=home_pin_index(s_home_order[i]);if(pin>=0){pin_name(pin,name);for(char *c=name;*c;c++)hash=(hash^(uint8_t)*c)*16777619u;PinAccessory a;pin_accessory(pin,&a);const uint8_t *bytes=(const uint8_t*)&a;for(unsigned j=0;j<sizeof(a);j++)hash=(hash^bytes[j])*16777619u;}}
+  return hash&0x7fffffffu;
+}
+static bool home_inbox(DictionaryIterator *in){
+  Tuple *request=dict_find(in,MESSAGE_KEY_HOME_REQUEST),*order=dict_find(in,MESSAGE_KEY_HOME_ORDER);
+  if(!request&&!order)return false;
+  DictionaryIterator *out=NULL;if(app_message_outbox_begin(&out)!=APP_MSG_OK||!out)return true;
+  Tuple *transaction=dict_find(in,MESSAGE_KEY_HOME_TRANSACTION);
+  if(transaction)dict_write_uint32(out,MESSAGE_KEY_HOME_TRANSACTION,transaction->value->uint32);
+  const char *error=NULL;
+  if(order){
+    Tuple *rev=dict_find(in,MESSAGE_KEY_HOME_REV);uint8_t candidate[HOME_CAPACITY];int count=s_home_count;
+    if(order->type!=TUPLE_CSTRING||!rev||rev->value->uint32!=home_revision())error="Home Screen changed. Reopen settings.";
+    if(!error&&!home_parse_order(candidate,order->value->cstring,s_home_order,count))error="Invalid Home Screen order";
+    if(!error&&persist_write_data(HOME_ORDER_KEY,candidate,count)!=count)error="Could not save Home Screen";
+    if(!error){memcpy(s_home_order,candidate,count);s_home_count=count;if(s_root_menu){menu_layer_reload_data(s_root_menu);menu_layer_set_selected_index(s_root_menu,MenuIndex(0,0),MenuRowAlignTop,false);}}
+    dict_write_uint8(out,MESSAGE_KEY_HOME_SAVED,error?0:1);
+  }else{
+    int index=request->value->int32;dict_write_int32(out,MESSAGE_KEY_HOME_INDEX,index);
+    // Refresh old camera pin labels using names returned by the private helper.
+    if(index==-2){Tuple *id=dict_find(in,MESSAGE_KEY_ITEM_ID),*name=dict_find(in,MESSAGE_KEY_ITEM_NAME);if(id&&name&&id->type==TUPLE_CSTRING&&name->type==TUPLE_CSTRING&&name->length<=MAX_NAME_LENGTH){for(int i=0;i<s_pin_count;i++){PinAccessory a;if(pin_accessory(i,&a)&&a.sensor==2&&!strcmp(a.id,id->value->cstring))persist_write_string(PIN_NAME_KEY+s_pin_slots[i],name->value->cstring);}if(s_root_menu)menu_layer_reload_data(s_root_menu);}}
+    else if(index>=0){Tuple *rev=dict_find(in,MESSAGE_KEY_HOME_REV);if(!rev||rev->value->uint32!=home_revision())error="Home Screen changed. Reopen settings.";
+      else if(index>=s_home_count)error="Home Screen item missing";
+      else{int token=s_home_order[index],pin=home_pin_index(token);char name[MAX_NAME_LENGTH];const char *type="";
+        if(pin>=0){pin_name(pin,name);type=pin_type(pin);}else{const char *labels[]={"Voice","Favorites","Scenes","Rooms","Cameras","Refresh"};snprintf(name,sizeof(name),"%s",labels[token]);}
+        dict_write_int32(out,MESSAGE_KEY_HOME_TOKEN,token);dict_write_cstring(out,MESSAGE_KEY_ITEM_NAME,name);dict_write_cstring(out,MESSAGE_KEY_ITEM_TYPE,type);
+      }
+    }
+  }
+  if(error)dict_write_cstring(out,MESSAGE_KEY_HOME_ERROR,error);
+  dict_write_uint32(out,MESSAGE_KEY_HOME_REV,home_revision());dict_write_int32(out,MESSAGE_KEY_HOME_COUNT,s_home_count);app_message_outbox_send();return true;
 }
 
 static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                           void *context) {
   uint16_t visible_count = visible_root_count();
-  if (cell_index->row < s_pin_count) {
+  int pin=home_pin_at_row(cell_index->row);
+  if (pin>=0) {
     char name[MAX_NAME_LENGTH];
-    pin_name(cell_index->row, name);
-    PinAccessory accessory;bool device=pin_accessory(cell_index->row,&accessory);
-    theme_cell_draw(ctx, cell_layer, name, device?accessory.room:"Scene", NULL);
+    pin_name(pin, name);
+    theme_cell_draw(ctx, cell_layer, name, pin_type(pin), NULL);
     return;
   }
-  uint16_t row = cell_index->row - s_pin_count;
+  int row = home_logical_row(cell_index->row);
   if (row == 0) {
-    theme_cell_draw(ctx, cell_layer, "Voice",
-                    voice_supported_platform() ? "Speak a command" : "Requires Time 2", NULL);
+    theme_cell_draw(ctx, cell_layer, "Voice", NULL, NULL);
   } else if (row <= visible_count) {
     ItemKind kind = root_kind_at(row - 1);
     theme_cell_draw(ctx, cell_layer, root_kind_label(kind),
-                    s_loading ? "Loading..." : NULL, NULL);
-  } else if (row == visible_count + 1) {
-    theme_cell_draw(ctx, cell_layer, "Refresh", s_status, NULL);
+                    NULL, NULL);
+  } else if (CAMERA_VISIBLE && row == visible_count + 1) {
+    theme_cell_draw(ctx, cell_layer, "Cameras", NULL, NULL);
+  } else if (row == visible_count + 1 + CAMERA_VISIBLE) {
+    theme_cell_draw(ctx, cell_layer, "Refresh", NULL, NULL);
 
   }
 }
@@ -910,6 +1037,7 @@ static void list_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
   const char *subtitle = NULL;
   if (s_current_kind != ITEM_KIND_ROOM && item->active) subtitle = "Active";
   if (s_current_kind != ITEM_KIND_ROOM && pin_index(item->name)>=0) subtitle="Pinned";
+  if(s_current_kind==ITEM_KIND_ROOM){PinAccessory room={.sensor=3};snprintf(room.room,sizeof(room.room),"%s",item->name);snprintf(room.type,sizeof(room.type),"room");if(pin_identity_index(item->name,&room)>=0)subtitle="Pinned";}
   theme_cell_draw(ctx, cell_layer, item->name, subtitle, NULL);
 }
 
@@ -1131,6 +1259,7 @@ static void apply_theme_choice(ThemeChoice *theme) {
   s_theme_font = theme->font <= 4 ? theme->font : 0;
 #endif
   s_theme_size = theme->size >= 14 && theme->size <= 30 ? theme->size : 24;
+  set_subtitle_size(theme->subtitle_size);
   s_theme_icons = theme->icons;
   apply_theme();
 }
@@ -1483,21 +1612,40 @@ static void refresh_lists(void) {
 
 static void root_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   uint16_t visible_count = visible_root_count();
-  if (cell_index->row < s_pin_count) {
+  int pin=home_pin_at_row(cell_index->row);
+  if (pin>=0) {
     char name[MAX_NAME_LENGTH];
-    pin_name(cell_index->row, name);
+    pin_name(pin, name);
     PinAccessory accessory;
-    if(pin_accessory(cell_index->row,&accessory)){load_devices(accessory.room);s_open_pin=accessory;snprintf(s_open_pin_name,sizeof(s_open_pin_name),"%s",name);return;}
+    if(pin_accessory(pin,&accessory)){
+      if(accessory.sensor==3){load_devices(accessory.room);return;}
+      if(accessory.sensor==2){
+#if defined(PBL_PLATFORM_EMERY)
+        free(s_room_buffers);s_room_buffers=NULL;s_device_count=0;s_sensor_count=0;s_room_scene_count=0;unload_custom_theme_font();
+        release_subtitle_font();cameras_capture(accessory.id);
+#else
+        show_voice_info("Cameras require Time 2");
+#endif
+        return;
+      }
+      load_devices(accessory.room);s_open_pin=accessory;snprintf(s_open_pin_name,sizeof(s_open_pin_name),"%s",name);return;
+    }
     if (scene_is_sensitive(name)) show_scene_confirmation(name);
     else if (name[0]) run_scene(name);
     return;
   }
-  uint16_t row = cell_index->row - s_pin_count;
+  int row = home_logical_row(cell_index->row);
   if (row == 0) {
     start_voice();
   } else if (row <= visible_count) {
     push_list(root_kind_at(row - 1));
-  } else if (row == visible_count + 1) {
+  } else if (CAMERA_VISIBLE && row == visible_count + 1) {
+#if defined(PBL_PLATFORM_EMERY)
+    free(s_room_buffers);s_room_buffers=NULL;s_device_count=0;s_sensor_count=0;s_room_scene_count=0;
+    unload_custom_theme_font();
+#endif
+    release_subtitle_font();cameras_open();
+  } else if (row == visible_count + 1 + CAMERA_VISIBLE) {
     refresh_lists();
 
   }
@@ -1508,10 +1656,11 @@ static void toggle_highlighted_scene_pin(void) {
   char name[MAX_NAME_LENGTH]={0};PinAccessory accessory={0};bool device=false;
   if(top==s_root_window && s_root_menu){
     uint16_t row=menu_layer_get_selected_index(s_root_menu).row;
-    if(row<s_pin_count){pin_name(row,name);device=pin_accessory(row,&accessory);}
-  }else if(top==s_list_window && s_list_menu && s_current_kind!=ITEM_KIND_ROOM){
+    int pin=home_pin_at_row(row);if(pin>=0){pin_name(pin,name);device=pin_accessory(pin,&accessory);}
+  }else if(top==s_list_window && s_list_menu){
     uint16_t row=menu_layer_get_selected_index(s_list_menu).row;
     if(row<list_count())snprintf(name,sizeof(name),"%s",list_items()[row].name);
+    if(name[0]&&s_current_kind==ITEM_KIND_ROOM){device=true;accessory.sensor=3;snprintf(accessory.room,sizeof(accessory.room),"%s",name);snprintf(accessory.type,sizeof(accessory.type),"room");}
   }else if(top==s_room_scene_window && s_room_scene_menu){
     uint16_t row=menu_layer_get_selected_index(s_room_scene_menu).row;
     if(row<s_room_scene_count)snprintf(name,sizeof(name),"%s",s_room_scenes[row].name);
@@ -1525,7 +1674,7 @@ static void toggle_highlighted_scene_pin(void) {
     int row=menu_layer_get_selected_index(s_sensor_menu).row;
     if(row<s_sensor_count){snprintf(name,sizeof(name),"%s",s_sensors[row].name);snprintf(accessory.type,sizeof(accessory.type),"%s",s_sensors[row].type);accessory.sensor=1;device=true;}
   }
-  if(device && top!=s_root_window)snprintf(accessory.room,sizeof(accessory.room),"%s",s_selected_room);
+  if(device && accessory.sensor!=3 && top!=s_root_window)snprintf(accessory.room,sizeof(accessory.room),"%s",s_selected_room);
   if(!name[0])return;
   if(!toggle_pin_record(name,device?&accessory:NULL)){show_voice_info("Could not save pin");return;}
   marquee_reset();
@@ -1603,7 +1752,11 @@ static void root_shortcut_click_config_provider(void *context) {
   }
 }
 
-// Only the Pin / unpin binding extends into scene lists; other shortcuts remain main-screen actions.
+bool pome_pin_button(int button) {
+  const char *target=button==BUTTON_ID_BACK?s_shortcut_double_back:button==BUTTON_ID_UP?s_shortcut_up:button==BUTTON_ID_SELECT?s_shortcut_select:button==BUTTON_ID_DOWN?s_shortcut_down:"off";
+  return strcmp(target,"pin_toggle")==0;
+}
+// Only the Pin / unpin binding extends into lists; other shortcuts remain main-screen actions.
 static void scene_single_click(ClickRecognizerRef recognizer,void *context){
   MenuLayer *menu=context;ButtonId button=click_recognizer_get_button_id(recognizer);
   if(button==BUTTON_ID_BACK){window_stack_pop(true);return;}
@@ -1616,15 +1769,20 @@ static void scene_click_config(void *context){
   window_single_repeating_click_subscribe(BUTTON_ID_UP,100,scene_single_click);
   window_single_click_subscribe(BUTTON_ID_SELECT,scene_single_click);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN,100,scene_single_click);
-  const char *bindings[]={s_shortcut_up,s_shortcut_select,s_shortcut_down};
-  for(int i=0;i<3;i++)if(strcmp(bindings[i],"pin_toggle")==0){window_single_click_subscribe(BUTTON_ID_UP+i,scene_single_click);window_long_click_subscribe(BUTTON_ID_UP+i,700,scene_pin_click,NULL);}
-  if(strcmp(s_shortcut_double_back,"pin_toggle")==0)window_multi_click_subscribe(BUTTON_ID_BACK,2,2,300,true,scene_pin_click);
+  for(int i=0;i<3;i++)if(pome_pin_button(BUTTON_ID_UP+i)){window_single_click_subscribe(BUTTON_ID_UP+i,scene_single_click);window_long_click_subscribe(BUTTON_ID_UP+i,700,scene_pin_click,NULL);}
+  if(pome_pin_button(BUTTON_ID_BACK))window_multi_click_subscribe(BUTTON_ID_BACK,2,2,300,true,scene_pin_click);
 }
 
 static void maybe_auto_open(void) {
-  if (!s_auto_opened && s_pin_count == 0 && visible_root_count() == 1) {
+  if (!s_auto_opened && s_pin_count == 0 && visible_root_count() + CAMERA_VISIBLE == 1) {
     s_auto_opened = true;
-    push_list(root_kind_at(0));
+    if(visible_root_count())push_list(root_kind_at(0));
+    else {
+#if defined(PBL_PLATFORM_EMERY)
+      free(s_room_buffers);s_room_buffers=NULL;s_device_count=0;s_sensor_count=0;s_room_scene_count=0;unload_custom_theme_font();
+#endif
+      release_subtitle_font();cameras_open();
+    }
   }
 }
 
@@ -1640,10 +1798,21 @@ static void focus_open_pin(void){
   s_open_pin_name[0]=0;
   if(matches!=1){show_voice_info("Pinned accessory not found in this room");return;}
   if(s_open_pin.sensor){window_stack_push(s_sensor_window,true);menu_layer_set_selected_index(s_sensor_menu,MenuIndex(0,found),MenuRowAlignCenter,false);}
-  else{int row=found+(sensors_visible()?1:0)+1+(light_count()>0?1:0);menu_layer_set_selected_index(s_device_menu,MenuIndex(0,row),MenuRowAlignCenter,false);}
+  else{
+    HomeItem *item=&s_devices[found];
+    if(!item->reachable || (!type_is_toggle_safe(item->type)&&strcmp(item->type,"blinds")!=0)){show_voice_info("Pinned device is unavailable");return;}
+    snprintf(s_selected_device,sizeof(s_selected_device),"%s",item->name);snprintf(s_selected_device_type,sizeof(s_selected_device_type),"%s",item->type);snprintf(s_selected_device_id,sizeof(s_selected_device_id),"%s",s_device_ids[found]);
+    window_stack_push(s_action_window,true);
+  }
 }
 
 static void inbox_received(DictionaryIterator *iterator, void *context) {
+  if(home_inbox(iterator))return;
+  if(cameras_inbox(iterator))return;
+#if defined(PBL_PLATFORM_EMERY)
+  Tuple *room_kind=dict_find(iterator,MESSAGE_KEY_ITEM_KIND);
+  if(!s_room_buffers && room_kind && (room_kind->value->int32==ITEM_KIND_DEVICE||room_kind->value->int32==ITEM_KIND_SENSOR||room_kind->value->int32==ITEM_KIND_ROOM_SCENE))return;
+#endif
   Tuple *item_kind_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_KIND);
   bool is_theme_catalog_item = item_kind_tuple &&
     item_kind_tuple->value->uint8 == ITEM_KIND_THEME;
@@ -1660,6 +1829,7 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
     if (shortcut_down) {
       snprintf(s_shortcut_down, sizeof(s_shortcut_down), "%s", shortcut_down->value->cstring);
     }
+    cameras_update_shortcuts();
     if (s_root_menu) {
       window_set_click_config_provider_with_context(
         s_root_window, root_shortcut_click_config_provider, s_root_menu);
@@ -1678,9 +1848,10 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   Tuple *theme_selection_text = dict_find(iterator, MESSAGE_KEY_THEME_SELECTION_TEXT);
   Tuple *theme_font = dict_find(iterator, MESSAGE_KEY_THEME_FONT);
   Tuple *theme_size = dict_find(iterator, MESSAGE_KEY_THEME_SIZE);
+  Tuple *theme_subtitle_size = dict_find(iterator, MESSAGE_KEY_THEME_SUBTITLE_SIZE);
   Tuple *theme_icons = dict_find(iterator, MESSAGE_KEY_THEME_ICONS);
   if (!is_theme_catalog_item && (theme_background || theme_text || theme_selection ||
-      theme_selection_text || theme_font || theme_size || theme_icons)) {
+      theme_selection_text || theme_font || theme_size || theme_subtitle_size || theme_icons)) {
     if (theme_background) s_theme_background.argb = theme_background->value->uint8;
     if (theme_text) s_theme_text.argb = theme_text->value->uint8;
     if (theme_selection) s_theme_selection.argb = theme_selection->value->uint8;
@@ -1698,19 +1869,27 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
       s_theme_size = requested_size >= 14 && requested_size <= 30 ? requested_size : 24;
     }
     if (theme_icons) s_theme_icons = theme_icons->value->int8 != 0;
+    if (theme_subtitle_size) set_subtitle_size(theme_subtitle_size->value->uint8);
     apply_theme();
   }
 
   Tuple *show_favorites = dict_find(iterator, MESSAGE_KEY_SHOW_FAVORITES);
+  Tuple *root_order = dict_find(iterator, MESSAGE_KEY_ROOT_ORDER);
+  if(root_order && root_order->type==TUPLE_CSTRING && root_order->length==7 && root_order_valid(root_order->value->cstring)) {
+    memcpy(s_root_order,root_order->value->cstring,7);persist_write_string(ROOT_ORDER_KEY,s_root_order);
+    if(s_root_menu){menu_layer_reload_data(s_root_menu);menu_layer_set_selected_index(s_root_menu,MenuIndex(0,0),MenuRowAlignTop,false);}
+  }
   Tuple *show_scenes = dict_find(iterator, MESSAGE_KEY_SHOW_SCENES);
   Tuple *show_rooms = dict_find(iterator, MESSAGE_KEY_SHOW_ROOMS);
   Tuple *show_sensors = dict_find(iterator, MESSAGE_KEY_SHOW_SENSORS);
-  if (show_favorites || show_scenes || show_rooms || show_sensors) {
+  Tuple *show_cameras = dict_find(iterator, MESSAGE_KEY_SHOW_CAMERAS);
+  if (show_favorites || show_scenes || show_rooms || show_sensors || show_cameras) {
     if (show_favorites) s_show_favorites = show_favorites->value->int8 != 0;
     if (show_scenes) s_show_scenes = show_scenes->value->int8 != 0;
     if (show_rooms) s_show_rooms = show_rooms->value->int8 != 0;
     if (show_sensors) s_show_sensors = show_sensors->value->int8 != 0;
-    if (visible_root_count() == 0) s_show_favorites = true;
+    if (show_cameras) {s_show_cameras=show_cameras->value->int8!=0;persist_write_bool(SHOW_CAMERAS_KEY,s_show_cameras);}
+    if (visible_root_count() == 0 && !CAMERA_VISIBLE) s_show_favorites = true;
     if (s_root_menu) menu_layer_reload_data(s_root_menu);
     if (s_device_menu) menu_layer_reload_data(s_device_menu);
     if (!s_loading) maybe_auto_open();
@@ -1768,14 +1947,13 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
                strcmp(status->value->cstring, "All lights on") == 0 ||
                strcmp(status->value->cstring, "All lights off") == 0) {
       vibes_double_pulse();
-      if (s_action_menu) window_stack_pop(true);
+      // An acknowledgement must not navigate: keep controls (or any newer view) open.
     } else if (strcmp(status->value->cstring, "Brightness set") == 0 ||
                strcmp(status->value->cstring, "Color set") == 0 ||
                strcmp(status->value->cstring, "Room brightness set") == 0 ||
                strcmp(status->value->cstring, "Room color set") == 0) {
       vibes_double_pulse();
-      if (s_preset_menu) window_stack_pop(true);
-      if (s_action_menu) window_stack_pop(true);
+      // Keep the picker open for repeated adjustments. Only Back/swipe dismisses it.
     } else if (strcmp(status->value->cstring, "Shortcut saved") == 0) {
       vibes_double_pulse();
     }
@@ -1787,22 +1965,8 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   if (kind_tuple && index_tuple && name_tuple) {
     ItemKind kind = kind_tuple->value->uint8;
     uint16_t index = index_tuple->value->uint16;
-    if (kind == ITEM_KIND_THEME && index < MAX_THEMES) {
-      ThemeChoice *theme = &s_themes[index];
-      snprintf(theme->name, sizeof(theme->name), "%s", name_tuple->value->cstring);
-      theme->background.argb = theme_background ? theme_background->value->uint8 : GColorWhite.argb;
-      theme->text.argb = theme_text ? theme_text->value->uint8 : GColorBlack.argb;
-      theme->selection.argb = theme_selection ? theme_selection->value->uint8 : GColorBlack.argb;
-      theme->selection_text.argb = theme_selection_text ?
-        theme_selection_text->value->uint8 : GColorWhite.argb;
-      theme->font = theme_font ? (uint8_t)theme_font->value->int32 : 0;
-      theme->size = theme_size ? theme_size->value->uint8 : 24;
-      theme->icons = !theme_icons || theme_icons->value->int8 != 0;
-      Tuple *active_tuple = dict_find(iterator, MESSAGE_KEY_ITEM_ACTIVE);
-      theme->active = active_tuple && active_tuple->value->int8 != 0;
-      if (index >= s_theme_count) s_theme_count = index + 1;
-      return;
-    }
+    // Theme libraries live in phone settings; legacy picker packets are ignored.
+    if (kind == ITEM_KIND_THEME) return;
     if (kind == ITEM_KIND_COLOR && index < COLOR_COUNT) {
       snprintf(s_colors[index].name, sizeof(s_colors[index].name), "%s",
                name_tuple->value->cstring);
@@ -2218,6 +2382,11 @@ static void init(void) {
   app_touch_navigation_enable(true);
 #endif
   load_pins();
+  if(persist_exists(SHOW_CAMERAS_KEY))s_show_cameras=persist_read_bool(SHOW_CAMERAS_KEY);
+  char saved_order[7]={0};persist_read_string(ROOT_ORDER_KEY,saved_order,sizeof(saved_order));
+  if(root_order_valid(saved_order))memcpy(s_root_order,saved_order,7);
+  int home_size=persist_get_size(HOME_ORDER_KEY);if(home_size>0&&home_size<=HOME_CAPACITY&&persist_read_data(HOME_ORDER_KEY,s_home_order,home_size)==home_size)s_home_count=home_size;
+  home_changed();
 
   s_root_window = window_create();
   s_list_window = window_create();
@@ -2226,11 +2395,8 @@ static void init(void) {
   s_room_scene_window = window_create();
   s_action_window = window_create();
   s_preset_window = window_create();
-  s_theme_window = window_create();
-  s_settings_window = window_create();
-  s_pin_window = window_create();
-  s_shortcut_window = window_create();
-  s_shortcut_target_window = window_create();
+  // Settings moved to the phone. Do not allocate five unreachable windows
+  // or retain their callback graph and theme catalog on the 64KB Time.
   s_confirm_window = window_create();
 #if defined(PBL_TOUCH)
   window_set_touch_bridge_disabled(s_confirm_window, true);
@@ -2271,31 +2437,6 @@ static void init(void) {
     .appear = menu_window_appear,
     .unload = preset_window_unload,
   });
-  window_set_window_handlers(s_theme_window, (WindowHandlers) {
-    .load = theme_window_load,
-    .appear = menu_window_appear,
-    .unload = theme_window_unload,
-  });
-  window_set_window_handlers(s_settings_window, (WindowHandlers) {
-    .load = settings_window_load,
-    .appear = menu_window_appear,
-    .unload = settings_window_unload,
-  });
-  window_set_window_handlers(s_pin_window, (WindowHandlers) {
-    .load = pin_window_load,
-    .appear = menu_window_appear,
-    .unload = pin_window_unload,
-  });
-  window_set_window_handlers(s_shortcut_window, (WindowHandlers) {
-    .load = shortcut_window_load,
-    .appear = menu_window_appear,
-    .unload = shortcut_window_unload,
-  });
-  window_set_window_handlers(s_shortcut_target_window, (WindowHandlers) {
-    .load = shortcut_target_window_load,
-    .appear = menu_window_appear,
-    .unload = shortcut_target_window_unload,
-  });
   window_set_window_handlers(s_confirm_window, (WindowHandlers) {
     .load = confirm_window_load,
     .unload = confirm_window_unload,
@@ -2305,24 +2446,24 @@ static void init(void) {
   app_message_register_inbox_received(inbox_received);
   app_message_register_inbox_dropped(inbox_dropped);
   app_message_register_outbox_failed(outbox_failed);
-  app_message_open(512, 256);
+  app_message_open(CAMERA_ROWS ? 1024 : 512, 256);
 
   window_stack_push(s_root_window, false);
   s_loading = true;
 }
 
 static void deinit(void) {
+  release_subtitle_font();
+  cameras_deinit();
+#if defined(PBL_PLATFORM_EMERY)
+  free(s_room_buffers);
+#endif
   if (s_marquee_timer) {
     app_timer_cancel(s_marquee_timer);
     s_marquee_timer = NULL;
   }
   if (s_dictation_session) dictation_session_destroy(s_dictation_session);
   window_destroy(s_confirm_window);
-  window_destroy(s_shortcut_target_window);
-  window_destroy(s_shortcut_window);
-  window_destroy(s_settings_window);
-  window_destroy(s_pin_window);
-  window_destroy(s_theme_window);
   window_destroy(s_preset_window);
   window_destroy(s_action_window);
   window_destroy(s_sensor_window);

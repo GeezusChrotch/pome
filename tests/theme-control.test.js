@@ -75,9 +75,9 @@ assert.strictEqual(context.validShortcut("themes"), "off");
 context.cacheShortcutScenes([{name: "Good Night"}, {name: "Movie Time"}]);
 
 var builtIns = context.configuredThemes();
-assert.strictEqual(builtIns.length, 5);
+assert.strictEqual(builtIns.length, 10);
 assert.deepStrictEqual(Array.prototype.map.call(builtIns, function(theme) { return theme.name; }),
-  ["Classic", "Pome Amber", "Midnight", "Forest", "Berry"]);
+  ["Classic", "Night Reader", "Large Print", "Soft Paper", "Solar Flare", "Mint Condition", "Deep Sea", "Berry Pop", "Arcade", "Blue Note"]);
 assert.ok(Array.prototype.every.call(builtIns, function(theme) { return theme.builtIn; }));
 
 var configurationHtml = decodeURIComponent(context.configurationPage().split(",")[1]);
@@ -143,13 +143,13 @@ handlers.webviewclosed({
   }))
 });
 
-var normalizedCustomTheme = Object.assign({}, customTheme, {builtIn: false});
+var normalizedCustomTheme = Object.assign({}, customTheme, {builtIn: false, subtitleSize: 20});
 assert.deepStrictEqual(JSON.parse(stored.pomeTheme), normalizedCustomTheme);
 assert.deepStrictEqual(JSON.parse(stored.pomeThemes), [normalizedCustomTheme]);
 assert.deepStrictEqual(JSON.parse(stored.pomeShortcuts),
   {up: "favorites", select: "voice", down: "scene:Good Night", doubleBack:"off"});
 assert.strictEqual(context.configuredTheme().icons, false);
-assert.strictEqual(context.configuredThemes().length, 6);
+assert.strictEqual(context.configuredThemes().length, 11);
 
 sent = [];
 context.sendDisplaySettings();
@@ -185,19 +185,19 @@ assert.strictEqual(sent[0].THEME_SIZE, 26);
 
 sent = [];
 context.sendThemeChoices();
-assert.strictEqual(sent.length, 7);
+assert.strictEqual(sent.length, 12);
 assert.strictEqual(sent[0].ITEM_KIND, 8);
 assert.strictEqual(sent[0].ITEM_NAME, "Classic");
-assert.strictEqual(sent[5].ITEM_NAME, "Amber Night");
-assert.strictEqual(sent[5].ITEM_ACTIVE, 1);
-assert.strictEqual(sent[6].LIST_DONE, 8);
+assert.strictEqual(sent[10].ITEM_NAME, "Amber Night");
+assert.strictEqual(sent[10].ITEM_ACTIVE, 1);
+assert.strictEqual(sent[11].LIST_DONE, 8);
 
 sent = [];
 context.applyThemeAtIndex(2);
-assert.strictEqual(JSON.parse(stored.pomeTheme).name, "Midnight");
+assert.strictEqual(JSON.parse(stored.pomeTheme).name, "Large Print");
 assert.strictEqual(sent.length, 1);
 assert.strictEqual(sent[0].STATUS, "Theme applied");
-assert.strictEqual(sent[0].THEME_FONT, 6);
+assert.strictEqual(sent[0].THEME_FONT, 7);
 
 sent = [];
 context.setShortcutAtIndex(0, "rooms");
@@ -211,6 +211,39 @@ assert.ok(/^data:text\/html/.test(openedUrl));
 
 console.log("Theme control tests passed");
 
+var originalCameraController=context.cameraController,originalHomeController=context.homeController;
+var cameraReads=0,finishCamera,finishHome;
+context.cameraController={settings:function(cb){cameraReads++;finishCamera=cb;}};
+context.homeController={read:function(cameras,cb){finishHome=cb;}};
+handlers.showConfiguration();handlers.showConfiguration();assert.strictEqual(cameraReads,1);
+finishCamera({cameras:[]});handlers.showConfiguration();assert.strictEqual(cameraReads,1);
+finishHome({items:[],revision:1});assert.strictEqual(context.configurationOpening,false);
+context.cameraController=originalCameraController;context.homeController=originalHomeController;
+
+// Every shipped palette must keep both title and subtitle text legible in both states.
+function luminance(hex) {
+  var rgb=[1,3,5].map(function(i){var c=parseInt(hex.slice(i,i+2),16)/255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);});
+  return rgb[0]*0.2126+rgb[1]*0.7152+rgb[2]*0.0722;
+}
+function contrastRatio(a,b){var x=luminance(a),y=luminance(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);}
+var displayPalette=vm.runInNewContext(time2Html.match(/var watchColors=(\[[^;]+\]);/)[1]);
+context.TIME2_BUILT_IN_THEMES.forEach(function(theme){
+  [false,true].forEach(function(display){
+    function color(hex){return display?displayPalette[context.pebbleColor(hex)-192]:hex;}
+    assert.ok(contrastRatio(color(theme.text),color(theme.background))>=7,theme.name+' normal contrast');
+    assert.ok(contrastRatio(color(context.contrastingColor(theme.selection)),color(theme.selection))>=7,theme.name+' selection contrast');
+  });
+});
+[16,18,20,22,24].forEach(function(size){
+  var theme=Object.assign({},context.TIME2_BUILT_IN_THEMES[0],{name:'Subtitle '+size,subtitleSize:size});
+  handlers.webviewclosed({response:encodeURIComponent(JSON.stringify({theme:theme,themes:[theme]}))});
+  assert.strictEqual(context.configuredTheme().subtitleSize,size);
+  assert.strictEqual(context.themeMessage(context.configuredTheme()).THEME_SUBTITLE_SIZE,size);
+});
+stored.pomeThemes=JSON.stringify(Array.from({length:20},function(_,i){return Object.assign({},customTheme,{name:'Custom '+i});}));
+assert.strictEqual(context.watchThemeChoices().length,31,'ten presets plus twenty customs and a current unsaved theme fit');
+console.log('PASS: ten palettes exceed 7:1 in raw and simulated palettes; subtitle sizes persist and transmit; full theme library fits');
+
 stored.pomeShortcuts=JSON.stringify({up:"themes",select:"voice",down:"off",doubleBack:"scenes"});
 assert.strictEqual(context.configuredShortcuts().up,"off");
 sent=[];context.sendDisplaySettings();assert.strictEqual(sent[0].SHORTCUT_DOUBLE_BACK,"scenes");
@@ -222,3 +255,19 @@ assert.strictEqual(sent[0].SHORTCUT_UP,'pin_toggle');assert.strictEqual(sent[0].
 configurationHtml=decodeURIComponent(context.configurationPage().split(',')[1]);
 assert.ok(configurationHtml.includes('Pin / unpin'));assert.ok(!configurationHtml.includes('Keep current'));
 assert.doesNotThrow(()=>new vm.Script(configurationHtml.match(/<script>([\s\S]*)<\/script>/)[1]));
+
+stored.pomeSections=JSON.stringify({favorites:true,scenes:true,rooms:true});
+assert.strictEqual(context.configuredSections().cameras,true,'existing users retain Cameras by default');
+stored.pomeSections=JSON.stringify({favorites:true,scenes:false,rooms:false,cameras:false});
+sent=[];context.sendDisplaySettings();assert.strictEqual(sent[0].SHOW_CAMERAS,0);
+configurationHtml=decodeURIComponent(context.configurationPage().split(',')[1]);
+assert.ok(configurationHtml.includes('id="cameras">Cameras'));
+stored.pomeSections=JSON.stringify({favorites:false,scenes:false,rooms:false,cameras:true});
+assert.strictEqual(context.configuredSections().favorites,false,'camera-only section selection is valid');
+sent=[];context.sendDisplaySettings();assert.strictEqual(sent[0].SHOW_CAMERAS,1);
+configurationHtml=decodeURIComponent(context.configurationPage().split(',')[1]);
+assert.ok(configurationHtml.includes('id="cameras" checked>Cameras'));
+assert.ok(watchSource.includes('visible_root_count() + CAMERA_VISIBLE == 1'));
+assert.ok(watchSource.includes('persist_write_bool(SHOW_CAMERAS_KEY,s_show_cameras)'));
+assert.ok(watchSource.includes('persist_read_bool(SHOW_CAMERAS_KEY)'));
+console.log('Camera section visibility, migration default, phone payload, checkbox and camera-only settings tests passed');

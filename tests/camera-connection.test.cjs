@@ -1,0 +1,18 @@
+const assert=require('assert');
+const store={};const storage={getItem:k=>store[k],setItem:(k,v)=>store[k]=v};
+const create=require('../src/pkjs/camera-connection').create;
+const connection=create(storage,{});
+assert.deepEqual(connection.publicState(),{url:'',paired:false});
+connection.save({url:'https://mac.example:10550/',token:'secret-example'});
+assert.equal(connection.read().token,'secret-example');
+connection.save({url:'https://mac.example:10550',token:''});
+assert.equal(connection.read().token,'secret-example');
+assert.throws(()=>connection.save({url:'https://other.example',token:''}),/changing/);
+for(const url of ['http://mac.example','https://user@mac.example','https://mac.example/path','https://mac.example?x=1','https://mac.example#x','https://mac.example\\evil'])assert.throws(()=>connection.save({url,token:'secret'}),/HTTPS origin/);
+assert.throws(()=>connection.save({url:'https://mac.example',token:'bad\r\ntoken'}),/valid camera token/);
+assert(!JSON.stringify(connection.publicState()).includes('secret-example'));
+const html=require('../src/pkjs/camera-settings').augment('<script>function save(){}</script>',{connection:connection.publicState(),cameras:[]});
+assert(html.includes('id="cameraUrl"'));assert(html.includes('id="cameraToken"'));assert(!html.includes('secret-example'));
+connection.save({url:'',token:''});
+assert.deepEqual(create(storage,{url:'https://fallback.example',token:'fallback'}).read(),{url:'',token:''});
+console.log('PASS: camera pairing persistence, blank-token preservation, host-change guard, HTTPS-only origin and secret-free settings HTML');

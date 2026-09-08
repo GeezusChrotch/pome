@@ -1,0 +1,10 @@
+import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {execFileSync} from 'node:child_process';import {fileURLToPath} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const c=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+const state=JSON.parse(execFileSync('tailscale',['status','--json'],{encoding:'utf8'}));
+const dns=state.Self.DNSName.replace(/\.$/,'');if(!dns.endsWith('.ts.net')||!c.token)throw Error('Missing private pairing');
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pome-integrated-camera.'));fs.chmodSync(dir,0o700);
+for(const f of ['src','resources','package.json','wscript'])fs.cpSync(path.join(root,f),path.join(dir,f),{recursive:true});
+fs.writeFileSync(path.join(dir,'src/pkjs/camera-private-config.js'),'module.exports='+JSON.stringify({experimental:true,url:'https://'+dns+':10550',token:c.token})+';\n',{mode:0o600});
+fs.writeFileSync(path.join(dir,'src/c/pome_features.h'),'#pragma once\n#define POME_EXPERIMENTAL_CAMERAS 1\n');
+execFileSync('pebble',['build'],{cwd:dir,stdio:'inherit'});console.log('Private integrated test: '+dir);

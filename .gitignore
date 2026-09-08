@@ -4,3 +4,4 @@ build/
 *.log
 *.pbw
 appstore-assets/drafts/
+.learnings/

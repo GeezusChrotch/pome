@@ -1,5 +1,17 @@
 # Pome
 
+## Pome 3.0
+
+Your home, your way: pin rooms, scenes, devices and sensors; drag to reorder pins
+and sections together; choose ten built-in themes or save your own. Device pins
+open controls directly, and adjustments keep you in that device until you leave.
+Time 2 adds five custom font families and five title sizes, with independent
+subtitle sizing. [All 3.0 highlights](docs/RELEASE-3.0.0.md).
+
+**Cameras are experimental and not included in the public 3.0 package.** The
+public Connector does not ship the HomeKit camera helper.
+[Camera development status](docs/CAMERAS-EXPERIMENTAL.md).
+
 Use **Organik Apps Pebble Connector** for the coordinated Mac release: one free MIT app for
 Notesy, Beepster, Reminderz and Pome. [Setup and migration](docs/UNIFIED_CONNECTOR.md).
 Existing Pome watch pairing is retained. Standalone connector details below describe the older
@@ -11,7 +23,7 @@ In phone settings → **Shortcuts**, assign **Pin / unpin** to Up/Select/Down
 hold or Double Back. On the watch, highlight a scene in Favorites, Scenes, or a
 room's scene list, or an accessory/sensor in a room and use that gesture to toggle its pin. Use the same gesture on
 a pinned main-page row to unpin it, including a renamed or deleted scene.
-Other rows are unaffected. Pinned scenes appear above Voice; normal Select still
+Rooms can also be pinned. Pins and sections can be drag-reordered together in phone settings; normal Select still
 runs the scene. Pins persist on the watch, and phone settings sync preserves them.
 
 Theme and button customization are phone-only. Shortcuts includes Up/Select/Down holds
@@ -88,7 +100,7 @@ See [setup and migration](docs/UNIFIED_CONNECTOR.md).
 - Light toggle, brightness presets at 25/50/75/100%, and six configurable colors
 - A separate Themes settings tab with a live watch preview, configurable text,
   background and selection colors, five Pebble system font families and their
-  supported sizes, optional device icons, five built-in themes, and up to 20 named
+  supported sizes, optional device icons, ten built-in themes, and up to 20 named
   custom themes
 - Time 2 enhanced typography with Inter, Roboto, Open Sans, Montserrat, and Poppins,
   each available at 14, 18, 22, 26, and 30 points; Pebble Time keeps its smaller
@@ -103,7 +115,7 @@ license details are in `resources/fonts/README.md`.
 - Blind open/close plus slow (1%), regular (5%), and fast (10%) up/down controls
 - Confirmation for scene names suggesting doors, garages, gates, alarms, or disarm
 - Full original Itsyhome names retained for every command
-- Voice is always first, discovers the current Itsyhome vocabulary automatically, and
+- Voice starts first by default, can be reordered, discovers the current Itsyhome vocabulary automatically, and
   runs unambiguous safe matches immediately
 - Voice scenes use "set", "run", "activate", or "start"; explicit power language
   continues to target devices
@@ -176,4 +188,4 @@ The Pome-style tabbed settings and theme editor are described in [Phone settings
 
 On a touch-capable watch, tap a different menu item to highlight it and read its scrolling title. Tap the highlighted item again to open or activate it; there is no need to tap quickly. Physical Select still activates the highlighted item.
 
-Accessory pins appear alongside scenes on the main page, with the room as their subtitle. Selecting one refreshes its room and highlights the accessory (or opens the sensor list); select the accessory normally to operate it. Pinning never switches a device. Service IDs distinguish same-named accessories; devices without an ID and sensors use room, name, and type. Missing or ambiguous matches show a message instead of operating another item. Existing scene pins are preserved.
+Accessory pins appear alongside scenes and rooms on the main page, with their item type as subtitle. Selecting a device pin refreshes its room and opens that device's controls directly; sensor pins open the sensor list. Pinning never switches a device. Service IDs distinguish same-named accessories; devices without an ID and sensors use room, name, and type. Missing or ambiguous matches show a message instead of operating another item. Existing scene pins are preserved.

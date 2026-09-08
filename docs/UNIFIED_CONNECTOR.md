@@ -39,3 +39,6 @@ it supports an existing personal gateway, not public Tesla onboarding.
 These changes are prepared for the coordinated release. Publish this guide only after the signed
 connector installer is available at the release link. Existing standalone releases remain rollback
 options; verify migration before removing a working setup.
+# Camera availability in Pome 3.0
+
+The public Connector supports Pome's Itsyhome control setup, not the experimental HomeKit camera helper. Camera viewing and camera pairing are disabled in public Pome 3.0. See [camera development status](CAMERAS-EXPERIMENTAL.md).

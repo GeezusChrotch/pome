@@ -15,6 +15,10 @@ const harness = `
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+static void *s_root_menu;
+static void menu_layer_reload_data(void *menu) {}
+static void home_changed(void) {}
 #define MAX_ITEMS 60
 #define MAX_NAME_LENGTH 64
 #define PIN_ORDER_KEY 1999
@@ -89,6 +93,11 @@ int main(void) {
   fail_key=PIN_ACCESSORY_KEY;assert(!toggle_pin_record("Lamp",&first));reboot();assert(s_pin_count==0);fail_key=-1;
   assert(toggle_pin_record("Lamp",&first));fail_key=PIN_ORDER_KEY;assert(!toggle_pin_record("Lamp",&first));reboot();assert(s_pin_count==1);fail_key=-1;
   assert(toggle_pin_record("Lamp",&first));assert(toggle_pin("New scene"));reboot();assert(pin_index("New scene")==0);
+  assert(pome_camera_toggle_pin("camera-1","Catio"));assert(pome_camera_toggle_pin("camera-2","Lounge Cam"));
+  reboot();assert(pome_camera_pinned("camera-1"));assert(pome_camera_pinned("camera-2"));
+  expect_pin(1,"Catio");expect_pin(2,"Lounge Cam");
+  assert(pome_camera_toggle_pin("camera-1","Renamed Catio"));reboot();assert(!pome_camera_pinned("camera-1"));assert(pome_camera_pinned("camera-2"));
+  PinAccessory room={.room="Lounge",.type="room",.sensor=3};assert(toggle_pin_record("Lounge",&room));assert(toggle_pin("Lounge"));reboot();assert(pin_identity_index("Lounge",&room)>=0&&pin_index("Lounge")>=0);assert(toggle_pin_record("Lounge",&room));reboot();assert(pin_index("Lounge")>=0);
   puts("Pinned scene persistence, ordering, missing scenes, capacity, and failure tests passed");
 }
 `;

@@ -1,0 +1,21 @@
+{
+  "version": "3.0.0",
+  "artifact": "dist/Pome-3.0.0.pbw",
+  "sha256": "b1cb98570fb8d04ac124e272401c87b22581e0b78e5dde0957f8e0eed9e32cf3",
+  "platforms": ["basalt", "emery"],
+  "publicCameras": false,
+  "cameraHelperIncluded": false,
+  "privatePairingPlaceholder": "empty",
+  "actualPrivateTokenAndHostnameScan": "passed",
+  "build": "clean Pebble SDK 4.33.1 build passed",
+  "tests": "17 JavaScript test files passed; Swift 15-second schedule/default preservation test passed",
+  "basaltHeapBytes": 7351,
+  "previousBasaltHeapBytes": 1291,
+  "emulator": {
+    "basalt": "Startup, rooms, device list, light controls and brightness picker rendered; final public 3.0 installed and startup screenshot captured",
+    "emery": "Final public 3.0 installed; main menu navigated to Refresh, no Cameras row"
+  },
+  "physicalWatch": "Not installed: existing private camera test intentionally preserved. Public 3.0 hardware acceptance not claimed.",
+  "github": "pending publication",
+  "pebbleDashboard": "owned by release coordinator, pending"
+}

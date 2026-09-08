@@ -1,3 +1,5 @@
+var cameraController = typeof require === 'function' ? require('./cameras') : {settings:function(cb){cb({});},save:function(){}};
+var homeController = typeof require === 'function' ? require('./home-screen') : {read:function(c,cb){cb({error:'Open Pome on the watch to reorder.'});},save:function(h,cb){cb(null);}};
 // BEGIN ORGANIK SETTINGS UI
 // Organik settings UI v1. Vendored by sync.py; no network or storage dependencies.
 function organikSettingsHTML(html, options) {
@@ -29,7 +31,7 @@ function organikSettingsClient(options) {
     });
   }
   if (app === 'pome' || app === 'tesla') {
-    ['setup','themes','shortcuts'].forEach(function(name) { panels[name] = id(name + 'Panel'); panels[name].classList.add('organik-panel'); });
+    ['setup','themes','shortcuts'].concat(app==='pome' && id('camerasPanel')?['cameras']:[]).forEach(function(name) { panels[name] = id(name + 'Panel'); panels[name].classList.add('organik-panel'); });
     tabs = d.querySelector('.tabs');
     if (app === 'tesla') { var title = el('h1', 'Gandalf+Gilda'); d.body.insertBefore(title, tabs); }
   } else {
@@ -134,7 +136,7 @@ function organikSettingsClient(options) {
 // END ORGANIK SETTINGS UI
 var DEFAULT_BASE_URL = "";
 var MAX_ITEMS = 60;
-var MAX_THEME_CHOICES = 25;
+var MAX_THEME_CHOICES = 31;
 var ROOM_LIGHT_COMMAND_DELAY_MS = 700;
 var ROOM_LIGHT_MAX_ATTEMPTS = 2;
 var BLIND_POSITION_CACHE_TTL_MS = 30000;
@@ -189,71 +191,127 @@ var DEFAULT_THEME = {
   icons: true
 };
 
-var BUILT_IN_THEMES = [
+// Four readability-first presets, followed by six playful palettes.
+var TIME2_BUILT_IN_THEMES = [
   {
-    name: "Classic",
-    text: "#000000",
-    background: "#ffffff",
-    selection: "#000000",
-    font: "gothic",
-    size: 24,
-    icons: true,
-    builtIn: true
+    "name": "Classic",
+    "text": "#000000",
+    "background": "#ffffff",
+    "selection": "#000000",
+    "font": "inter",
+    "size": 22,
+    "subtitleSize": 20,
+    "icons": true,
+    "builtIn": true
   },
   {
-    name: "Pome Amber",
-    text: "#550000",
-    background: "#ffffaa",
-    selection: "#ffaa00",
-    font: "gothic-bold",
-    size: 24,
-    icons: true,
-    builtIn: true
+    "name": "Night Reader",
+    "text": "#ffffff",
+    "background": "#000000",
+    "selection": "#ffffff",
+    "font": "roboto",
+    "size": 26,
+    "subtitleSize": 22,
+    "icons": true,
+    "builtIn": true
   },
   {
-    name: "Midnight",
-    text: "#ffffff",
-    background: "#000055",
-    selection: "#00aaff",
-    font: "roboto-condensed",
-    size: 21,
-    icons: true,
-    builtIn: true
+    "name": "Large Print",
+    "text": "#000000",
+    "background": "#ffffaa",
+    "selection": "#000055",
+    "font": "open-sans",
+    "size": 30,
+    "subtitleSize": 24,
+    "icons": false,
+    "builtIn": true
   },
   {
-    name: "Forest",
-    text: "#ffffff",
-    background: "#005500",
-    selection: "#aaff00",
-    font: "droid-serif",
-    size: 28,
-    icons: true,
-    builtIn: true
+    "name": "Soft Paper",
+    "text": "#000000",
+    "background": "#ffffaa",
+    "selection": "#555555",
+    "font": "inter",
+    "size": 26,
+    "subtitleSize": 22,
+    "icons": true,
+    "builtIn": true
   },
   {
-    name: "Berry",
-    text: "#ffffff",
-    background: "#550055",
-    selection: "#ff55aa",
-    font: "bitham-black",
-    size: 30,
-    icons: false,
-    builtIn: true
+    "name": "Solar Flare",
+    "text": "#ffffff",
+    "background": "#000055",
+    "selection": "#ffaa00",
+    "font": "montserrat",
+    "size": 22,
+    "subtitleSize": 20,
+    "icons": true,
+    "builtIn": true
+  },
+  {
+    "name": "Mint Condition",
+    "text": "#ffffff",
+    "background": "#550055",
+    "selection": "#aaffaa",
+    "font": "poppins",
+    "size": 22,
+    "subtitleSize": 20,
+    "icons": true,
+    "builtIn": true
+  },
+  {
+    "name": "Deep Sea",
+    "text": "#ffffff",
+    "background": "#005555",
+    "selection": "#ffffaa",
+    "font": "open-sans",
+    "size": 26,
+    "subtitleSize": 20,
+    "icons": true,
+    "builtIn": true
+  },
+  {
+    "name": "Berry Pop",
+    "text": "#ffffff",
+    "background": "#550000",
+    "selection": "#ffaaff",
+    "font": "poppins",
+    "size": 26,
+    "subtitleSize": 22,
+    "icons": true,
+    "builtIn": true
+  },
+  {
+    "name": "Arcade",
+    "text": "#ffffff",
+    "background": "#000000",
+    "selection": "#aaff00",
+    "font": "montserrat",
+    "size": 26,
+    "subtitleSize": 20,
+    "icons": false,
+    "builtIn": true
+  },
+  {
+    "name": "Blue Note",
+    "text": "#000000",
+    "background": "#aaffff",
+    "selection": "#000055",
+    "font": "roboto",
+    "size": 22,
+    "subtitleSize": 20,
+    "icons": true,
+    "builtIn": true
   }
 ];
 
-var TIME2_BUILT_IN_THEMES = [
-  {name: "Classic", text: "#000000", background: "#ffffff", selection: "#000000",
-   font: "inter", size: 22, icons: true, builtIn: true},
-  {name: "Pome Amber", text: "#550000", background: "#ffffaa", selection: "#ffaa00",
-   font: "montserrat", size: 22, icons: true, builtIn: true},
-  {name: "Midnight", text: "#ffffff", background: "#000055", selection: "#00aaff",
-   font: "roboto", size: 22, icons: true, builtIn: true},
-  {name: "Forest", text: "#ffffff", background: "#005500", selection: "#aaff00",
-   font: "open-sans", size: 26, icons: true, builtIn: true},
-  {name: "Berry", text: "#ffffff", background: "#550055", selection: "#ff55aa",
-   font: "poppins", size: 30, icons: false, builtIn: true}
-];
+var BUILT_IN_THEMES = TIME2_BUILT_IN_THEMES.map(function(theme, index) {
+  var result = JSON.parse(JSON.stringify(theme));
+  result.font = ["gothic", "gothic-bold", "gothic-bold", "gothic", "gothic-bold",
+    "bitham-black", "droid-serif", "gothic-bold", "bitham-black", "roboto-condensed"][index];
+  result.size = [24,28,28,24,24,30,28,28,30,21][index];
+  return result;
+});
 
 var THEME_FONTS = {
   gothic: 0,
@@ -447,7 +505,7 @@ function configuredColors() {
 }
 
 function configuredSections() {
-  var sections = {favorites: true, scenes: true, rooms: true, sensors: true};
+  var sections = {favorites: true, scenes: true, rooms: true, sensors: true, cameras: true};
   try {
     var saved = JSON.parse(localStorage.getItem("pomeSections") || "null");
     if (saved && typeof saved === "object") {
@@ -455,11 +513,12 @@ function configuredSections() {
       sections.scenes = saved.scenes !== false;
       sections.rooms = saved.rooms !== false;
       sections.sensors = saved.sensors !== false;
+      sections.cameras = saved.cameras !== false;
     }
   } catch (error) {
     console.log("Invalid saved sections: " + error.message);
   }
-  if (!sections.favorites && !sections.scenes && !sections.rooms) sections.favorites = true;
+  if (!sections.favorites && !sections.scenes && !sections.rooms && !sections.cameras) sections.favorites = true;
   return sections;
 }
 
@@ -557,6 +616,7 @@ function normalizeTheme(theme) {
     selection: validHexColor(value.selection, DEFAULT_THEME.selection),
     font: font,
     size: size,
+    subtitleSize: arrayContains([14,16,18,20,21,22,24], Number(value.subtitleSize)) ? Number(value.subtitleSize) : 20,
     icons: value.icons !== false,
     builtIn: value.builtIn === true
   };
@@ -572,6 +632,7 @@ function nearestThemeSize(size, sizes) {
 
 function themeForCurrentWatch(theme) {
   var normalized = normalizeTheme(theme);
+  normalized.subtitleSize = nearestThemeSize(normalized.subtitleSize, time2Enhanced() ? [16,18,20,22,24] : [14,18,21,24]);
   var fontId = THEME_FONTS[normalized.font];
   if (time2Enhanced() && fontId < 5) {
     var time2Fonts = ["inter", "montserrat", "roboto", "open-sans", "poppins"];
@@ -625,17 +686,18 @@ function pebbleColor(hex) {
 }
 
 function contrastingColor(hex) {
-  var color = validHexColor(hex, "#000000");
-  var red = parseInt(color.slice(1, 3), 16);
-  var green = parseInt(color.slice(3, 5), 16);
-  var blue = parseInt(color.slice(5, 7), 16);
-  return (red * 299 + green * 587 + blue * 114) / 1000 >= 150 ? "#000000" : "#ffffff";
+  var levels = [1,3,5].map(function(offset) {
+    var channel = Math.round(parseInt(hex.slice(offset, offset + 2), 16) / 85) / 3;
+    return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+  });
+  var luminance = levels[0] * 0.2126 + levels[1] * 0.7152 + levels[2] * 0.0722;
+  return (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05) ? "#000000" : "#ffffff";
 }
 
 function themesEqual(left, right) {
   return left && right && left.name === right.name && left.text === right.text &&
     left.background === right.background && left.selection === right.selection &&
-    left.font === right.font && left.size === right.size && left.icons === right.icons;
+    left.font === right.font && left.size === right.size && left.subtitleSize === right.subtitleSize && left.icons === right.icons;
 }
 
 function themeMessage(theme) {
@@ -646,6 +708,7 @@ function themeMessage(theme) {
     "THEME_SELECTION_TEXT": pebbleColor(contrastingColor(theme.selection)),
     "THEME_FONT": THEME_FONTS[theme.font],
     "THEME_SIZE": theme.size,
+    "THEME_SUBTITLE_SIZE": theme.subtitleSize || 20,
     "THEME_ICONS": theme.icons ? 1 : 0
   };
 }
@@ -697,7 +760,9 @@ function sendDisplaySettings(done) {
   payload.SHOW_FAVORITES = sections.favorites ? 1 : 0;
   payload.SHOW_SCENES = sections.scenes ? 1 : 0;
   payload.SHOW_ROOMS = sections.rooms ? 1 : 0;
+  payload.SHOW_CAMERAS = sections.cameras ? 1 : 0;
   payload.SHOW_SENSORS = sections.sensors ? 1 : 0;
+  payload.ROOT_ORDER = cameraController.order ? cameraController.order() : '012345';
   payload.SHORTCUT_UP = shortcuts.up;
   payload.SHORTCUT_SELECT = shortcuts.select;
   payload.SHORTCUT_DOWN = shortcuts.down;
@@ -1811,7 +1876,7 @@ function executePendingVoiceIntent() {
   });
 }
 
-function configurationPage() {
+function configurationPage(cameraState) {
   var current = baseUrl().replace(/&/g, "&amp;").replace(/\"/g, "&quot;");
   var selectedColors = configuredColors();
   var selectedSections = configuredSections();
@@ -1887,6 +1952,9 @@ function configurationPage() {
     checked(selectedSections.scenes) + '>Scenes</label></div>' +
     '<div class="toggle"><label><input type="checkbox" id="rooms"' +
     checked(selectedSections.rooms) + '>Rooms</label></div>' +
+    '<div class="toggle"><label><input type="checkbox" id="cameras"' +
+    checked(selectedSections.cameras) + '>Cameras</label></div>' +
+    '<p>Hides the Cameras section only. Pinned camera shortcuts and camera refresh schedules are unchanged.</p>' +
     '<div class="toggle"><label><input type="checkbox" id="sensors"' +
     checked(selectedSections.sensors) + '>Sensors inside rooms</label></div>';
   var themeJson = JSON.stringify(selectedTheme).replace(/<\//g, "<\\/");
@@ -1917,7 +1985,7 @@ function configurationPage() {
     'font:700 14px Arial,sans-serif;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     '.preview-row{height:47px;padding:0 3px 0 6px;display:flex;align-items:center;overflow:hidden}' +
     '.preview-icon{width:25px;margin-right:4px;text-align:center;font-size:19px;flex:0 0 auto}' +
-    '.preview-text{min-width:0}.preview-name{line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.preview-text{min-width:0}.preview-name{line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     '.preview-sub{font:14px/16px Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     '.palette-trigger{height:58px;margin:8px 0 18px;padding:7px 12px;background:#fff;color:#111;' +
     'border:1px solid #bbb;display:flex;align-items:center;text-align:left}.palette-swatch{width:38px;height:38px;' +
@@ -1950,11 +2018,11 @@ function configurationPage() {
     '<div id="preview" class="preview-shell">' +
     '<div class="preview-title">Living Room</div><div class="preview-row selected">' +
     '<span class="preview-icon">●</span><div class="preview-text"><div class="preview-name">Ceiling Light</div>' +
-    '<div class="preview-sub">Toggle, level, color</div></div></div><div class="preview-row">' +
+    '<div class="preview-sub">Device</div></div></div><div class="preview-row">' +
     '<span class="preview-icon">◉</span><div class="preview-text"><div class="preview-name">Floor Lamp</div>' +
-    '<div class="preview-sub">Toggle, level, color</div></div></div><div class="preview-row">' +
-    '<span class="preview-icon">✦</span><div class="preview-text"><div class="preview-name">Scenes</div>' +
-    '<div class="preview-sub">4 scenes</div></div></div></div>' +
+    '<div class="preview-sub">Device</div></div></div><div class="preview-row">' +
+    '<span class="preview-icon">✦</span><div class="preview-text"><div class="preview-name">Lounge</div>' +
+    '<div class="preview-sub">Room</div></div></div></div>' +
     '<div class="theme-card"><label>Saved themes</label><select id="savedTheme" onchange="loadTheme()"></select>' +
     '<p>Selecting a theme previews it. Apply sends the selected theme to the watch immediately.</p>' +
     '<div class="button-row"><button type="button" class="apply" onclick="applyCurrent()">Apply Current Preview</button>' +
@@ -1970,6 +2038,9 @@ function configurationPage() {
     '</button><input type="hidden" id="themeSelection">' +
     fontNotice + '<label>Font</label><select id="themeFont">' + fontOptions + '</select>' +
     '<label>Font size</label><select id="themeSize">' + sizeOptions + '</select>' +
+    '<label>Subtitle size</label><select id="themeSubtitleSize">' +
+    (time2Enhanced() ? [16,18,20,22,24] : [14,18,21,24]).map(function(size) { return '<option value="' + size + '">' + size + ' px</option>'; }).join('') + '</select>' +
+    '<p class="hint">Four readability-first themes, followed by six colorful themes. Subtitle size is saved with each theme. Choose a preset to preview it, then Apply Current Preview to send it to your watch.</p>' +
     '<div class="toggle"><label><input type="checkbox" id="themeIcons">Show device icons</label></div>' +
     '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
     '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
@@ -2020,8 +2091,7 @@ function configurationPage() {
     'function choosePalette(index){setThemeColor(paletteTarget,rawPalette[index]);preview();closePalette();}' +
     'function closePalette(){byId("paletteOverlay").className="palette-overlay";paletteTarget=null;}' +
     'function overlayClick(event){if(event.target===byId("paletteOverlay"))closePalette();}' +
-    'function contrast(hex){var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),' +
-    'b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>=150?\'#000000\':\'#ffffff\';}' +
+    'var contrast=' + contrastingColor.toString() + ';' +
     'var fontSizes=' + JSON.stringify(pageFontSizes) + ';' +
     'function hasValue(values,value){for(var i=0;i<values.length;i++)if(values[i]===value)return true;return false;}' +
     'function updateSizes(requested){var font=byId(\'themeFont\').value,sizes=fontSizes[font]||[24];' +
@@ -2031,11 +2101,11 @@ function configurationPage() {
     'function readTheme(){return{name:byId(\'themeName\').value.trim()||\'Custom\',' +
     'text:byId(\'themeText\').value,background:byId(\'themeBackground\').value,' +
     'selection:byId(\'themeSelection\').value,font:byId(\'themeFont\').value,' +
-    'size:parseInt(byId(\'themeSize\').value,10),icons:byId(\'themeIcons\').checked,builtIn:false};}' +
+    'subtitleSize:parseInt(byId(\'themeSubtitleSize\').value,10),size:parseInt(byId(\'themeSize\').value,10),icons:byId(\'themeIcons\').checked,builtIn:false};}' +
     'function applyTheme(theme){currentTheme=theme;byId(\'themeName\').value=theme.name||\'\';' +
     'setThemeColor(\'themeText\',theme.text);setThemeColor(\'themeBackground\',theme.background);' +
     'setThemeColor(\'themeSelection\',theme.selection);byId(\'themeFont\').value=theme.font;' +
-    'updateSizes(theme.size);byId(\'themeIcons\').checked=theme.icons!==false;preview();}' +
+    'byId(\'themeSubtitleSize\').value=String(theme.subtitleSize||20);updateSizes(theme.size);byId(\'themeIcons\').checked=theme.icons!==false;preview();}' +
     'function preview(){var theme=readTheme(),shell=byId(\'preview\'),rows=shell.querySelectorAll(\'.preview-row\');' +
     'var background=watchHex(theme.background),text=watchHex(theme.text),selection=watchHex(theme.selection);' +
     'shell.style.background=background;shell.style.color=text;' +
@@ -2047,7 +2117,8 @@ function configurationPage() {
     'shell.style.fontWeight=theme.font===\'gothic-bold\'||theme.font===\'droid-serif\'||' +
     'theme.font===\'bitham-black\'?\'700\':\'400\';shell.style.fontSize=theme.size+\'px\';' +
     'var rowHeight=theme.size<=14?32:theme.size<=18?38:theme.size<=21?42:' +
-    'theme.size<=24?46:theme.size<=28?52:56;for(var r=0;r<rows.length;r++)rows[r].style.height=rowHeight+\'px\';' +
+    'theme.size<=24?46:theme.size<=28?52:56;rowHeight+=theme.subtitleSize-12;for(var r=0;r<rows.length;r++)rows[r].style.height=rowHeight+\'px\';' +
+    'var subs=shell.querySelectorAll(\'.preview-sub\');for(var sub=0;sub<subs.length;sub++){subs[sub].style.font=theme.subtitleSize+\'px/\'+(theme.subtitleSize+2)+\'px Roboto,Arial,sans-serif\';}' +
     'var selectedText=watchHex(contrast(theme.selection)),title=shell.querySelector(\'.preview-title\');' +
     'rows[0].style.background=selection;rows[0].style.color=selectedText;' +
     'title.style.background=selection;title.style.color=selectedText;' +
@@ -2083,22 +2154,24 @@ function configurationPage() {
     'var sections={favorites:document.getElementById(\'favorites\').checked,' +
     'scenes:document.getElementById(\'scenes\').checked,' +
     'rooms:document.getElementById(\'rooms\').checked,' +
+    'cameras:document.getElementById(\'cameras\').checked,' +
     'sensors:document.getElementById(\'sensors\').checked};' +
-    'if(!sections.favorites&&!sections.scenes&&!sections.rooms){' +
-    'alert(\'Choose at least one of Favorites, Scenes, or Rooms.\');return;}var colors=[];' +
+    'if(!sections.favorites&&!sections.scenes&&!sections.rooms&&!sections.cameras){' +
+    'alert(\'Choose at least one of Favorites, Scenes, Rooms, or Cameras.\');return;}var colors=[];' +
     'for(var i=0;i<6;i++){colors.push(color(document.getElementById(\'c\'+i).value,i));}' +
     'var shortcuts={up:byId(\'shortcutUp\').value,select:byId(\'shortcutSelect\').value,' +
     'down:byId(\'shortcutDown\').value,doubleBack:byId(\'shortcutDoubleBack\').value};' +
     'var response=encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,' +
-    'shortcuts:shortcuts,theme:readTheme(),themes:savedThemes}));' +
+    'shortcuts:shortcuts,theme:readTheme(),themes:savedThemes,camera:readCameraConfig()}));' +
     'var match=location.search.match(/[?&]return_to=([^&]*)/);' +
     'location.href=(match?decodeURIComponent(match[1]):\'pebblejs://close#\')+response;}' +
-    'var controls=[\'themeSize\',\'themeIcons\'];' +
+    'var controls=[\'themeSize\',\'themeSubtitleSize\',\'themeIcons\'];' +
     'for(var j=0;j<controls.length;j++){' +
     'byId(controls[j]).addEventListener(\'change\',preview);byId(controls[j]).addEventListener(\'input\',preview);}' +
     'byId(\'themeFont\').addEventListener(\'change\',function(){updateSizes(null);preview();});' +
     'refreshThemes(\'\');applyTheme(currentTheme);</script></html>';
   html = organikSettingsHTML(html, {"app":"pome","fields":{"text":"themeText","background":"themeBackground","selection":"themeSelection","font":"themeFont","size":"themeSize"},"watchColors":["#000000","#001e41","#004387","#0068ca","#2b4a2c","#27514f","#16638d","#007dce","#5e9860","#5c9b72","#57a5a2","#4cb4db","#8ee391","#8ee69e","#8aebc0","#84f5f1","#4a161b","#482748","#40488a","#2f6bcc","#564e36","#545454","#4f6790","#4180d0","#759a64","#759d76","#71a6a4","#69b5dd","#9ee594","#9de7a0","#9becc2","#95f6f2","#99353f","#983e5a","#955694","#8f74d2","#9d5b4d","#9d6064","#9a7099","#9587d5","#afa072","#aea382","#ababab","#a7bae2","#c9e89d","#c9eaa7","#c7f0c8","#c3f9f7","#e35462","#e25874","#e16aa3","#de83dc","#e66e6b","#e6727c","#e37fa7","#e194df","#f1aa86","#f1ad93","#efb5b8","#ecc3eb","#ffeeab","#fff1b5","#fff6d3","#ffffff"],"library":false,"apply":false});
+  if(typeof require==='function')html = require('./camera-settings').augment(html,cameraState);
   return "data:text/html;charset=utf-8," + encodeURIComponent(html);
 }
 
@@ -2122,6 +2195,8 @@ Pebble.addEventListener("ready", function() {
 
 Pebble.addEventListener("appmessage", function(event) {
   var payload = event.payload || {};
+  if(payload.HOME_INDEX!==undefined||payload.HOME_SAVED!==undefined)return;
+  if(payload.CAMERA_CMD!==undefined)return;
   switch (payload.COMMAND) {
     case COMMAND_LOAD_FAVORITES:
       loadList("/list/favourites", ITEM_KIND_FAVORITE);
@@ -2180,8 +2255,11 @@ Pebble.addEventListener("appmessage", function(event) {
   }
 });
 
+var configurationOpening = false;
 Pebble.addEventListener("showConfiguration", function() {
-  Pebble.openURL(configurationPage());
+  if(configurationOpening)return;
+  configurationOpening=true;
+  cameraController.settings(function(state){homeController.read(state.cameras,function(home){state.home=home;configurationOpening=false;Pebble.openURL(configurationPage(state));});});
   if (baseUrl()) {
     apiGet("/list/scenes", function(error, scenes) {
       if (!error && Array.isArray(scenes)) cacheShortcutScenes(scenes);
@@ -2193,6 +2271,7 @@ Pebble.addEventListener("webviewclosed", function(event) {
   if (!event.response) return;
   try {
     var config = JSON.parse(decodeURIComponent(event.response));
+    cameraController.save(config.camera);
     if (config.baseUrl) {
       localStorage.setItem("itsyhomeBaseUrl", config.baseUrl);
     }
@@ -2220,10 +2299,13 @@ Pebble.addEventListener("webviewclosed", function(event) {
       localStorage.setItem("pomeThemes", JSON.stringify(customThemes));
     }
     VOICE_CATALOG = null;
+    homeController.save(config.camera&&config.camera.home,function(homeError){
     sendDisplaySettings(function() {
-      sendColorChoices(function() { send({ "STATUS": "Settings saved" }); });
+      sendColorChoices(function() { send(homeError?{ERROR:homeError}:{ "STATUS": "Settings saved" }); });
+    });
     });
   } catch (error) {
     console.log("Configuration error: " + error.message);
+    send({ERROR:"Settings not saved: "+error.message});
   }
 });

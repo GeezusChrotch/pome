@@ -1,8 +1,10 @@
 {
   "name": "pome",
   "author": "Organik Apps",
-  "version": "2.8.4",
-  "keywords": ["pebble-app"],
+  "version": "3.0.0",
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -10,7 +12,9 @@
     "uuid": "a6ab011e-d26a-4437-98c5-92f26ca38eb4",
     "sdkVersion": "3",
     "enableMultiJS": true,
-    "capabilities": ["configurable"],
+    "capabilities": [
+      "configurable"
+    ],
     "targetPlatforms": [
       "basalt",
       "emery"
@@ -54,10 +58,50 @@
       "SHORTCUT_DOWN": 32,
       "SHORTCUT_DOUBLE_BACK": 33,
       "PIN_SCENE": 34,
-      "PIN_STATE": 35
+      "PIN_STATE": 35,
+      "ROOT_ORDER": 36,
+      "SHOW_CAMERAS": 37,
+      "HOME_REQUEST": 38,
+      "HOME_REV": 39,
+      "HOME_COUNT": 40,
+      "HOME_TOKEN": 41,
+      "HOME_INDEX": 42,
+      "HOME_ORDER": 43,
+      "HOME_SAVED": 44,
+      "HOME_ERROR": 45,
+      "HOME_TRANSACTION": 47,
+      "CAMERA_CMD": 100,
+      "CAMERA_RID": 101,
+      "CAMERA_KIND": 102,
+      "CAMERA_INDEX": 103,
+      "CAMERA_NAME": 104,
+      "CAMERA_ID": 105,
+      "CAMERA_W": 106,
+      "CAMERA_H": 107,
+      "CAMERA_DATA": 108,
+      "CAMERA_OFFSET": 109,
+      "CAMERA_TOTAL": 110,
+      "CAMERA_AGE": 111,
+      "CAMERA_ERROR": 112,
+      "CAMERA_PAGE": 113,
+      "CAMERA_PAGES": 114,
+      "CAMERA_COUNT": 115,
+      "CAMERA_AUTO_PAN": 116,
+      "CAMERA_PHOTO": 117,
+      "CAMERA_TIMESTAMP": 118,
+      "THEME_SUBTITLE_SIZE": 46
     },
     "resources": {
       "media": [
+        {
+          "type": "font",
+          "name": "SUBTITLE_20",
+          "file": "fonts/Roboto-Regular.ttf",
+          "targetPlatforms": [
+            "emery"
+          ],
+          "characterRegex": "[ -~ -ÿ–—…]"
+        },
         {
           "type": "bitmap",
           "name": "POME_MENU_ICON",
@@ -158,176 +202,262 @@
           "type": "font",
           "name": "INTER_14",
           "file": "fonts/Inter-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "INTER_18",
           "file": "fonts/Inter-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "INTER_22",
           "file": "fonts/Inter-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "INTER_26",
           "file": "fonts/Inter-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "INTER_30",
           "file": "fonts/Inter-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "ROBOTO_14",
           "file": "fonts/Roboto-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "ROBOTO_18",
           "file": "fonts/Roboto-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "ROBOTO_22",
           "file": "fonts/Roboto-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "ROBOTO_26",
           "file": "fonts/Roboto-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "ROBOTO_30",
           "file": "fonts/Roboto-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "OPEN_SANS_14",
           "file": "fonts/OpenSans-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "OPEN_SANS_18",
           "file": "fonts/OpenSans-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "OPEN_SANS_22",
           "file": "fonts/OpenSans-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "OPEN_SANS_26",
           "file": "fonts/OpenSans-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "OPEN_SANS_30",
           "file": "fonts/OpenSans-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "MONTSERRAT_14",
           "file": "fonts/Montserrat-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "MONTSERRAT_18",
           "file": "fonts/Montserrat-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "MONTSERRAT_22",
           "file": "fonts/Montserrat-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "MONTSERRAT_26",
           "file": "fonts/Montserrat-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "MONTSERRAT_30",
           "file": "fonts/Montserrat-Regular.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "POPPINS_14",
           "file": "fonts/Poppins.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "POPPINS_18",
           "file": "fonts/Poppins.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "POPPINS_22",
           "file": "fonts/Poppins.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "POPPINS_26",
           "file": "fonts/Poppins.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
         },
         {
           "type": "font",
           "name": "POPPINS_30",
           "file": "fonts/Poppins.ttf",
-          "targetPlatforms": ["emery"],
+          "targetPlatforms": [
+            "emery"
+          ],
           "characterRegex": "[ -~]"
+        },
+        {
+          "type": "font",
+          "name": "SUBTITLE_16",
+          "file": "fonts/Roboto-Regular.ttf",
+          "targetPlatforms": [
+            "emery"
+          ],
+          "characterRegex": "[ -~ -ÿ–—…]"
+        },
+        {
+          "type": "font",
+          "name": "SUBTITLE_18",
+          "file": "fonts/Roboto-Regular.ttf",
+          "targetPlatforms": [
+            "emery"
+          ],
+          "characterRegex": "[ -~ -ÿ–—…]"
+        },
+        {
+          "type": "font",
+          "name": "SUBTITLE_22",
+          "file": "fonts/Roboto-Regular.ttf",
+          "targetPlatforms": [
+            "emery"
+          ],
+          "characterRegex": "[ -~ -ÿ–—…]"
+        },
+        {
+          "type": "font",
+          "name": "SUBTITLE_24",
+          "file": "fonts/Roboto-Regular.ttf",
+          "targetPlatforms": [
+            "emery"
+          ],
+          "characterRegex": "[ -~ -ÿ–—…]"
         }
       ]
     }
