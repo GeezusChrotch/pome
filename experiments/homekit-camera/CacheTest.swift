@@ -292,15 +292,19 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
         #if targetEnvironment(macCatalyst)
         if #available(macCatalyst 18.2, *) {
             Task { @MainActor in
+                var captureStage = "render window"
                 do {
                     guard let uiWindow = view.window else { throw cacheError("No render window") }
+                    captureStage = "own-window lookup"
                     let shareable = try await SCShareableContent.currentProcess
-                    let windows = shareable.windows.filter { $0.owningApplication?.processID == ProcessInfo.processInfo.processIdentifier && $0.windowLayer == 0 && $0.title == "Pome Camera Probe" }
+                    let windows = shareable.windows.filter { $0.owningApplication?.processID == ProcessInfo.processInfo.processIdentifier && $0.title == "Pome Camera Probe" }
                     guard windows.count == 1, let window = windows.first else { throw cacheError("No unique own window") }
                     let config = SCStreamConfiguration()
                     config.width = Int(window.frame.width); config.height = Int(window.frame.height)
                     config.showsCursor = false; config.capturesAudio = false; config.ignoreShadowsSingleWindow = true
+                    captureStage = "own-window screenshot"
                     let image = try await SCScreenshotManager.captureImage(contentFilter: SCContentFilter(desktopIndependentWindow: window), configuration: config)
+                    captureStage = "pixel validation"
                     guard activeID == id, jobToken == ticket else { return }
                     let scale = window.frame.width / uiWindow.bounds.width
                     let title = window.frame.height - uiWindow.bounds.height * scale
@@ -343,7 +347,10 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
                     processed.image = frames["emery-natural"].flatMap { preview($0) }
                     lastCaptureOnScreen = window.isOnScreen
                     stopLiveCapture(); activeID = nil; activeControl = nil; updateStatus()
-                } catch { if activeID == id, jobToken == ticket { fail(id, error.localizedDescription) } }
+                } catch { if activeID == id, jobToken == ticket {
+                    let detail = error as NSError
+                    fail(id, "\(captureStage): \(detail.localizedDescription) [\(detail.domain):\(detail.code)]")
+                } }
             }
             return
         }
