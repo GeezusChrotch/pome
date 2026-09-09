@@ -1,4 +1,5 @@
 var cameraController = typeof require === 'function' ? require('./cameras') : {settings:function(cb){cb({});},save:function(value,cb){if(cb)cb();}};
+var nativeHome = typeof require === 'function' ? require('./homekit').create(localStorage, XMLHttpRequest) : null;
 var homeController = typeof require === 'function' ? require('./home-screen') : {read:function(c,cb){cb({error:'Open Pome on the watch to reorder.'});},save:function(h,cb){cb(null);}};
 // BEGIN ORGANIK SETTINGS UI
 // Organik settings UI v1. Vendored by sync.py; no network or storage dependencies.
@@ -134,7 +135,6 @@ function organikSettingsClient(options) {
 }
 
 // END ORGANIK SETTINGS UI
-var DEFAULT_BASE_URL = "";
 var MAX_ITEMS = 60;
 var MAX_THEME_CHOICES = 31;
 var ROOM_LIGHT_COMMAND_DELAY_MS = 700;
@@ -491,7 +491,7 @@ function sensorValue(sensor, info) {
 }
 
 function baseUrl() {
-  return (localStorage.getItem("itsyhomeBaseUrl") || DEFAULT_BASE_URL).replace(/\/+$/, "");
+  return nativeHome ? nativeHome.url() : "";
 }
 
 function configuredColors() {
@@ -817,27 +817,8 @@ function applyThemeAtIndex(index) {
 }
 
 function apiGet(path, callback) {
-  if (!baseUrl()) {
-    callback(new Error("Set up in phone app"));
-    return;
-  }
-  var request = new XMLHttpRequest();
-  request.timeout = 8000;
-  request.onload = function() {
-    if (request.status < 200 || request.status >= 300) {
-      callback(new Error("Itsyhome HTTP " + request.status));
-      return;
-    }
-    try {
-      callback(null, JSON.parse(request.responseText));
-    } catch (error) {
-      callback(new Error("Invalid Itsyhome response"));
-    }
-  };
-  request.onerror = function() { callback(new Error("Cannot reach Itsyhome")); };
-  request.ontimeout = function() { callback(new Error("Itsyhome timed out")); };
-  request.open("GET", baseUrl() + path, true);
-  request.send();
+  if (!nativeHome) { callback(new Error("Set up in phone app")); return; }
+  nativeHome.request(path, callback);
 }
 
 function sendError(error) {
@@ -965,7 +946,7 @@ function loadList(path, kind) {
       return;
     }
     if (!Array.isArray(items)) {
-      sendError(new Error("Unexpected Itsyhome list"));
+      sendError(new Error("Unexpected Connector list"));
       return;
     }
     if (kind === ITEM_KIND_SCENE) cacheShortcutScenes(items);
@@ -994,7 +975,7 @@ function loadDevices(room) {
       return;
     }
     if (!Array.isArray(items)) {
-      sendError(new Error("Unexpected Itsyhome list"));
+      sendError(new Error("Unexpected Connector list"));
       return;
     }
 
@@ -1086,7 +1067,7 @@ function roomLights(room, callback) {
       return;
     }
     if (!Array.isArray(items)) {
-      callback(new Error("Unexpected Itsyhome list"));
+      callback(new Error("Unexpected Connector list"));
       return;
     }
     enrichDuplicateServices(items, room, function() {
@@ -1127,7 +1108,9 @@ function runLightCommands(lights, pathForLight, successStatus) {
       attempts += 1;
       apiGet(path, function(error, response) {
         var failed = error || (response && response.status === "error");
-        if (failed && attempts < ROOM_LIGHT_MAX_ATTEMPTS) {
+        // Native HomeKit acknowledges completion. An uncertain write must not
+        // be replayed automatically (especially toggle/scene commands).
+        if (failed && !nativeHome && attempts < ROOM_LIGHT_MAX_ATTEMPTS) {
           setTimeout(attempt, ROOM_LIGHT_COMMAND_DELAY_MS);
           return;
         }
@@ -1483,7 +1466,7 @@ function loadVoiceCatalog(done) {
       }
       if (!Array.isArray(value)) {
         finished = true;
-        done(new Error("Unexpected Itsyhome voice list"));
+        done(new Error("Unexpected Connector voice list"));
         return;
       }
       results[key] = value;
@@ -2003,11 +1986,9 @@ function configurationPage(cameraState) {
     'onclick="tab(\'setup\')">Setup</button><button type="button" id="themesTab" ' +
     'onclick="tab(\'themes\')">Themes</button><button type="button" id="shortcutsTab" ' +
     'onclick="tab(\'shortcuts\')">Shortcuts</button></div><section id="setupPanel" class="panel active">' +
-    '<label>Itsyhome server URL</label><input id="url" ' +
-    'placeholder="https://your-mac.tailnet.ts.net:10443" value="' + current + '">' +
-    '<p>Enter your Itsyhome webhook URL. Use a private Tailscale HTTPS URL for home and ' +
-    'away access, or a local HTTP URL for LAN-only use.</p>' +
-    '<p><a href="https://github.com/GeezusChrotch/pome#setup">Setup instructions</a></p>' +
+    '<input id="url" type="hidden" value="' + current + '">' +
+    '<div id="homeConnection"></div>' +
+    '<p><a href="https://github.com/GeezusChrotch/pome/blob/main/docs/HOMEKIT-SETUP.md">Setup instructions</a></p>' +
     '<h2>Show in Pome</h2><p>With one main section enabled, Pome opens it directly.</p>' +
     sectionFields + '<h2>Light colors</h2>' +
     '<p>Tap a swatch to open the iPhone color wheel.</p>' + colorFields +
@@ -2046,8 +2027,8 @@ function configurationPage(cameraState) {
     '<button type="button" class="apply save-main" onclick="saveTheme()">Save Theme &amp; Apply to Watch</button>' +
     '</section><section id="shortcutsPanel" class="panel"><p class="help"><strong>Main-screen shortcuts:</strong> ' +
     'Hold a side button for about one second. Short presses keep their normal navigation behavior. Press Back twice quickly for its shortcut (Off by default); single Back returns. Themes and button customization are only on the phone. Assign Pin / unpin to a hold or Double Back, then use it on a highlighted scene, accessory, sensor, or pinned main-page row. Other rows are unaffected.</p>' +
-    shortcutFields + (shortcutScenes.length ? '<p>Scenes refreshed from Itsyhome.</p>' :
-      '<p>No scenes are cached yet. Open settings while the Itsyhome server is reachable to load them.</p>') +
+    shortcutFields + (shortcutScenes.length ? '<p>Scenes refreshed from Apple Home.</p>' :
+      '<p>No scenes are cached yet. Open settings while Connector is reachable to load them.</p>') +
     '<button class="save-main" onclick="save()">Save shortcuts</button></section></div>' +
     '<div id="paletteOverlay" class="palette-overlay" onclick="overlayClick(event)">' +
     '<div class="palette-card"><h2>Choose a Pebble color</h2><div id="paletteGrid" class="palette-grid"></div>' +
@@ -2172,6 +2153,7 @@ function configurationPage(cameraState) {
     'refreshThemes(\'\');applyTheme(currentTheme);</script></html>';
   html = organikSettingsHTML(html, {"app":"pome","fields":{"text":"themeText","background":"themeBackground","selection":"themeSelection","font":"themeFont","size":"themeSize"},"watchColors":["#000000","#001e41","#004387","#0068ca","#2b4a2c","#27514f","#16638d","#007dce","#5e9860","#5c9b72","#57a5a2","#4cb4db","#8ee391","#8ee69e","#8aebc0","#84f5f1","#4a161b","#482748","#40488a","#2f6bcc","#564e36","#545454","#4f6790","#4180d0","#759a64","#759d76","#71a6a4","#69b5dd","#9ee594","#9de7a0","#9becc2","#95f6f2","#99353f","#983e5a","#955694","#8f74d2","#9d5b4d","#9d6064","#9a7099","#9587d5","#afa072","#aea382","#ababab","#a7bae2","#c9e89d","#c9eaa7","#c7f0c8","#c3f9f7","#e35462","#e25874","#e16aa3","#de83dc","#e66e6b","#e6727c","#e37fa7","#e194df","#f1aa86","#f1ad93","#efb5b8","#ecc3eb","#ffeeab","#fff1b5","#fff6d3","#ffffff"],"library":false,"apply":false});
   if(typeof require==='function')html = require('./camera-settings').augment(html,cameraState);
+  if(nativeHome)html = require('./homekit-settings').augment(html,shortcutScenes,nativeHome.favorites());
   return "data:text/html;charset=utf-8," + encodeURIComponent(html);
 }
 
@@ -2259,21 +2241,22 @@ var configurationOpening = false;
 Pebble.addEventListener("showConfiguration", function() {
   if(configurationOpening)return;
   configurationOpening=true;
-  cameraController.settings(function(state){homeController.read(state.cameras,function(home){state.home=home;configurationOpening=false;Pebble.openURL(configurationPage(state));});});
+  function openSettings() {
+    cameraController.settings(function(state){homeController.read(state.cameras,function(home){state.home=home;configurationOpening=false;Pebble.openURL(configurationPage(state));});});
+  }
   if (baseUrl()) {
     apiGet("/list/scenes", function(error, scenes) {
       if (!error && Array.isArray(scenes)) cacheShortcutScenes(scenes);
+      openSettings();
     });
-  }
+  } else openSettings();
 });
 
 Pebble.addEventListener("webviewclosed", function(event) {
   if (!event.response) return;
   try {
     var config = JSON.parse(decodeURIComponent(event.response));
-    if (config.baseUrl) {
-      localStorage.setItem("itsyhomeBaseUrl", config.baseUrl);
-    }
+    if (Array.isArray(config.homeFavorites)) localStorage.setItem("pomeHomeFavorites", JSON.stringify(config.homeFavorites));
     if (Array.isArray(config.colors) && config.colors.length === 6) {
       localStorage.setItem("itsyhomeColors", JSON.stringify(config.colors));
     }
@@ -2299,11 +2282,15 @@ Pebble.addEventListener("webviewclosed", function(event) {
     }
     VOICE_CATALOG = null;
     cameraController.save(config.camera,function(cameraError){
+    function saveHome(connectionError) {
     homeController.save(config.camera&&config.camera.home,function(homeError){
     sendDisplaySettings(function() {
-      sendColorChoices(function() { var error=cameraError||homeError;send(error?{ERROR:error}:{ "STATUS": "Settings saved" }); });
+      sendColorChoices(function() { var error=cameraError||connectionError||homeError;send(error?{ERROR:error}:{ "STATUS": "Settings saved" }); });
     });
     });
+    }
+    if(!cameraError&&nativeHome&&baseUrl())apiGet('/status',function(error){saveHome(error?'Pairing saved, but direct HomeKit check failed: '+error.message:null);});
+    else saveHome(null);
     });
   } catch (error) {
     console.log("Configuration error: " + error.message);

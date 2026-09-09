@@ -33,7 +33,7 @@ assert.strictEqual(setupError.message, "Set up in phone app");
 
 var configurationHtml = decodeURIComponent(context.configurationPage().split(",")[1]);
 assert.ok(configurationHtml.indexOf(">Setup instructions</a>") !== -1);
-assert.ok(configurationHtml.indexOf("https://github.com/GeezusChrotch/pome#setup") !== -1);
+assert.ok(configurationHtml.indexOf("https://github.com/GeezusChrotch/pome/blob/main/docs/HOMEKIT-SETUP.md") !== -1);
 assert.ok(configurationHtml.indexOf("tailscale serve --bg") === -1);
 assert.ok(configurationHtml.indexOf("id=\"themesTab\"") !== -1);
 assert.ok(configurationHtml.indexOf("Save Theme &amp; Apply to Watch") !== -1);

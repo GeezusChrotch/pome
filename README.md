@@ -1,5 +1,19 @@
 # Pome
 
+## Direct HomeKit candidate — 3.1.0
+
+Current development source replaces the Itsyhome backend with the HomeKit helper
+embedded in Organik Apps Pebble Connector. One private URL/token handles home
+controls and cameras; Itsyhome is not required. Existing Pome menus, voice,
+themes, pins, and camera behavior are retained. Favorite scenes are selected
+in Pome settings because HomeKit does not expose the Home app's favorites.
+
+**Development candidate only:** requires the matching next Connector build.
+The frozen 3.0.1 camera release and submitted Connector 1.0 remain unchanged.
+[Direct HomeKit setup](docs/HOMEKIT-SETUP.md) · [Integration notes](docs/HOMEKIT-INTEGRATION.md).
+
+The release sections below describe the prior Itsyhome-backed versions.
+
 ## Camera release in preparation
 
 Pome 3.0.1 adds Time 2 camera snapshots and is currently a **draft, not a public release**.
