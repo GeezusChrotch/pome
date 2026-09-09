@@ -18,7 +18,7 @@ Requires camera-enabled **Organik Apps Pebble Connector 1.0 from the Mac App Sto
 4. Reopen settings to load individual cameras. Choose their refresh intervals, image processing and automatic pan preference, then **Save camera settings**.
 5. On Time 2, open Cameras, choose a camera, then Capture now or a saved image. Use your assigned Pin / unpin gesture on a camera to add a direct capture shortcut.
 
-Connector also offers each camera's refresh setting, **Capture now**, and **Show latest image** on its Pome page. Camera monitoring and preview stay inside Connector; the internal rendering helper does not need a separate visible window. Closing the Connector window should leave capture running; quitting Connector stops it. The Store build's close/reopen and quit/relaunch behavior is being verified before release.
+Connector also offers each camera's refresh setting, **Capture now**, and **Show latest image** on its Pome page. Camera monitoring and preview stay inside Connector; the internal rendering helper does not need a separate visible window. Closing the Connector window leaves capture running; quitting Connector stops it. Fresh capture after window close and normal Quit/reopen has been verified on the tested Store build, with the camera token and refresh settings preserved.
 
 Leave the token field blank to retain a saved token. Changing the URL requires the corresponding token, so a saved secret is never automatically sent to a different host. Clear the URL to disconnect camera pairing. Tokens are not included in the settings-page HTML or public PBW.
 

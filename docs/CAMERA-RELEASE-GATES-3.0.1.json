@@ -12,7 +12,7 @@
   "javascriptTestFilesPassed": 18,
   "basaltHeapBytes": 7351,
   "currentStoreFreshCapture": "Passed via authenticated private HTTPS: one powered camera, exact request/image identity, 405x228, 69255 packed bytes, 47 colors, age 1 second; no schedule changes",
-  "currentStoreLifecycle": "After user-confirmed red-button window close, fresh private HTTPS capture passed with token and all 10 camera IDs/intervals preserved; render remained offscreen and Dock-hidden. Authenticated shutdown/relaunch also passed. Normal user Quit/relaunch remains separately pending.",
+  "currentStoreLifecycle": "Passed user-confirmed red-button window close and normal Dock Quit/reopen. Owner verified owned processes and service ports stopped before reopening the same Store app; subsequent fresh private HTTPS capture passed. Token and all 10 camera IDs/intervals were preserved; rendering remained offscreen and Dock-hidden.",
   "physicalWatch": {
     "migrationAttempt": "After explicit user retry, LAN installer exited 0 with App install succeeded",
     "migrationInstalled": true,
@@ -36,7 +36,6 @@
   "remainingGates": [
     "Store distribution signing and public installation path",
     "Fresh-user Home permission and camera pairing validation",
-    "Current Store normal user Quit/relaunch acceptance; window-close capture already passed",
     "Separate physical history and panning acceptance, if required; camera functionality and preserved settings already accepted"
   ]
 }

@@ -16,7 +16,7 @@ Pair using your own camera URL and token from the camera-enabled Organik Apps Pe
 
 Connector 1.0's Mac App Store edition includes the camera helper and its controls in one installation. Camera capture requires macOS 15.2 or later; the base Connector's macOS 14 support does not include camera capture. [Camera setup instructions](https://github.com/GeezusChrotch/pome/blob/main/docs/CAMERA-SETUP.md).
 
-The exact credential-free build has been installed on a physical Time 2, and camera functionality and preserved settings were accepted by the tester. Separate history and panning acceptance has not been claimed. Public Connector availability, final lifecycle checks and fresh-install permission validation remain release gates.
+The exact credential-free build has been installed on a physical Time 2, and camera functionality and preserved settings were accepted by the tester. Fresh capture with the Connector window closed and after normal Quit/reopen also passed, preserving camera settings. Separate history and panning acceptance has not been claimed. Public Connector availability and fresh-install permission validation remain release gates.
 
 ## Privacy and freshness
 
