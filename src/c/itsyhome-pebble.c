@@ -109,6 +109,7 @@ typedef enum {
   PRESET_BRIGHTNESS,
   PRESET_COLOR,
   PRESET_SPEED,
+  PRESET_CUSTOM_COLOR,
 } PresetKind;
 
 typedef enum {
@@ -202,6 +203,13 @@ static char s_pending_scene[MAX_NAME_LENGTH];
 static char s_confirm_text[MAX_VOICE_LENGTH];
 static ConfirmMode s_confirm_mode;
 static PresetKind s_preset_kind;
+static uint16_t s_custom_hue = 35;
+static uint8_t s_custom_saturation = 100;
+static Layer *s_color_picker_layer;
+static uint8_t s_color_picker_field;
+static AppTimer *s_picker_timer;
+static bool s_picker_busy, s_picker_pending;
+static void picker_schedule(void);
 static bool s_loading;
 static bool s_device_loading;
 static bool s_show_favorites = true;
@@ -1209,17 +1217,23 @@ static void device_draw_header(GContext *ctx, const Layer *cell_layer,
 static uint16_t action_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                     void *context) {
   if (strcmp(s_selected_device_type, "blinds") == 0) return 8;
-  if (strcmp(s_selected_device_type, "fan") == 0) return 2;
-  return type_supports_light_controls(s_selected_device_type) ? 3 : 1;
+  if (strcmp(s_selected_device_type, "fan") == 0) return 5;
+  return type_supports_light_controls(s_selected_device_type) ? 6 + COLOR_COUNT : 1;
 }
 
 static void action_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                             void *context) {
-  static const char *light_labels[] = {"Toggle", "Brightness", "Color"};
-  static const char *fan_labels[] = {"Toggle", "Speed"};
+  static const char *light_labels[] = {"Toggle", "25%", "50%", "75%", "100%"};
+  static const char *fan_labels[] = {"Toggle", "Speed 25%", "Speed 50%", "Speed 75%", "Speed 100%"};
   static const char *blind_labels[] = {
     "Open", "Close", "Up", "Down", "Slow Up", "Slow Down", "Fast Up", "Fast Down"
   };
+  if (type_supports_light_controls(s_selected_device_type) && cell_index->row >= 5) {
+    const char *label = cell_index->row < 5 + COLOR_COUNT
+      ? s_colors[cell_index->row - 5].name : "Custom Color";
+    theme_cell_draw(ctx, cell_layer, label, NULL, NULL);
+    return;
+  }
   const char **labels = strcmp(s_selected_device_type, "blinds") == 0
                          ? blind_labels
                          : strcmp(s_selected_device_type, "fan") == 0
@@ -1234,12 +1248,21 @@ static void action_draw_header(GContext *ctx, const Layer *cell_layer,
 
 static uint16_t preset_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                     void *context) {
+  if (s_preset_kind == PRESET_CUSTOM_COLOR) return 9;
   return s_preset_kind == PRESET_COLOR ? COLOR_COUNT : 4;
 }
 
 static void preset_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
                             void *context) {
   static const char *brightness_labels[] = {"25%", "50%", "75%", "100%"};
+  if (s_preset_kind == PRESET_CUSTOM_COLOR) {
+    static const char *labels[] = {"Apply Color", "Hue +1", "Hue -1", "Hue +15", "Hue -15",
+      "Saturation +1%", "Saturation -1%", "Saturation +10%", "Saturation -10%"};
+    char value[40];
+    snprintf(value, sizeof(value), "Hue %u / Sat %u%%", s_custom_hue, s_custom_saturation);
+    theme_cell_draw(ctx, cell_layer, labels[cell_index->row], value, NULL);
+    return;
+  }
   const char *label = s_preset_kind == PRESET_COLOR ? s_colors[cell_index->row].name
                                                     : brightness_labels[cell_index->row];
   theme_cell_draw(ctx, cell_layer, label, NULL, NULL);
@@ -1247,7 +1270,8 @@ static void preset_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
 
 static void preset_draw_header(GContext *ctx, const Layer *cell_layer,
                                uint16_t section_index, void *context) {
-  const char *title = s_preset_kind == PRESET_COLOR ? "Color"
+  const char *title = s_preset_kind == PRESET_CUSTOM_COLOR ? "Custom Color"
+                      : s_preset_kind == PRESET_COLOR ? "Color"
                       : s_preset_kind == PRESET_SPEED ? "Speed" : "Brightness";
   theme_header_draw(ctx, cell_layer, title);
 }
@@ -1452,8 +1476,22 @@ static void shortcut_target_select_click(MenuLayer *menu_layer, MenuIndex *cell_
 }
 
 static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
-  if (s_preset_kind == PRESET_COLOR) {
-    ColorChoice *color = &s_colors[cell_index->row];
+  if (s_preset_kind == PRESET_CUSTOM_COLOR && cell_index->row != 0) {
+    static const int16_t steps[] = {0, 1, -1, 15, -15, 1, -1, 10, -10};
+    if (cell_index->row <= 4) {
+      s_custom_hue = (s_custom_hue + steps[cell_index->row] + 360) % 360;
+    } else {
+      int16_t value = s_custom_saturation + steps[cell_index->row];
+      s_custom_saturation = value < 0 ? 0 : value > 100 ? 100 : value;
+    }
+    menu_layer_reload_data(s_preset_menu);
+    return;
+  }
+  if (s_preset_kind == PRESET_COLOR || s_preset_kind == PRESET_CUSTOM_COLOR) {
+    if (s_preset_kind == PRESET_COLOR) {
+      s_custom_hue = s_colors[cell_index->row].hue;
+      s_custom_saturation = s_colors[cell_index->row].saturation;
+    }
     DictionaryIterator *out = NULL;
     if (app_message_outbox_begin(&out) != APP_MSG_OK || !out) {
       vibes_short_pulse();
@@ -1466,8 +1504,8 @@ static void preset_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
     if (s_selected_device_id[0]) {
       dict_write_cstring(out, MESSAGE_KEY_ITEM_ID, s_selected_device_id);
     }
-    dict_write_uint16(out, MESSAGE_KEY_ITEM_HUE, color->hue);
-    dict_write_uint8(out, MESSAGE_KEY_ITEM_SATURATION, color->saturation);
+    dict_write_uint16(out, MESSAGE_KEY_ITEM_HUE, s_custom_hue);
+    dict_write_uint8(out, MESSAGE_KEY_ITEM_SATURATION, s_custom_saturation);
     dict_write_end(out);
     app_message_outbox_send();
   } else {
@@ -1513,11 +1551,19 @@ static void action_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, vo
     send_command_with_id(COMMAND_TOGGLE_DEVICE, s_selected_device, s_selected_room,
                          s_selected_device_type, s_selected_device_id);
   } else if (type_supports_light_controls(s_selected_device_type)) {
-    s_preset_kind = cell_index->row == 2 ? PRESET_COLOR : PRESET_BRIGHTNESS;
-    window_stack_push(s_preset_window, true);
+    if (cell_index->row == 5 + COLOR_COUNT) {
+      s_preset_kind = PRESET_CUSTOM_COLOR;
+      window_stack_push(s_preset_window, true);
+    } else {
+      s_preset_kind = cell_index->row >= 5 ? PRESET_COLOR : PRESET_BRIGHTNESS;
+      MenuIndex preset_index = {.section = 0, .row = cell_index->row >= 5
+        ? cell_index->row - 5 : cell_index->row - 1};
+      preset_select_click(menu_layer, &preset_index, context);
+    }
   } else if (strcmp(s_selected_device_type, "fan") == 0) {
     s_preset_kind = PRESET_SPEED;
-    window_stack_push(s_preset_window, true);
+    MenuIndex preset_index = {.section = 0, .row = cell_index->row - 1};
+    preset_select_click(menu_layer, &preset_index, context);
   } else {
     vibes_short_pulse();
   }
@@ -1947,6 +1993,8 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
 
   Tuple *error = dict_find(iterator, MESSAGE_KEY_ERROR);
   if (error) {
+    s_picker_busy = false;
+    s_picker_pending = false; // Never replay an uncertain write automatically.
     s_loading = false;
     if (s_theme_loading) {
       s_theme_loading = false;
@@ -2107,11 +2155,25 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
 }
 
 static void inbox_dropped(AppMessageResult reason, void *context) {
+  s_picker_busy = false;
+  s_picker_pending = false;
   set_status("Response too large");
 }
 
 static void outbox_failed(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
+  s_picker_busy = false;
+  s_picker_pending = false;
   set_status("Phone connection failed");
+}
+
+static void outbox_sent(DictionaryIterator *iterator, void *context) {
+  // Delivery to the phone releases the watch. The phone serializes HomeKit
+  // operations, so a lost completion/status reply cannot wedge this picker.
+  Tuple *command = dict_find(iterator, MESSAGE_KEY_COMMAND);
+  if (command && command->value->uint8 == COMMAND_SET_COLOR) {
+    s_picker_busy = false;
+    picker_schedule();
+  }
 }
 
 static void root_window_load(Window *window) {
@@ -2249,8 +2311,168 @@ static void action_window_unload(Window *window) {
   s_action_menu = NULL;
 }
 
+// Live HSV editor. The phone coalesces and serializes HomeKit writes.
+static GColor picker_color(int hue, int saturation) {
+  int sector = hue / 60, f = hue % 60;
+  int low = 255 * (100 - saturation) / 100;
+  int rising = low + (255 - low) * f / 60;
+  int falling = 255 - (255 - low) * f / 60;
+  int r = 255, g = rising, b = low;
+  switch (sector) {
+    case 1: r = falling; g = 255; break;
+    case 2: r = low; g = 255; b = rising; break;
+    case 3: r = low; g = falling; b = 255; break;
+    case 4: r = rising; g = low; b = 255; break;
+    case 5: g = low; b = falling; break;
+  }
+  return GColorFromRGB(r, g, b);
+}
+
+static void picker_draw(Layer *layer, GContext *ctx) {
+  GRect bounds = layer_get_bounds(layer);
+  int w = bounds.size.w;
+  int extra = bounds.size.h > 168 ? bounds.size.h - 168 : 0;
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, "Custom Color", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+    GRect(0, 0, w, 23), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  graphics_context_set_fill_color(ctx, picker_color(s_custom_hue, s_custom_saturation));
+  graphics_fill_rect(ctx, GRect(10, 26, w - 20, 14), 4, GCornersAll);
+  for (int field = 0; field < 2; field++) {
+    int row_height = 42 + extra / 2;
+    int y = 42 + field * row_height;
+    char label[32];
+    snprintf(label, sizeof(label), field == 0 ? "Hue %u" : "Saturation %u%%",
+      field == 0 ? s_custom_hue : s_custom_saturation);
+    graphics_context_set_text_color(ctx, GColorWhite);
+    graphics_draw_text(ctx, label, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+      GRect(10, y, w - 20, 22), GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    for (int x = 0; x < w - 20; x++) {
+      graphics_context_set_stroke_color(ctx, picker_color(field == 0 ? x * 359 / (w - 21) : s_custom_hue,
+        field == 0 ? 100 : x * 100 / (w - 21)));
+      graphics_draw_line(ctx, GPoint(10 + x, y + 23), GPoint(10 + x, y + row_height - 5));
+    }
+    int cursor = 10 + (w - 21) * (field == 0 ? s_custom_hue : s_custom_saturation) / (field == 0 ? 359 : 100);
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_draw_rect(ctx, GRect(cursor - 2, y + 21, 5, row_height - 24));
+    if (s_color_picker_field == field) graphics_draw_rect(ctx, GRect(7, y, w - 14, row_height - 2));
+  }
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, "Select: hue / saturation",
+    fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(0, 128 + extra, w, 22),
+    GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, "Live / Hold up-down: fast",
+    fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(0, 151 + extra, w, 17),
+    GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+}
+
+static void picker_adjust(ClickRecognizerRef recognizer, void *context) {
+  int step = click_recognizer_is_repeating(recognizer) ? 5 : 1;
+  if (click_recognizer_get_button_id(recognizer) == BUTTON_ID_DOWN) step = -step;
+  if (s_color_picker_field == 0) s_custom_hue = (s_custom_hue + step + 360) % 360;
+  else {
+    int value = s_custom_saturation + step;
+    s_custom_saturation = value < 0 ? 0 : value > 100 ? 100 : value;
+  }
+  layer_mark_dirty(s_color_picker_layer);
+  s_picker_pending = true;
+  picker_schedule();
+}
+
+static void picker_select(ClickRecognizerRef recognizer, void *context) {
+  s_color_picker_field = (s_color_picker_field + 1) % 2;
+  layer_mark_dirty(s_color_picker_layer);
+}
+
+static void picker_send(void *context) {
+  s_picker_timer = NULL;
+  if (!s_color_picker_layer || s_picker_busy || !s_picker_pending) return;
+  DictionaryIterator *out = NULL;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK || !out) {
+    s_picker_pending = false;
+    set_status("Phone unavailable");
+    vibes_short_pulse();
+    return;
+  }
+  dict_write_uint8(out, MESSAGE_KEY_COMMAND, COMMAND_SET_COLOR);
+  dict_write_cstring(out, MESSAGE_KEY_ITEM_NAME, s_selected_device);
+  dict_write_cstring(out, MESSAGE_KEY_ITEM_ROOM, s_selected_room);
+  dict_write_cstring(out, MESSAGE_KEY_ITEM_TYPE, s_selected_device_type);
+  if (s_selected_device_id[0]) dict_write_cstring(out, MESSAGE_KEY_ITEM_ID, s_selected_device_id);
+  dict_write_uint16(out, MESSAGE_KEY_ITEM_HUE, s_custom_hue);
+  dict_write_uint8(out, MESSAGE_KEY_ITEM_SATURATION, s_custom_saturation);
+  dict_write_end(out);
+  s_picker_pending = false;
+  s_picker_busy = app_message_outbox_send() == APP_MSG_OK;
+  if (!s_picker_busy) vibes_short_pulse();
+}
+
+static void picker_schedule(void) {
+  if (s_color_picker_layer && s_picker_pending && !s_picker_busy && !s_picker_timer)
+    s_picker_timer = app_timer_register(200, picker_send, NULL);
+}
+
+static void picker_click_config(void *context) {
+  window_single_repeating_click_subscribe(BUTTON_ID_UP, 100, picker_adjust);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 100, picker_adjust);
+  window_single_click_subscribe(BUTTON_ID_SELECT, picker_select);
+}
+
+#if defined(PBL_TOUCH)
+static void picker_touch(const TouchEvent *event, void *context) {
+  if (event->non_navigational || !s_color_picker_layer ||
+      window_stack_get_top_window() != s_preset_window) return;
+  int extra = layer_get_bounds(s_color_picker_layer).size.h - 168;
+  if (extra < 0) extra = 0;
+  int row_height = 42 + extra / 2;
+  if (event->y < 42 || event->y >= 42 + 2 * row_height) return;
+  s_color_picker_field = event->y < 42 + row_height ? 0 : 1;
+  int width = layer_get_bounds(s_color_picker_layer).size.w - 21;
+  int x = event->x - 10;
+  x = x < 0 ? 0 : x > width ? width : x;
+  if (s_color_picker_field == 0) s_custom_hue = x * 359 / width;
+  else s_custom_saturation = x * 100 / width;
+  layer_mark_dirty(s_color_picker_layer);
+  s_picker_pending = true;
+  picker_schedule();
+}
+#endif
+
+static void preset_window_appear(Window *window) {
+  menu_window_appear(window);
+#if defined(PBL_TOUCH)
+  if (s_color_picker_layer) {
+    window_set_touch_bridge_disabled(window, true);
+    app_touch_navigation_enable(false);
+    touch_service_subscribe(picker_touch, NULL);
+  }
+#endif
+}
+
+static void preset_window_disappear(Window *window) {
+#if defined(PBL_TOUCH)
+  if (s_color_picker_layer) {
+    touch_service_unsubscribe();
+    app_touch_navigation_enable(true);
+    window_set_touch_bridge_disabled(window, false);
+  }
+#endif
+  if (s_picker_timer) { app_timer_cancel(s_picker_timer); s_picker_timer = NULL; }
+  s_picker_pending = false;
+}
+
 static void preset_window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
+  if (s_preset_kind == PRESET_CUSTOM_COLOR) {
+    s_color_picker_field = 0;
+    s_picker_pending = false;
+    s_color_picker_layer = layer_create(layer_get_bounds(root));
+    layer_set_update_proc(s_color_picker_layer, picker_draw);
+    layer_add_child(root, s_color_picker_layer);
+    window_set_click_config_provider(window, picker_click_config);
+    return;
+  }
   s_preset_menu = organik_menu_create(layer_get_bounds(root));
   menu_layer_set_callbacks(s_preset_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = preset_get_num_rows,
@@ -2267,6 +2489,13 @@ static void preset_window_load(Window *window) {
 }
 
 static void preset_window_unload(Window *window) {
+  if (s_color_picker_layer) {
+    if (s_picker_timer) { app_timer_cancel(s_picker_timer); s_picker_timer = NULL; }
+    s_picker_pending = false;
+    layer_destroy(s_color_picker_layer);
+    s_color_picker_layer = NULL;
+    return;
+  }
   menu_layer_destroy(s_preset_menu);
   s_preset_menu = NULL;
 }
@@ -2478,7 +2707,8 @@ static void init(void) {
   });
   window_set_window_handlers(s_preset_window, (WindowHandlers) {
     .load = preset_window_load,
-    .appear = menu_window_appear,
+    .appear = preset_window_appear,
+    .disappear = preset_window_disappear,
     .unload = preset_window_unload,
   });
   window_set_window_handlers(s_confirm_window, (WindowHandlers) {
@@ -2490,6 +2720,7 @@ static void init(void) {
   app_message_register_inbox_received(inbox_received);
   app_message_register_inbox_dropped(inbox_dropped);
   app_message_register_outbox_failed(outbox_failed);
+  app_message_register_outbox_sent(outbox_sent);
   app_message_open(CAMERA_ROWS ? 1024 : 512, 256);
 
   window_stack_push(s_root_window, false);

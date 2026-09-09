@@ -1,10 +1,10 @@
-# Direct Apple Home setup — Pome 3.1.0 candidate
+# Direct Apple Home setup — Pome 3.1.5
 
-This is the next development candidate, not a published update. It requires the
-matching Connector with the direct HomeKit backend. Older camera-enabled
-Connectors do not implement `/home/*`; pairing with one will report that the
-direct HomeKit connection check failed. Do not replace an accepted release until
-the matching Connector and watch package have been tested together.
+Prepared release guide, not a published update. The accepted local Connector is
+1.0 development build 39. Its compatible Store release is planned as build 40 or
+higher, pending packaging and Apple review. The release owner must insert and
+verify its public Store link before publication. Older camera-enabled Connectors
+may not implement `/home/*` and cannot substitute for the HomeKit-default release.
 
 ## One Mac installation
 
@@ -12,13 +12,13 @@ the matching Connector and watch package have been tested together.
    HomeKit helper handles devices, scenes, sensors, and cameras. No Itsyhome
    installation, subscription, webhook server, or additional helper installation
    is needed for this version of Pome.
-2. Allow **Home** access when macOS asks. The Mac must be signed into an Apple
+2. In Connector → Pome, choose **Connect Apple Home** and allow **Home** access
+   when macOS asks. The Mac must be signed into an Apple
    account with access to the home and permission to control its accessories.
-3. Connect the Mac and your iPhone to your private Tailscale network. Connector
+3. Connect the Mac and your iPhone to your private Tailscale network, then choose
+   **Start private connection**. Connector
    stays running on the Mac; HomeKit permission does not replace this connection.
-4. Copy the private HTTPS address and token from Connector. In the existing
-   Connector UI these are still labeled **Camera URL** and **Camera Token**;
-   native integration will relabel them as the shared Pome connection.
+4. Choose **Copy Pome URL** and **Copy Pome token** in Connector.
 5. In the Pebble iPhone app, open Pome settings → **Setup**. Paste the **Connector
    URL** and **Connector token**, then **Save setup**. Reopen settings to load
    scenes and camera choices. Existing Pome camera pairing is reused automatically.
@@ -28,7 +28,9 @@ the matching Connector and watch package have been tested together.
 
 Keep setup concise: the watch settings page links here. Camera schedules, image
 processing, and panning remain on the separate **Cameras** tab. Camera viewing
-still requires Time 2 and macOS 15.2 or later; original Time retains home controls.
+still requires Time 2 and macOS 15.2 or later; home controls require macOS 14.
+Original Time retains home controls. In Connector, expand **Cameras** and enable
+**Use cameras with Pome** if desired.
 
 ## Compatibility
 

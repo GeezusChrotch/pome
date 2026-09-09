@@ -16,6 +16,7 @@ static Value value;static Tuple tuple={&value};
 enum {MESSAGE_KEY_STATUS,CONFIRM_VOICE_WORKING=1,COMMAND_LOAD_SCENES};
 static int s_confirm_mode,pops,pulses,scenes,voice;static bool s_voice_pending;
 static void *s_action_menu,*s_preset_menu;
+static bool s_picker_busy; static void picker_schedule(void){}
 static Tuple *dict_find(void *iterator,int key){return &tuple;}
 static void set_status(const char *text){}
 static void show_voice_result(const char *text){voice++;}

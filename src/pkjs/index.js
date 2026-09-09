@@ -137,7 +137,7 @@ function organikSettingsClient(options) {
 // END ORGANIK SETTINGS UI
 var MAX_ITEMS = 60;
 var MAX_THEME_CHOICES = 31;
-var ROOM_LIGHT_COMMAND_DELAY_MS = 700;
+var ROOM_LIGHT_COMMAND_DELAY_MS = 75;
 var ROOM_LIGHT_MAX_ATTEMPTS = 2;
 var BLIND_POSITION_CACHE_TTL_MS = 30000;
 var BLIND_POSITION_CACHE = {};
@@ -1107,7 +1107,7 @@ function roomLights(room, callback) {
   });
 }
 
-function runLightCommands(lights, pathForLight, successStatus) {
+function runLightCommands(lights, pathForLight, successStatus, done) {
   var index = 0;
   var failures = 0;
 
@@ -1118,6 +1118,7 @@ function runLightCommands(lights, pathForLight, successStatus) {
     } else {
       send({"STATUS": successStatus});
     }
+    if (done) done();
   }
 
   function runNext() {
@@ -1147,10 +1148,11 @@ function runLightCommands(lights, pathForLight, successStatus) {
   runNext();
 }
 
-function controlRoomLights(room, action, value, saturation) {
+function controlRoomLights(room, action, value, saturation, done) {
   roomLights(room, function(error, lights) {
     if (error) {
       sendError(error);
+      if (done) done();
       return;
     }
     if (action === "toggle") {
@@ -1176,7 +1178,7 @@ function controlRoomLights(room, action, value, saturation) {
       runLightCommands(lights, function(light) {
   return "/color/" + value + "/" + saturation + "/" +
           encodedDeviceTarget(room, light.name, light.serviceId);
-      }, "Room color set");
+      }, "Room color set", done);
     } else if (action === "rainbow") {
       lights.sort(function(left, right) {
   return (normalizeVoice(left.name) + " " + (left.serviceId || "")).localeCompare(
@@ -1214,26 +1216,45 @@ function setBrightness(room, name, value, type, serviceId) {
     });
 }
 
+var liveColorBusy = false;
+var liveColorPending = null;
+function drainColors() {
+  if (liveColorBusy || !liveColorPending) return;
+  var args = liveColorPending;
+  liveColorPending = null;
+  liveColorBusy = true;
+  args.push(function() { liveColorBusy = false; drainColors(); });
+  performColor.apply(null, args);
+}
 function setColor(room, name, hue, saturation, type, serviceId) {
+  // One executing operation plus the newest requested color, never a backlog.
+  liveColorPending = [room, name, hue, saturation, type, serviceId];
+  drainColors();
+}
+function performColor(room, name, hue, saturation, type, serviceId, done) {
   if (type === "light-group") {
-    controlRoomLights(room, "color", hue, saturation);
+    controlRoomLights(room, "color", hue, saturation, done);
     return;
   }
   if (type !== "light") {
     sendError(new Error("Color is only available for lights"));
+    done();
     return;
   }
   apiGet("/color/" + hue + "/" + saturation + "/" +
     encodedDeviceTarget(room, name, serviceId), function(error, response) {
       if (error) {
         sendError(error);
+        done();
         return;
       }
       if (response && response.status === "error") {
         sendError(new Error(response.message || "Color failed"));
+        done();
         return;
       }
       send({"STATUS": "Color set"});
+      done();
     });
 }
 

@@ -33,3 +33,6 @@ SHA-256: `1ee50ad46c3636c37bb32ae1a23f733ff57f3eb511eabf9c2f6573a0a447b912`
 
 Physical pin appearance, Favorites startup, marquee and selection-color acceptance
 remain pending the matching watch install and user check.
+
+Initial LAN install attempt returned `Connection refused` (exit1); not installed.
+Shared watch slot released. Awaiting developer connection on the phone.

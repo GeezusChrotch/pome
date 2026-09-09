@@ -92,7 +92,7 @@ function runCase(lights, invoke, expectedPaths, expectedStatus) {
   assert.deepStrictEqual(paths, expectedPaths);
   assert.strictEqual(JSON.stringify(messages), JSON.stringify([{STATUS: expectedStatus}]));
   assert.strictEqual(timeoutDelays.length, expectedPaths.length - 1);
-  timeoutDelays.forEach(function(delay) { assert.strictEqual(delay, 700); });
+  timeoutDelays.forEach(function(delay) { assert.strictEqual(delay, 75); });
 }
 
 var mixedLights = [
@@ -306,6 +306,23 @@ assert.deepStrictEqual(retryPaths, [
 ]);
 assert.strictEqual(JSON.stringify(retryMessages),
   JSON.stringify([{STATUS: "All lights on"}]));
-assert.deepStrictEqual(timeoutDelays, [700, 700, 700]);
+assert.deepStrictEqual(timeoutDelays, [75, 75, 75]);
+
+// Real asynchronous ordering: no second write until the first acknowledges,
+// then a 75ms pause. Native failures are counted, never replayed.
+var pendingWrite, pendingTimer, asynchronousPaths = [], asynchronousMessages = [];
+context.nativeHome = {};
+context.apiGet = function(path, callback) { asynchronousPaths.push(path); pendingWrite = callback; };
+context.setTimeout = function(callback, delay) { assert.strictEqual(delay, 75); pendingTimer = callback; };
+context.sendError = function(error) { asynchronousMessages.push(error.message); };
+context.runLightCommands([{name: 'A'}, {name: 'B'}], function(light) { return '/on/' + light.name; }, 'Done');
+assert.deepStrictEqual(asynchronousPaths, ['/on/A']);
+pendingWrite(new Error('Unknown result'));
+assert.deepStrictEqual(asynchronousPaths, ['/on/A']);
+pendingTimer();
+assert.deepStrictEqual(asynchronousPaths, ['/on/A', '/on/B']);
+pendingWrite(null, {status: 'ok'});
+pendingTimer();
+assert.deepStrictEqual(asynchronousMessages, ['Updated 1 of 2 lights']);
 
 console.log("Group control tests passed");

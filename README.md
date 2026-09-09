@@ -1,212 +1,89 @@
 # Pome
 
-## Direct HomeKit candidate — 3.1.0
+Apple Home on Pebble Time and Pebble Time 2: rooms, scenes, devices, sensors,
+and Time 2 camera snapshots, through one Mac app.
 
-Current development source replaces the Itsyhome backend with the HomeKit helper
-embedded in Organik Apps Pebble Connector. One private URL/token handles home
-controls and cameras; Itsyhome is not required. Existing Pome menus, voice,
-themes, pins, and camera behavior are retained. Favorite scenes are selected
-in Pome settings because HomeKit does not expose the Home app's favorites.
+## 3.1.5 release preparation
 
-**Development candidate only:** requires the matching next Connector build.
-The frozen 3.0.1 camera release and submitted Connector 1.0 remain unchanged.
-[Direct HomeKit setup](docs/HOMEKIT-SETUP.md) · [Integration notes](docs/HOMEKIT-INTEGRATION.md).
+**Not published yet.** This accepted watch candidate replaces the staged 3.0.1
+camera-only plan. Publication depends on the compatible HomeKit-default
+Organik Apps Pebble Connector becoming publicly available in the Mac App Store.
+The tested development build is Connector 1.0 (39), not a verified public download.
+Older Itsyhome-backed public packages remain unchanged.
 
-The release sections below describe the prior Itsyhome-backed versions.
+[Release highlights](docs/RELEASE-PUBLIC-3.1.5.md) ·
+[Setup instructions](docs/HOMEKIT-SETUP.md) ·
+[Connector project](https://github.com/GeezusChrotch/organik-pebble-connector)
 
-## Camera release in preparation
+## One connection to your home
 
-Pome 3.0.1 adds Time 2 camera snapshots and is currently a **draft, not a public release**.
-It requires the camera-enabled **Organik Apps Pebble Connector 1.0 from the Mac App Store**
-and macOS 15.2 or later. Publication waits for that Connector dependency.
-[Camera release notes](docs/RELEASE-3.0.1.md) · [Setup instructions](docs/CAMERA-SETUP.md).
+Pome 3.1.5 uses the native HomeKit helper embedded in Organik Apps Pebble Connector.
+**Itsyhome is no longer required.** No separate helper installation is needed.
+Allow Home access on the Mac, then pair Pome with the Connector's private HTTPS
+address and token. Keep Tailscale connected on Mac and iPhone for private
+home-and-away access. Keep the Mac awake and Connector running.
 
-## Pome 3.0
+The same pairing handles devices and cameras. Existing camera pairing is reused;
+an old Itsyhome-only URL must be replaced. Favorite scenes are chosen in Pome
+settings, not imported from Apple Home's favorites. Do not remove Itsyhome if
+another app or device still uses it.
 
-Your home, your way: pin rooms, scenes, devices and sensors; drag to reorder pins
-and sections together; choose ten built-in themes or save your own. Device pins
-open controls directly, and adjustments keep you in that device until you leave.
-Time 2 adds five custom font families and five title sizes, with independent
-subtitle sizing. [All 3.0 highlights](docs/RELEASE-3.0.0.md).
+## From your wrist
 
-**Cameras are experimental and not included in the public 3.0 package.** The
-public Connector does not ship the HomeKit camera helper.
-[Camera development status](docs/CAMERAS-EXPERIMENTAL.md).
+- Browse scenes, rooms, devices and read-only sensors.
+- Control individual lights or All Lights in a room from one menu: Toggle,
+  25/50/75/100%, six configurable colors, and Custom Color.
+- Dial colors live with visual hue/saturation sliders. Time 2 supports dragging;
+  Up/Down adjusts, holding accelerates, and Select switches sliders. No Apply step.
+  Room changes are sequential; only the newest pending color is retained.
+- Fans have toggle/speed controls, switches and plugs have toggles, and blinds
+  have open/close plus 1%, 5%, and 10% steps. Accessory support varies.
+- Pin scenes, rooms, devices, sensors, and Time 2 cameras. Drag pins and sections
+  into your preferred Home Screen order in phone settings.
+- Choose ten themes, save your own, set title/subtitle sizes and marquee speed,
+  and assign long-press and Double Back shortcuts. Time 2 adds five custom font
+  families and five sizes. Theme previews use the watch's 64-color palette.
+- Voice supports phrases such as “Set Lounge TV” and “Turn lounge lights green.”
+  Clear safe matches run directly; ambiguous requests are rejected and sensitive
+  scene names require confirmation. Voice requires a supported watch.
+- Time 2 can show fresh camera captures or nine cached images, with timestamp/age,
+  aspect-preserving photos and manual/automatic panning. Configure each camera's
+  refresh interval, visibility and image processing on the Cameras tab.
 
-Use **Organik Apps Pebble Connector** for the coordinated Mac release: one free MIT app for
-Notesy, Beepster, Reminderz and Pome. [Setup and migration](docs/UNIFIED_CONNECTOR.md).
-Existing Pome watch pairing is retained. Standalone connector details below describe the older
-implementation and remain useful for source builds or rollback.
+Settings and pairing live in the Pebble phone app. On touch menus, tap another row
+to highlight it, then tap it again to activate. Physical Select activates the
+highlighted row. Device adjustments keep the controls open.
 
-### Pinned scenes, accessories, and sensors
+## Requirements and privacy
 
-In phone settings → **Shortcuts**, assign **Pin / unpin** to Up/Select/Down
-hold or Double Back. On the watch, highlight a scene in Favorites, Scenes, or a
-room's scene list, or an accessory/sensor in a room and use that gesture to toggle its pin. Use the same gesture on
-a pinned main-page row to unpin it, including a renamed or deleted scene.
-Rooms can also be pinned. Pins and sections can be drag-reordered together in phone settings; normal Select still
-runs the scene. Pins persist on the watch, and phone settings sync preserves them.
+Pebble Time or Time 2, the Pebble iPhone app with PebbleKit JS, a compatible
+HomeKit-default Connector, Apple Home permission, and private Tailscale access.
+See [setup](docs/HOMEKIT-SETUP.md) for compatibility details.
+Camera viewing requires Time 2; original Time retains home controls.
 
-Theme and button customization are phone-only. Shortcuts includes Up/Select/Down holds
-and Double Back (two quick presses, Off by default). Single Back still returns.
-Existing theme shortcuts become Off; other assignments are preserved.
-
-Pome is an open-source Pebble Time and Pebble Time 2 controller for Apple Home
-accessories exposed by [Itsyhome for macOS](https://itsyhome.app/macos).
-
-Browse favorites, scenes, rooms, devices, and read-only sensors from your wrist.
-Lights include toggle, brightness, and configurable color controls. Each room also
-gets an **All Lights** control that safely paces commands across its reachable bulbs.
-Blinds include absolute open/close controls and 1%, 5%, and 10% position steps.
-On dictation-capable watches, **Voice** turns natural phrases such as "Set Lounge TV"
-or "Turn lounge lights green" into confirmed Itsyhome commands.
-
-Pome is an independent community project and is not affiliated with Apple,
-Itsyhome, Tailscale, or Pebble.
-
-## Requirements
-
-- Pebble Time (`basalt`) or Pebble Time 2 (`emery`)
-- Pebble mobile app with PebbleKit JS support
-- [Itsyhome for macOS](https://itsyhome.app/macos) with its Webhooks/CLI server enabled
-- A URL the paired phone can reach:
-  - a local HTTP URL for LAN-only control, or
-  - a private Tailscale Serve HTTPS URL for home-and-away control
-
-Do not expose Itsyhome through Tailscale Funnel or router port forwarding. The
-webhook server should remain private.
-
-## Setup with the unified connector
-
-1. Keep Itsyhome installed and enable Settings → Webhooks/CLI.
-2. Install Organik Apps Pebble Connector and select **Pome** in its sidebar.
-3. Enter the existing Itsyhome host and port (default 8423), then follow **Connect** to check it
-   and configure private access. Keep Tailscale connected on the Mac and phone.
-4. Paste the provided private address into Pome's phone settings and refresh the watch.
-
-The connector does not replace Itsyhome. Existing direct LAN connections still work.
-See [setup and migration](docs/UNIFIED_CONNECTOR.md).
-
-## Manual setup (optional)
-
-1. In Itsyhome, open **Settings → Webhooks/CLI** and enable the server. Its default
-   port is `8423`.
-2. Verify it from the Mac:
-
-   ```sh
-   curl http://127.0.0.1:8423/status
-   ```
-
-3. For private remote access, install Tailscale on the Mac and iPhone, sign both
-   into the same tailnet, and run:
-
-   ```sh
-   tailscale serve --bg --https=10443 localhost:8423
-   tailscale serve status
-   ```
-
-4. In the Pebble mobile app, open Pome's settings and enter either the local
-   Itsyhome URL or the HTTPS URL reported by Tailscale Serve.
-5. Choose which main sections and room sensors to show, customize the six light
-   colors, and save.
-
-## Features
-
-- Favorites, global scenes, and rooms, each individually configurable
-- Direct opening when only one main section is enabled
-- Sensors first and room-specific scenes second inside each room
-- Devices grouped by type (lights, fans, switches, then outlets) and alphabetized
-  within each group, with redundant room-name prefixes hidden for display
-- Read-only temperature, humidity, contact, motion, occupancy, and leak values
-- Light toggle, brightness presets at 25/50/75/100%, and six configurable colors
-- A separate Themes settings tab with a live watch preview, configurable text,
-  background and selection colors, five Pebble system font families and their
-  supported sizes, optional device icons, ten built-in themes, and up to 20 named
-  custom themes
-- Time 2 enhanced typography with Inter, Roboto, Open Sans, Montserrat, and Poppins,
-  each available at 14, 18, 22, 26, and 30 points; Pebble Time keeps its smaller
-  system-font build
-- Automatic marquee scrolling for selected menu-item names that do not fit the screen
-- Configurable main-screen long presses for Up, Select, and Down, targeting Voice,
-  Favorites, Scenes, Rooms, or a specific scene refreshed from Itsyhome
-
-The Time 2 font files are distributed under the SIL Open Font License. Source and
-license details are in `resources/fonts/README.md`.
-- Room-wide All Lights toggle, brightness, and color with pacing and retries
-- Blind open/close plus slow (1%), regular (5%), and fast (10%) up/down controls
-- Confirmation for scene names suggesting doors, garages, gates, alarms, or disarm
-- Full original Itsyhome names retained for every command
-- Voice starts first by default, can be reordered, discovers the current Itsyhome vocabulary automatically, and
-  runs unambiguous safe matches immediately
-- Voice scenes use "set", "run", "activate", or "start"; explicit power language
-  continues to target devices
-- Voice covers safe power controls, light color and brightness, fan speed, blind
-  movement and position, scenes, and read-only status questions
-- Ambiguous phrases are rejected, while scene names suggesting doors, garages, gates,
-  alarms, or disarming still require confirmation
-
-## Architecture
-
-The native C watch app sends AppMessages to PebbleKit JS on the paired phone.
-PebbleKit JS then calls the user-configured Itsyhome webhook server directly. Pome
-has no account, analytics, hosted backend, or cloud relay of its own. Voice audio is
-handled by Pebble's native dictation system and the transcription provider selected
-in the Pebble mobile app; Pome receives only the accepted transcript.
+Pome adds no account, analytics, hosted relay, or cloud image storage. Your token
+permits home control and camera access: never share it or expose the service via
+Funnel or public port forwarding. Voice uses Pebble's configured transcription
+service. [Privacy](PRIVACY.md) · [Camera privacy](CAMERA-PRIVACY.md).
 
 ## Development
 
-Install the current Pebble SDK, then run:
+Use the Pebble SDK, then run:
 
 ```sh
-node tests/group-control.test.js
-node tests/voice-control.test.js
-node tests/theme-control.test.js
+for t in tests/*.test.js tests/*.test.cjs; do node "$t" || exit 1; done
+bash tests/run-homekit-tests.sh
 pebble clean
 pebble build
 ```
 
-Install in the emulators:
+Do not replace the frozen accepted artifact with a rebuild without another audit.
+See [release evidence](docs/RELEASE-GATES-3.1.5.json).
 
-```sh
-pebble install --emulator basalt
-pebble install --emulator emery
-```
+Issues and contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md),
+[SECURITY.md](SECURITY.md), and the [MIT License](LICENSE). Never commit private
+addresses, tokens, home inventories, or camera images.
 
-Install on a physical watch while Dev Connection is enabled in the mobile app:
-
-```sh
-pebble install --cloudpebble
-```
-
-## Contributing
-
-Issues, feature proposals, documentation fixes, and pull requests are welcome.
-See [CONTRIBUTING.md](CONTRIBUTING.md). Please preserve Pome's safety boundaries:
-sensors remain read-only, public webhook exposure is never recommended, and
-security-sensitive controls require deliberate handling.
-
-## Privacy and security
-
-See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md). Never commit a real
-Itsyhome or Tailscale URL, access token, tailnet name, or home-accessory inventory.
-
-## License
-
-Pome is available under the [MIT License](LICENSE).
-
-## Thank you
-
-Thank you to ChatGPT and Codex, especially ChatGPT 5.6 Sol and ChatGPT 6 Astra, and to the people at OpenAI who build these tools, for allowing a nerd with an idea to make cool stuff.
-
-We also thank the developers and communities behind the apps, libraries, fonts and tools we build
-on. [Full acknowledgments](ACKNOWLEDGMENTS.md).
-
-## Consistent phone settings
-
-The Pome-style tabbed settings and theme editor are described in [Phone settings](docs/SETTINGS.md).
-
-## Touch menu selection
-
-On a touch-capable watch, tap a different menu item to highlight it and read its scrolling title. Tap the highlighted item again to open or activate it; there is no need to tap quickly. Physical Select still activates the highlighted item.
-
-Accessory pins appear alongside scenes and rooms on the main page, with their item type as subtitle. Selecting a device pin refreshes its room and opens that device's controls directly; sensor pins open the sensor list. Pinning never switches a device. Service IDs distinguish same-named accessories; devices without an ID and sensors use room, name, and type. Missing or ambiguous matches show a message instead of operating another item. Existing scene pins are preserved.
+Pome is independent of Apple, Itsyhome, Tailscale, and Pebble. Thanks to their
+communities, the font authors, and ChatGPT/Codex and the people at OpenAI who helped
+turn this project into reality. [Acknowledgments](ACKNOWLEDGMENTS.md).

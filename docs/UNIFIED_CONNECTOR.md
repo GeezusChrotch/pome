@@ -1,44 +1,23 @@
-# Pome and the unified Mac connector
+# Organik Apps Pebble Connector
 
-The recommended Mac setup for the coordinated release is **Organik Apps Pebble Connector 0.2.0
-or newer**. It is free MIT open-source software with pages for Notesy, Beepster, Reminderz and Pome.
+Pome 3.1.5 uses the HomeKit-default Connector: one Mac app with an embedded helper
+for controls and optional cameras. Itsyhome is no longer required.
 
-[Source and guide](https://github.com/GeezusChrotch/organik-pebble-connector) · [Connector releases](https://github.com/GeezusChrotch/organik-pebble-connector/releases/latest)
+**Release pending:** the accepted development setup is build 39. The public Store
+build is planned as 1.0 (40 or higher), subject to packaging and Apple review.
+Do not substitute the older public Connector just because it has a similar name.
+The release owner must add and verify the compatible Store link before publishing.
 
-## Move an existing setup
+Follow [Apple Home setup](HOMEKIT-SETUP.md). The Pome page provides
+**Connect Apple Home**, **Start private connection**, **Copy Pome URL** and
+**Copy Pome token**. Use those shared credentials in Pome's phone Setup tab.
+Camera schedules remain optional.
 
-Keep Itsyhome installed and running with Webhooks/CLI enabled. Enter its existing host and port in the Pome page and check the connection. The unified app manages setup and the private route; it does not replace Itsyhome. Keep the existing working URL on the phone. LAN-only users may continue their direct connection.
+Keep Connector running and the Mac awake. Closing its window keeps services
+running; normal Quit stops them. Existing camera pairing, preferences and
+accessory identifiers survived the accepted development build's window-close and
+Quit/reopen tests; this is not proof of a fresh Store installation.
 
-1. Install the unified connector in Applications and open it.
-2. Select **Pome** in the sidebar. Follow **Connect** and check **Requirements**.
-3. Preserve existing addresses, credentials and phone settings. If pairing needs attention,
-   use this page's phone connection controls and the app's existing Pebble settings.
-4. Refresh Pome on the watch and verify the expected content before removing an old setup app.
-5. Use **Settings** for startup and visibility. Hiding a page preserves its service and pairing;
-   it is not the same as stopping the service.
-
-No watch protocol or UUID change is needed just to migrate. Keep the working watch app installed.
-macOS may request permission or Keychain authorization for the new app. Do not clear phone storage
-or reset Tailscale globally as a migration step.
-
-## Daily use
-
-Keep the Mac awake and the required source service and Tailscale connected. The connector window
-can close. Notesy and Reminderz need the unified app running. Beepster keeps its own background
-service, and Pome uses the separately running Itsyhome service.
-
-Overview shows requirement lights and Fix for apps needing attention. Sidebar pages provide
-**Requirements**, **Connect** and **Troubleshooting**. Some phone checks are user-confirmed;
-a green Mac service light alone does not prove a physical-watch action succeeded.
-
-PebClaw is removed from the unified connector. Tesla is hidden by default and marked Coming soon;
-it supports an existing personal gateway, not public Tesla onboarding.
-
-## Release timing
-
-These changes are prepared for the coordinated release. Publish this guide only after the signed
-connector installer is available at the release link. Existing standalone releases remain rollback
-options; verify migration before removing a working setup.
-# Camera availability in Pome 3.0
-
-The public Connector supports Pome's Itsyhome control setup, not the experimental HomeKit camera helper. Camera viewing and camera pairing are disabled in public Pome 3.0. See [camera development status](CAMERAS-EXPERIMENTAL.md).
+Do not reset phone storage or Tailscale as a migration step. Replace an old
+Itsyhome-only address with the new pairing. Keep Itsyhome if other integrations
+still depend on it. Historical 3.0.x documents describe the old architecture.

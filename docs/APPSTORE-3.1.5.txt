@@ -1,0 +1,15 @@
+Pome puts Apple Home on Pebble Time and Pebble Time 2.
+
+Browse rooms, scenes, devices and read-only sensors. Control lights from one menu with toggle, percentages, preset colors and a live custom-color picker. Control all lights in a room, fan speed, plugs and blinds. Use Voice on supported watches for scenes and device commands.
+
+Pin scenes, rooms, devices and cameras; drag pins and sections into your preferred order. Choose themes, fonts, title/subtitle sizes, scrolling speed and button shortcuts.
+
+Time 2 adds camera snapshots: capture now or browse nine saved images, with capture time/age and panoramic panning. Choose individual camera visibility, refresh intervals and image processing. Prefer on-demand capture for battery cameras.
+
+Requires the HomeKit-default Organik Apps Pebble Connector on a Mac, Home permission, and Tailscale on Mac and iPhone. One bundled helper handles controls and cameras; Itsyhome is NOT required. Keep the Mac awake and Connector running. Home controls require macOS 14; cameras require macOS 15.2 and Time 2.
+
+No Pome account, analytics or cloud image storage. Your token grants home control and camera access: keep it private. Voice uses Pebble's configured transcription service. Camera vendors and Apple Home have their own privacy practices.
+
+Setup: https://github.com/GeezusChrotch/pome/blob/main/docs/HOMEKIT-SETUP.md
+
+Free, MIT open source. Independent of Apple, Tailscale and Pebble.
