@@ -1,0 +1,15 @@
+{
+  "version": "3.1.0",
+  "artifact": "dist/Pome-3.1.0-direct-homekit.pbw",
+  "sha256": "851ac0002d927c1e6fcadec1df41aad8db7aff4e84631aff6e1a895641e2b398",
+  "connectorCandidate": "1.0 development build 38",
+  "connectorLiveHomeKitAndLifecycleVerified": true,
+  "installTransport": "phone LAN",
+  "installSession": 42476,
+  "installExitCode": 0,
+  "installOutput": "App install succeeded.",
+  "cloudAttempt": "Authenticated, but phone did not connect; stopped before LAN retry",
+  "physicalControlAcceptance": "pending user testing",
+  "legacyPinUUIDContinuity": "not yet verified across backends",
+  "published": false
+}

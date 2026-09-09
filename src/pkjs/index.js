@@ -857,7 +857,9 @@ function sendItems(items, kind, done) {
   var index = 0;
   function sendNext() {
     if (index >= filtered.length) {
-      send({ "LIST_DONE": kind }, done);
+      var complete = { "LIST_DONE": kind };
+      if (kind === ITEM_KIND_FAVORITE) complete.ITEM_INDEX = filtered.length;
+      send(complete, done);
       return;
     }
     var item = filtered[index];
@@ -2285,7 +2287,12 @@ Pebble.addEventListener("webviewclosed", function(event) {
     function saveHome(connectionError) {
     homeController.save(config.camera&&config.camera.home,function(homeError){
     sendDisplaySettings(function() {
-      sendColorChoices(function() { var error=cameraError||connectionError||homeError;send(error?{ERROR:error}:{ "STATUS": "Settings saved" }); });
+      sendColorChoices(function() {
+        var error=cameraError||connectionError||homeError;
+        send(error?{ERROR:error}:{ "STATUS": "Settings saved" }, function() {
+          if(!error&&nativeHome&&baseUrl())loadList('/list/favourites',ITEM_KIND_FAVORITE);
+        });
+      });
     });
     });
     }

@@ -493,8 +493,19 @@ static void set_subtitle_size(uint8_t size) {
   if(size!=s_subtitle_size){release_subtitle_font();s_subtitle_size=size;}
 }
 
-static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *title,
-                            const char *subtitle, GBitmap *icon) {
+static void draw_pin_indicator(GContext *ctx, GRect bounds, GColor foreground) {
+  int16_t x = bounds.size.w - 16;
+  int16_t y = (bounds.size.h - 17) / 2;
+  graphics_context_set_fill_color(ctx, foreground);
+  graphics_context_set_stroke_color(ctx, foreground);
+  graphics_fill_rect(ctx, GRect(x + 2, y, 8, 3), 1, GCornersAll);
+  graphics_fill_rect(ctx, GRect(x + 4, y + 3, 4, 5), 0, GCornerNone);
+  graphics_fill_rect(ctx, GRect(x, y + 8, 12, 3), 1, GCornersAll);
+  graphics_draw_line(ctx, GPoint(x + 6, y + 11), GPoint(x + 6, y + 16));
+}
+
+static void theme_cell_draw_with_pin(GContext *ctx, const Layer *cell_layer, const char *title,
+                            const char *subtitle, GBitmap *icon, bool pinned) {
   GRect bounds = layer_get_bounds(cell_layer);
   bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
   graphics_context_set_text_color(ctx, highlighted ? s_theme_selection_text : s_theme_text);
@@ -521,7 +532,8 @@ static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *
   }
   int16_t title_height = subtitle && subtitle[0] ? subtitle_y - title_y : approximate_height;
   GFont title_font = theme_title_font();
-  int16_t title_width = bounds.size.w - text_x - 3;
+  int16_t pin_width = pinned ? 20 : 0;
+  int16_t title_width = bounds.size.w - text_x - 3 - pin_width;
   if (highlighted) {
     GSize content_size = graphics_text_layout_get_content_size(title, title_font,
       GRect(0, 0, 1000, title_height), GTextOverflowModeFill, GTextAlignmentLeft);
@@ -554,6 +566,18 @@ static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *
       GRect(text_x, subtitle_y, bounds.size.w - text_x - 3, s_subtitle_size + 6),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   }
+  if (pinned) {
+    // Mask scrolling text before drawing the fixed semantic status marker.
+    // Unlike decorative device icons this remains visible with Icons disabled.
+    graphics_context_set_fill_color(ctx, highlighted ? s_theme_selection : s_theme_background);
+    graphics_fill_rect(ctx, GRect(bounds.size.w - pin_width, 0, pin_width, bounds.size.h), 0, GCornerNone);
+    draw_pin_indicator(ctx, bounds, highlighted ? s_theme_selection_text : s_theme_text);
+  }
+}
+
+static void theme_cell_draw(GContext *ctx, const Layer *cell_layer, const char *title,
+                            const char *subtitle, GBitmap *icon) {
+  theme_cell_draw_with_pin(ctx, cell_layer, title, subtitle, icon, false);
 }
 
 static void theme_header_draw(GContext *ctx, const Layer *cell_layer, const char *title) {
@@ -1008,7 +1032,7 @@ static void root_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
   if (pin>=0) {
     char name[MAX_NAME_LENGTH];
     pin_name(pin, name);
-    theme_cell_draw(ctx, cell_layer, name, pin_type(pin), NULL);
+    theme_cell_draw_with_pin(ctx, cell_layer, name, pin_type(pin), NULL, true);
     return;
   }
   int row = home_logical_row(cell_index->row);
@@ -2044,6 +2068,11 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   if (done) {
     ItemKind done_kind = done->value->uint8;
     if (done_kind == ITEM_KIND_FAVORITE) {
+      Tuple *total = dict_find(iterator, MESSAGE_KEY_ITEM_INDEX);
+      if (total && total->value->uint16 <= MAX_ITEMS) s_favorite_count = total->value->uint16;
+      // Favorites are usable now, even if subsequent scene/room requests fail.
+      if (s_list_menu && s_current_kind == ITEM_KIND_FAVORITE) menu_layer_reload_data(s_list_menu);
+      if (s_root_menu) menu_layer_reload_data(s_root_menu);
       send_command(COMMAND_LOAD_SCENES, NULL, NULL, NULL);
     } else if (done_kind == ITEM_KIND_SCENE) {
       if (s_pin_menu) menu_layer_reload_data(s_pin_menu);
