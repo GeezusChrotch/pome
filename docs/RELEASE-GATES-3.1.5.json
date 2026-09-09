@@ -33,7 +33,7 @@
     "newerUnacceptedExecutableDeltas": false,
     "storeLink": "pending coordinator verification",
     "freshStoreInstallation": "pending separate verification",
-    "screenshots": "older assets predate flat/live controls; refresh or omit",
+    "screenshots": "four refreshed native Time 2 captures in appstore-assets/3.1.5; omit old Basalt and stale submenu captures; see asset README for replacement map",
     "publication": "held; dashboard owner is release coordinator"
   },
   "sourceFiles": {
