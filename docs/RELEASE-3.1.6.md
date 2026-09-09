@@ -20,3 +20,12 @@ SHA256: `0b0e36a896311e45cfb34085d7bc909cfb19c295836ff4906e116f29c1258659`
 Frozen accepted3.1.5 remains unchanged at SHA256
 `becfa23fb55c8f3715b89ca229caedf9b2756232172b60c5167882703a5ff48e`.
 No publication approval inferred; archived Connector40 unchanged.
+
+Connector test41 was verified live by its owner (ROOM41_RUNTIME.json): all camera
+room IDs/names match HomeKit, pairing and existing settings preserved. Initial
+watch install stalled before transfer output and was stopped; 3.1.6 is not yet
+installed. Await current phone developer connection for retry.
+
+User-ready retry succeeded: session72840, exit0, `App install succeeded.` Frozen
+3.1.6 package above installed with test41 Connector live. Physical room-camera
+acceptance remains pending; no publication.

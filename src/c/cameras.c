@@ -17,6 +17,7 @@ static int ages[10],count,page,pages=1,rid=1,received,total,width,height;
 static char image_timestamp[32]="Timestamp unavailable";
 static bool loading=true,viewing=false,complete=false;
 static bool history_mode;
+static bool single_room_camera;
 static char room_filter[64];
 static void age_tick(void *context){
   age_timer=NULL;if(!viewing||!complete)return;
@@ -147,7 +148,7 @@ static void select_row(MenuLayer *m,MenuIndex *idx,void *ctx){
   history_mode=true;count=0;loading=true;snprintf(message,sizeof(message),"Loading saved images…");request(4,selected_camera);reload();
 }
 static void camera_back(ClickRecognizerRef r,void *ctx){
-  if(history_mode){history_mode=false;count=0;loading=true;request(1,NULL);reload();}
+  if(history_mode&&!single_room_camera){history_mode=false;count=0;loading=true;request(1,NULL);reload();}
   else{cancel_timer();request(3,NULL);window_stack_pop(true);}
 }
 static void camera_up(ClickRecognizerRef r,void *c){menu_layer_set_selected_next(menu,true,MenuRowAlignCenter,true);}
@@ -180,7 +181,11 @@ static void inbox(DictionaryIterator *in,void *ctx){
   if(kind==6){Tuple*t=dict_find(in,ERROR);snprintf(message,sizeof(message),"%s",t?t->value->cstring:"Error");loading=false;cancel_timer();if(viewing)layer_mark_dirty(image_layer);else reload();return;}
   if(!viewing){
     if(kind==1){int i=val(in,INDEX);Tuple*n=dict_find(in,NAME),*id=dict_find(in,ID);if(i>=0&&i<10&&n&&id){snprintf(names[i],64,"%s",n->value->cstring);snprintf(ids[i],40,"%s",id->value->cstring);ages[i]=val(in,AGE);}}
-    if(kind==2){count=val(in,COUNT);if(count<0||count>10)count=0;page=val(in,PAGE);pages=val(in,PAGES);loading=false;cancel_timer();snprintf(message,sizeof(message),"No enabled cameras");reload();menu_layer_set_selected_index(menu,MenuIndex(0,0),MenuRowAlignTop,false);}
+    if(kind==2){count=val(in,COUNT);if(count<0||count>10)count=0;page=val(in,PAGE);pages=val(in,PAGES);loading=false;cancel_timer();
+      if(!history_mode&&room_filter[0]&&count==1&&pages==1&&page==0){
+        single_room_camera=true;MenuIndex first=MenuIndex(0,0);select_row(menu,&first,NULL);return;
+      }
+      snprintf(message,sizeof(message),"No enabled cameras");reload();menu_layer_set_selected_index(menu,MenuIndex(0,0),MenuRowAlignTop,false);}
     return;
   }
   if(kind==3){
@@ -216,7 +221,7 @@ static void camera_init(void){
 }
 void cameras_deinit(void){if(!main_window)return;if(age_timer){app_timer_cancel(age_timer);age_timer=NULL;}stop_pan();cancel_timer();free(pixels);layer_destroy(image_layer);menu_layer_destroy(menu);window_destroy(image_window);window_destroy(main_window);}
 bool cameras_inbox(DictionaryIterator *in){if(!dict_find(in,KIND))return false;if(main_window)inbox(in,NULL);return true;}
-void cameras_open_room(const char *room){if(!main_window)camera_init();snprintf(room_filter,sizeof(room_filter),"%s",room?room:"");history_mode=false;loading=true;count=0;page=0;snprintf(message,sizeof(message),"Loading cameras…");window_stack_push(main_window,true);request(1,NULL);reload();}
+void cameras_open_room(const char *room){if(!main_window)camera_init();snprintf(room_filter,sizeof(room_filter),"%s",room?room:"");single_room_camera=false;history_mode=false;loading=true;count=0;page=0;snprintf(message,sizeof(message),"Loading cameras…");window_stack_push(main_window,true);request(1,NULL);reload();}
 void cameras_open(void){cameras_open_room(NULL);}
 void cameras_capture(const char *id){
   if(!main_window)camera_init();

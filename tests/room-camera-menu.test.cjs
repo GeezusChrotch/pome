@@ -29,5 +29,7 @@ assert(src.includes('cameras_open_room(s_selected_room)'));
 const cameras=fs.readFileSync('src/c/cameras.c','utf8');
 assert(cameras.includes('if(cmd==1 && room_filter[0])'));
 assert(cameras.includes('void cameras_open(void){cameras_open_room(NULL);}'));
-assert(cameras.includes('if(history_mode){history_mode=false;count=0;loading=true;request(1,NULL);reload();}'));
+assert(cameras.includes('if(history_mode&&!single_room_camera){history_mode=false;count=0;loading=true;request(1,NULL);reload();}'));
+assert(cameras.includes('!history_mode&&room_filter[0]&&count==1&&pages==1&&page==0'));
+assert(cameras.includes('single_room_camera=true;MenuIndex first=MenuIndex(0,0);select_row(menu,&first,NULL);return;'));
 console.log('PASS: room-camera row counts/offsets, pin indexing, hidden/empty combinations, scoped history back and global filter reset');
