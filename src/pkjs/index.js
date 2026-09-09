@@ -713,6 +713,26 @@ function themeMessage(theme) {
   };
 }
 
+function normalizeMarqueeSpeed(value) {
+  var speed = value === null || value === undefined ? 2 : Number(value);
+  return speed >= 0 && speed <= 4 && Math.floor(speed) === speed ? speed : 2;
+}
+function configuredMarqueeSpeed() {
+  return normalizeMarqueeSpeed(localStorage.getItem('pomeMarqueeSpeed'));
+}
+
+// Decode the same opaque GColor8 RGB222 values sent to the watch. Do not
+// substitute a simulated LCD palette: that changed preview hues/saturation.
+function pebblePalette() {
+  var palette = [];
+  for (var color = 0; color < 64; color++) {
+    palette.push('#' + [Math.floor(color / 16), Math.floor(color / 4) % 4, color % 4].map(function(level) {
+      var hex = (level * 85).toString(16); return hex.length < 2 ? '0' + hex : hex;
+    }).join(''));
+  }
+  return palette;
+}
+
 function hsvToHex(hue, saturation) {
   var h = ((hue % 360) + 360) % 360;
   var s = Math.max(0, Math.min(100, saturation)) / 100;
@@ -757,6 +777,7 @@ function sendDisplaySettings(done) {
   var theme = configuredTheme();
   var shortcuts = configuredShortcuts();
   var payload = themeMessage(theme);
+  payload.MARQUEE_SPEED = configuredMarqueeSpeed();
   payload.SHOW_FAVORITES = sections.favorites ? 1 : 0;
   payload.SHOW_SCENES = sections.scenes ? 1 : 0;
   payload.SHOW_ROOMS = sections.rooms ? 1 : 0;
@@ -2023,6 +2044,10 @@ function configurationPage(cameraState) {
     '<label>Font size</label><select id="themeSize">' + sizeOptions + '</select>' +
     '<label>Subtitle size</label><select id="themeSubtitleSize">' +
     (time2Enhanced() ? [16,18,20,22,24] : [14,18,21,24]).map(function(size) { return '<option value="' + size + '">' + size + ' px</option>'; }).join('') + '</select>' +
+    '<label for="marqueeSpeed">Scrolling text speed</label><select id="marqueeSpeed">' +
+    ['Off','Slow','Normal (default)','Fast','Very fast'].map(function(name,index) { return '<option value="' + index + '"' + (configuredMarqueeSpeed() === index ? ' selected' : '') + '>' + name + '</option>'; }).join('') + '</select>' +
+    '<p class="hint">Applies to long selected menu titles. Normal scrolls at 50 pixels/second, twice the previous default. Off keeps titles still.</p>' +
+    '<p class="hint">Preview and color swatches use the exact 64 color values sent to Pebble. Screen lighting can affect their physical appearance.</p>' +
     '<p class="hint">Four readability-first themes, followed by six colorful themes. Subtitle size is saved with each theme. Choose a preset to preview it, then Apply Current Preview to send it to your watch.</p>' +
     '<div class="toggle"><label><input type="checkbox" id="themeIcons">Show device icons</label></div>' +
     '<label>Theme name</label><input id="themeName" maxlength="32" placeholder="My theme">' +
@@ -2044,15 +2069,7 @@ function configurationPage(cameraState) {
     'byId(\'setupPanel\').className=name===\'setup\'?\'panel active\':\'panel\';' +
     'byId(\'themesPanel\').className=name===\'themes\'?\'panel active\':\'panel\';' +
     'byId(\'shortcutsPanel\').className=name===\'shortcuts\'?\'panel active\':\'panel\';}' +
-    'var watchColors=[' +
-    '\'#000000\',\'#001e41\',\'#004387\',\'#0068ca\',\'#2b4a2c\',\'#27514f\',\'#16638d\',\'#007dce\',' +
-    '\'#5e9860\',\'#5c9b72\',\'#57a5a2\',\'#4cb4db\',\'#8ee391\',\'#8ee69e\',\'#8aebc0\',\'#84f5f1\',' +
-    '\'#4a161b\',\'#482748\',\'#40488a\',\'#2f6bcc\',\'#564e36\',\'#545454\',\'#4f6790\',\'#4180d0\',' +
-    '\'#759a64\',\'#759d76\',\'#71a6a4\',\'#69b5dd\',\'#9ee594\',\'#9de7a0\',\'#9becc2\',\'#95f6f2\',' +
-    '\'#99353f\',\'#983e5a\',\'#955694\',\'#8f74d2\',\'#9d5b4d\',\'#9d6064\',\'#9a7099\',\'#9587d5\',' +
-    '\'#afa072\',\'#aea382\',\'#ababab\',\'#a7bae2\',\'#c9e89d\',\'#c9eaa7\',\'#c7f0c8\',\'#c3f9f7\',' +
-    '\'#e35462\',\'#e25874\',\'#e16aa3\',\'#de83dc\',\'#e66e6b\',\'#e6727c\',\'#e37fa7\',\'#e194df\',' +
-    '\'#f1aa86\',\'#f1ad93\',\'#efb5b8\',\'#ecc3eb\',\'#ffeeab\',\'#fff1b5\',\'#fff6d3\',\'#ffffff\'];' +
+    'var watchColors=' + JSON.stringify(pebblePalette()) + ';' +
     'function watchHex(hex){var levels=[];for(var i=1;i<7;i+=2)' +
     'levels.push(Math.round(parseInt(hex.slice(i,i+2),16)*3/255));' +
     'return watchColors[levels[0]*16+levels[1]*4+levels[2]];}' +
@@ -2144,7 +2161,7 @@ function configurationPage(cameraState) {
     'for(var i=0;i<6;i++){colors.push(color(document.getElementById(\'c\'+i).value,i));}' +
     'var shortcuts={up:byId(\'shortcutUp\').value,select:byId(\'shortcutSelect\').value,' +
     'down:byId(\'shortcutDown\').value,doubleBack:byId(\'shortcutDoubleBack\').value};' +
-    'var response=encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,' +
+    'var response=encodeURIComponent(JSON.stringify({baseUrl:value,colors:colors,sections:sections,marqueeSpeed:Number(byId(\'marqueeSpeed\').value),' +
     'shortcuts:shortcuts,theme:readTheme(),themes:savedThemes,camera:readCameraConfig()}));' +
     'var match=location.search.match(/[?&]return_to=([^&]*)/);' +
     'location.href=(match?decodeURIComponent(match[1]):\'pebblejs://close#\')+response;}' +
@@ -2153,7 +2170,7 @@ function configurationPage(cameraState) {
     'byId(controls[j]).addEventListener(\'change\',preview);byId(controls[j]).addEventListener(\'input\',preview);}' +
     'byId(\'themeFont\').addEventListener(\'change\',function(){updateSizes(null);preview();});' +
     'refreshThemes(\'\');applyTheme(currentTheme);</script></html>';
-  html = organikSettingsHTML(html, {"app":"pome","fields":{"text":"themeText","background":"themeBackground","selection":"themeSelection","font":"themeFont","size":"themeSize"},"watchColors":["#000000","#001e41","#004387","#0068ca","#2b4a2c","#27514f","#16638d","#007dce","#5e9860","#5c9b72","#57a5a2","#4cb4db","#8ee391","#8ee69e","#8aebc0","#84f5f1","#4a161b","#482748","#40488a","#2f6bcc","#564e36","#545454","#4f6790","#4180d0","#759a64","#759d76","#71a6a4","#69b5dd","#9ee594","#9de7a0","#9becc2","#95f6f2","#99353f","#983e5a","#955694","#8f74d2","#9d5b4d","#9d6064","#9a7099","#9587d5","#afa072","#aea382","#ababab","#a7bae2","#c9e89d","#c9eaa7","#c7f0c8","#c3f9f7","#e35462","#e25874","#e16aa3","#de83dc","#e66e6b","#e6727c","#e37fa7","#e194df","#f1aa86","#f1ad93","#efb5b8","#ecc3eb","#ffeeab","#fff1b5","#fff6d3","#ffffff"],"library":false,"apply":false});
+html = organikSettingsHTML(html, {"app":"pome","fields":{"text":"themeText","background":"themeBackground","selection":"themeSelection","font":"themeFont","size":"themeSize"},"watchColors":pebblePalette(),"library":false,"apply":false});
   if(typeof require==='function')html = require('./camera-settings').augment(html,cameraState);
   if(nativeHome)html = require('./homekit-settings').augment(html,shortcutScenes,nativeHome.favorites());
   return "data:text/html;charset=utf-8," + encodeURIComponent(html);
@@ -2258,6 +2275,7 @@ Pebble.addEventListener("webviewclosed", function(event) {
   if (!event.response) return;
   try {
     var config = JSON.parse(decodeURIComponent(event.response));
+    if (config.marqueeSpeed !== undefined) localStorage.setItem('pomeMarqueeSpeed', String(normalizeMarqueeSpeed(config.marqueeSpeed)));
     if (Array.isArray(config.homeFavorites)) localStorage.setItem("pomeHomeFavorites", JSON.stringify(config.homeFavorites));
     if (Array.isArray(config.colors) && config.colors.length === 6) {
       localStorage.setItem("itsyhomeColors", JSON.stringify(config.colors));

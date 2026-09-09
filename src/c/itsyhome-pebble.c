@@ -32,8 +32,8 @@ typedef struct { char room[MAX_NAME_LENGTH], id[MAX_ID_LENGTH], type[MAX_TYPE_LE
 static PinAccessory s_open_pin;
 static char s_open_pin_name[MAX_NAME_LENGTH];
 #define COLOR_COUNT 6
-#define MARQUEE_STEP_PIXELS 2
-#define MARQUEE_FRAME_MS 80
+#define MARQUEE_SPEED_KEY 2203
+#define MARQUEE_FRAME_MS 40
 #define MARQUEE_PAUSE_MS 900
 
 typedef enum {
@@ -230,6 +230,8 @@ static char s_shortcut_down[MAX_SHORTCUT_LENGTH] = "off";
 static char s_shortcut_double_back[MAX_SHORTCUT_LENGTH] = "off";
 static uint8_t s_selected_shortcut_button;
 static AppTimer *s_marquee_timer;
+// 0=off; 1..4 move 25, 50, 75, 100 pixels/sec. Default was 25.
+static uint8_t s_marquee_speed = 2;
 static int16_t s_marquee_offset;
 static int16_t s_marquee_max;
 static bool s_marquee_at_end;
@@ -266,6 +268,8 @@ static void marquee_tick(void *context);
 
 static void marquee_schedule(uint32_t delay_ms) {
   if (s_marquee_timer) app_timer_cancel(s_marquee_timer);
+  s_marquee_timer = NULL;
+  if (!s_marquee_speed) return;
   s_marquee_timer = app_timer_register(delay_ms, marquee_tick, NULL);
 }
 
@@ -293,7 +297,7 @@ static void marquee_tick(void *context) {
     return;
   }
 
-  s_marquee_offset += MARQUEE_STEP_PIXELS;
+  s_marquee_offset += s_marquee_speed;
   if (s_marquee_offset >= s_marquee_max) {
     s_marquee_offset = s_marquee_max;
     s_marquee_at_end = true;
@@ -537,7 +541,7 @@ static void theme_cell_draw_with_pin(GContext *ctx, const Layer *cell_layer, con
   if (highlighted) {
     GSize content_size = graphics_text_layout_get_content_size(title, title_font,
       GRect(0, 0, 1000, title_height), GTextOverflowModeFill, GTextAlignmentLeft);
-    s_marquee_max = content_size.w > title_width ? content_size.w - title_width + 6 : 0;
+    s_marquee_max = s_marquee_speed && content_size.w > title_width ? content_size.w - title_width + 6 : 0;
     if (s_marquee_max > 0) {
       if (!s_marquee_timer) marquee_schedule(MARQUEE_PAUSE_MS);
       graphics_draw_text(ctx, title, title_font,
@@ -1867,6 +1871,13 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   }
 
   Tuple *theme_background = dict_find(iterator, MESSAGE_KEY_THEME_BACKGROUND);
+  Tuple *marquee_speed = dict_find(iterator, MESSAGE_KEY_MARQUEE_SPEED);
+  if (marquee_speed) {
+    int32_t speed = marquee_speed->value->int32;
+    s_marquee_speed = speed >= 0 && speed <= 4 ? speed : 2;
+    persist_write_int(MARQUEE_SPEED_KEY, s_marquee_speed);
+    marquee_reset();
+  }
   Tuple *theme_text = dict_find(iterator, MESSAGE_KEY_THEME_TEXT);
   Tuple *theme_selection = dict_find(iterator, MESSAGE_KEY_THEME_SELECTION);
   Tuple *theme_selection_text = dict_find(iterator, MESSAGE_KEY_THEME_SELECTION_TEXT);
@@ -2411,6 +2422,10 @@ static void init(void) {
   app_touch_navigation_enable(true);
 #endif
   load_pins();
+  if (persist_exists(MARQUEE_SPEED_KEY)) {
+    int32_t speed = persist_read_int(MARQUEE_SPEED_KEY);
+    s_marquee_speed = speed >= 0 && speed <= 4 ? speed : 2;
+  }
   if(persist_exists(SHOW_CAMERAS_KEY))s_show_cameras=persist_read_bool(SHOW_CAMERAS_KEY);
   char saved_order[7]={0};persist_read_string(ROOT_ORDER_KEY,saved_order,sizeof(saved_order));
   if(root_order_valid(saved_order))memcpy(s_root_order,saved_order,7);

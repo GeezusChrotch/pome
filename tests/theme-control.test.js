@@ -242,7 +242,7 @@ context.TIME2_BUILT_IN_THEMES.forEach(function(theme){
 });
 stored.pomeThemes=JSON.stringify(Array.from({length:20},function(_,i){return Object.assign({},customTheme,{name:'Custom '+i});}));
 assert.strictEqual(context.watchThemeChoices().length,31,'ten presets plus twenty customs and a current unsaved theme fit');
-console.log('PASS: ten palettes exceed 7:1 in raw and simulated palettes; subtitle sizes persist and transmit; full theme library fits');
+console.log('PASS: ten palettes exceed 7:1 in raw and preview palettes; subtitle sizes persist and transmit; full theme library fits');
 
 stored.pomeShortcuts=JSON.stringify({up:"themes",select:"voice",down:"off",doubleBack:"scenes"});
 assert.strictEqual(context.configuredShortcuts().up,"off");
