@@ -193,6 +193,7 @@ static uint16_t s_room_count;
 static uint16_t s_device_count;
 static uint16_t s_sensor_count;
 static uint16_t s_room_scene_count;
+static uint16_t s_room_camera_count;
 static uint16_t s_theme_count;
 static ItemKind s_current_kind = ITEM_KIND_FAVORITE;
 static char s_selected_room[MAX_NAME_LENGTH];
@@ -217,6 +218,7 @@ static bool s_show_scenes = true;
 static bool s_show_rooms = true;
 static bool s_show_cameras = true;
 #define CAMERA_VISIBLE (CAMERA_ROWS && s_show_cameras)
+static uint16_t room_camera_rows(void){return CAMERA_VISIBLE && s_room_camera_count>0 ? 1 : 0;}
 #define SHOW_CAMERAS_KEY 2201
 static bool s_show_sensors = true;
 static bool s_auto_opened;
@@ -927,6 +929,7 @@ static void load_devices(const char *room) {
   s_device_count = 0;
   s_sensor_count = 0;
   s_room_scene_count = 0;
+  s_room_camera_count = 0;
   s_device_loading = true;
   s_device_error[0] = '\0';
   window_stack_push(s_device_window, true);
@@ -1090,7 +1093,7 @@ static int16_t list_get_header_height(MenuLayer *menu_layer, uint16_t section_in
 static uint16_t device_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                     void *context) {
   if (s_device_loading || s_device_error[0]) return 1;
-  uint16_t count = s_device_count + (sensors_visible() ? 1 : 0) + 1 +
+  uint16_t count = s_device_count + room_camera_rows() + (sensors_visible() ? 1 : 0) + 1 +
                    (light_count() > 0 ? 1 : 0);
   return count == 0 ? 1 : count;
 }
@@ -1106,7 +1109,11 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
     return;
   }
 
-  if (sensors_visible() && cell_index->row == 0) {
+  if (room_camera_rows() && cell_index->row == 0) {
+    theme_cell_draw(ctx, cell_layer, "Cameras", NULL, NULL);
+    return;
+  }
+  if (sensors_visible() && cell_index->row == room_camera_rows()) {
     static char subtitle[24];
     snprintf(subtitle, sizeof(subtitle), "%u reading%s", s_sensor_count,
              s_sensor_count == 1 ? "" : "s");
@@ -1114,7 +1121,7 @@ static void device_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *c
     return;
   }
 
-  uint16_t scenes_row = sensors_visible() ? 1 : 0;
+  uint16_t scenes_row = room_camera_rows() + (sensors_visible() ? 1 : 0);
   if (cell_index->row == scenes_row) {
     static char subtitle[24];
     snprintf(subtitle, sizeof(subtitle), "%u scene%s", s_room_scene_count,
@@ -1633,11 +1640,15 @@ static void list_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void
 
 static void device_select_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   if (s_device_loading || s_device_error[0]) return;
-  if (sensors_visible() && cell_index->row == 0) {
+  if (room_camera_rows() && cell_index->row == 0) {
+    release_subtitle_font();cameras_open_room(s_selected_room);
+    return;
+  }
+  if (sensors_visible() && cell_index->row == room_camera_rows()) {
     window_stack_push(s_sensor_window, true);
     return;
   }
-  uint16_t scenes_row = sensors_visible() ? 1 : 0;
+  uint16_t scenes_row = room_camera_rows() + (sensors_visible() ? 1 : 0);
   if (cell_index->row == scenes_row) {
     window_stack_push(s_room_scene_window, true);
     return;
@@ -1740,7 +1751,7 @@ static void toggle_highlighted_scene_pin(void) {
     if(row<s_room_scene_count)snprintf(name,sizeof(name),"%s",s_room_scenes[row].name);
   }
   if(top==s_device_window && s_device_menu && !s_device_loading && !s_device_error[0]){
-    int index=(int)menu_layer_get_selected_index(s_device_menu).row-(sensors_visible()?1:0)-1-(light_count()>0?1:0);
+    int index=(int)menu_layer_get_selected_index(s_device_menu).row-room_camera_rows()-(sensors_visible()?1:0)-1-(light_count()>0?1:0);
     if(index>=0 && index<s_device_count){
       snprintf(name,sizeof(name),"%s",s_devices[index].name);snprintf(accessory.id,sizeof(accessory.id),"%s",s_device_ids[index]);snprintf(accessory.type,sizeof(accessory.type),"%s",s_devices[index].type);device=true;
     }
@@ -1883,6 +1894,12 @@ static void focus_open_pin(void){
 static void inbox_received(DictionaryIterator *iterator, void *context) {
   if(home_inbox(iterator))return;
   if(cameras_inbox(iterator))return;
+  Tuple *room_cameras=dict_find(iterator,MESSAGE_KEY_ROOM_CAMERA_COUNT);
+  Tuple *camera_room=dict_find(iterator,MESSAGE_KEY_ITEM_ROOM);
+  if(room_cameras && camera_room && camera_room->type==TUPLE_CSTRING &&
+     strcmp(camera_room->value->cstring,s_selected_room)==0) {
+    s_room_camera_count=room_cameras->value->uint16;
+  }
 #if defined(PBL_PLATFORM_EMERY)
   Tuple *room_kind=dict_find(iterator,MESSAGE_KEY_ITEM_KIND);
   if(!s_room_buffers && room_kind && (room_kind->value->int32==ITEM_KIND_DEVICE||room_kind->value->int32==ITEM_KIND_SENSOR||room_kind->value->int32==ITEM_KIND_ROOM_SCENE))return;

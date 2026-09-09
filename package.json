@@ -1,7 +1,7 @@
 {
   "name": "pome",
   "author": "Organik Apps",
-  "version": "3.1.5",
+  "version": "3.1.6",
   "keywords": [
     "pebble-app"
   ],
@@ -71,6 +71,7 @@
       "HOME_ERROR": 45,
       "HOME_TRANSACTION": 47,
       "MARQUEE_SPEED": 48,
+      "ROOM_CAMERA_COUNT": 49,
       "CAMERA_CMD": 100,
       "CAMERA_RID": 101,
       "CAMERA_KIND": 102,
@@ -90,6 +91,7 @@
       "CAMERA_AUTO_PAN": 116,
       "CAMERA_PHOTO": 117,
       "CAMERA_TIMESTAMP": 118,
+      "CAMERA_ROOM": 119,
       "THEME_SUBTITLE_SIZE": 46
     },
     "resources": {

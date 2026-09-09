@@ -9,7 +9,7 @@ try{
 assert(src.includes('RESOURCE_ID_SUBTITLE_20'));assert(src.includes('GRect(text_x, subtitle_y, bounds.size.w - text_x - 3, s_subtitle_size + 6)'));
 assert(!src.includes('"Section"'));
 assert(src.includes('release_subtitle_font();cameras_capture'));
-assert.equal((src.match(/release_subtitle_font\(\);cameras_open/g)||[]).length,2);
+assert.equal((src.match(/release_subtitle_font\(\);cameras_open/g)||[]).length,3);
 const font=JSON.parse(fs.readFileSync('package.json')).pebble.resources.media.find(r=>r.name==='SUBTITLE_20');assert(font&&font.targetPlatforms.includes('emery'));assert(new RegExp(font.characterRegex).test('°'));
 const html=require('../src/pkjs/camera-settings').augment('<h2>Light colors</h2><script></script>',{home:{revision:1,items:[{token:0,name:'Voice',type:'Section'},{token:6,name:'Lounge',type:'Camera'}]}});
 assert(!html.includes('>Section</small>'));assert(html.includes('>Camera</small>'));

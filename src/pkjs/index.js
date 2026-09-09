@@ -1025,7 +1025,11 @@ function loadDevices(room) {
           });
         }
 
-        sendRoomContents();
+        if (configuredSections().cameras && cameraController.roomCount) {
+          cameraController.roomCount(room,function(count){
+            send({ROOM_CAMERA_COUNT:count,ITEM_ROOM:room},sendRoomContents);
+          });
+        } else sendRoomContents();
       });
     });
   });

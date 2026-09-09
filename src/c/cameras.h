@@ -2,6 +2,7 @@
 #include <pebble.h>
 #include "pome_features.h"
 void cameras_open(void);
+void cameras_open_room(const char *room);
 void cameras_capture(const char *id);
 bool pome_camera_pinned(const char *id);
 bool pome_camera_toggle_pin(const char *id,const char *name);

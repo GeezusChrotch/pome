@@ -455,13 +455,13 @@ final class CameraCacheController: UIViewController, HMHomeManagerDelegate, HMCa
         if method == "GET", url.path == "/camera-settings" {
             return (200, ["cameras": cameras.map { camera -> [String: Any] in
                 let id = camera.uniqueIdentifier.uuidString
-                return ["id": id, "name": camera.name, "interval": schedules[id]?.interval ?? 0]
+                return ["id": id, "name": camera.name, "room": camera.room?.name ?? "", "roomId": camera.room?.uniqueIdentifier.uuidString ?? "", "interval": schedules[id]?.interval ?? 0]
             }])
         }
         if method == "GET", url.path == "/cameras" {
             let items: [[String: Any]] = cameras.filter { schedules[$0.uniqueIdentifier.uuidString]?.enabled == true }.map {
                 let id = $0.uniqueIdentifier.uuidString
-                return ["id": id, "name": $0.name, "interval": schedules[id]?.interval ?? 0, "ready": cache[id] != nil, "age": cache[id].map { Int(Date().timeIntervalSince($0.snapshotAt)) } ?? -1, "error": errors[id] ?? ""]
+                return ["id": id, "name": $0.name, "room": $0.room?.name ?? "", "roomId": $0.room?.uniqueIdentifier.uuidString ?? "", "interval": schedules[id]?.interval ?? 0, "ready": cache[id] != nil, "age": cache[id].map { Int(Date().timeIntervalSince($0.snapshotAt)) } ?? -1, "error": errors[id] ?? ""]
             }
             return (200, ["running": running, "liveCaptureActive": activeStream != nil, "cameras": items])
         }

@@ -7,6 +7,15 @@ function setup(responses){
  vm.runInNewContext(source,ctx);
  return {packets,requests,timers,store,exports:ctx.module.exports,run:p=>handlers.appmessage({payload:p})};
 }
+// Filter before pagination; hidden cameras and similarly named rooms never leak.
+const roomFixture=Array.from({length:12},(_,i)=>({id:'room-'+i,name:'Camera '+i,room:'Studio',interval:0}));
+roomFixture.push({id:'other',name:'Studio Camera',room:'Studio Annex',interval:0},{id:'hidden',name:'Hidden',room:'Studio',interval:-1},{id:'legacy',name:'Studio',interval:0});
+const filtered=setup([{body:{cameras:roomFixture}},{body:{cameras:roomFixture}}]);
+filtered.run({CAMERA_CMD:1,CAMERA_RID:30,CAMERA_W:200,CAMERA_ROOM:'Studio',CAMERA_PAGE:1});
+assert.deepEqual(filtered.packets.filter(p=>p.CAMERA_KIND===1).map(p=>p.CAMERA_ID),['room-10','room-11']);
+assert.equal(filtered.packets.at(-1).CAMERA_PAGES,2);
+filtered.exports.roomCount('Studio',n=>assert.equal(n,12));
+assert(filtered.requests.every(r=>r.method==='GET'));
 let t=setup([{body:{images:Array.from({length:12},(_,i)=>({id:'photo'+i,age:i,snapshotAt:100-i}))}}]);
 t.run({CAMERA_CMD:4,CAMERA_RID:10,CAMERA_ID:'cam',CAMERA_W:200});assert.equal(t.packets.length,10);assert.equal(t.packets[9].CAMERA_COUNT,9);assert.equal(t.requests.length,1);assert.equal(t.requests[0].method,'GET');
 t=setup([{body:{width:405,height:228,encoding:'gcolor6',pixels:Buffer.alloc(69255).toString('base64'),age:61}}]);t.store['pome-camera-mode']='high-contrast';

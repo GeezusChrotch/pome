@@ -37,11 +37,14 @@ function send(rid, packet, next) {
   });
 }
 function error(rid,message){send(rid,{KIND:6,ERROR:String(message).slice(0,95)});}
-function list(rid,page) {
+function camerasInRoom(cameras,room) {
+  return cameras.filter(function(c){return c && c.interval!==-1 && (!room || c.room===room);});
+}
+function list(rid,page,room) {
   request('GET','/cameras',function(err,data){
     if(rid!==generation)return;
     if(err){error(rid,err);return;}
-    var cameras=data.cameras || [], pages=Math.max(1,Math.ceil(cameras.length/10));
+    var cameras=camerasInRoom(data.cameras || [],room), pages=Math.max(1,Math.ceil(cameras.length/10));
     page=Math.max(0,Math.min(pages-1,page));
     var rows=cameras.slice(page*10,page*10+10), index=0;
     function next(){
@@ -104,7 +107,7 @@ Pebble.addEventListener('appmessage',function(event){
   var raw=event.payload;if(raw.CAMERA_CMD===undefined)return;
   var p={};Object.keys(raw).forEach(function(k){if(k.indexOf('CAMERA_')===0)p[k.slice(7)]=raw[k];});generation=p.RID;
   platform=p.W===144?'basalt':'emery';
-  if(p.CMD===1)list(generation,p.PAGE||0);
+  if(p.CMD===1)list(generation,p.PAGE||0,p.ROOM);
   if(p.CMD===2)frame(generation,p.ID,p.PHOTO);
   if(p.CMD===4)history(generation,p.ID);
   if(p.CMD===5)capture(generation,p.ID);
@@ -142,6 +145,7 @@ function capture(rid,id){
  });
 }
 module.exports={
+ roomCount:function(room,done){request('GET','/cameras',function(err,data){done(err?0:camerasInRoom(data.cameras||[],room).length);});},
  order:function(){return sectionOrder(localStorage.getItem('pome-section-order'));},
  settings: function(done){request('GET','/camera-settings',function(err,data){done({enabled:camerasEnabled,connection:connection.publicState(),order:sectionOrder(localStorage.getItem('pome-section-order')),autoPan:autoPan(),mode:imageMode(),cameras:err?[]:data.cameras,error:err||localStorage.getItem('camera-save-error')});});},
  save:function(value,callback){

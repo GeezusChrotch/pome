@@ -17,6 +17,7 @@ static int ages[10],count,page,pages=1,rid=1,received,total,width,height;
 static char image_timestamp[32]="Timestamp unavailable";
 static bool loading=true,viewing=false,complete=false;
 static bool history_mode;
+static char room_filter[64];
 static void age_tick(void *context){
   age_timer=NULL;if(!viewing||!complete)return;
   layer_mark_dirty(image_layer);age_timer=app_timer_register(1000,age_tick,NULL);
@@ -70,6 +71,7 @@ static void request(int cmd,const char *id){
   dict_write_int32(out,CMD,cmd);dict_write_int32(out,RID,rid);
   dict_write_int32(out,W,layer_get_bounds(window_get_root_layer(main_window)).size.w);
   dict_write_int32(out,PAGE,page);if(id)dict_write_cstring(out,ID,id);
+  if(cmd==1 && room_filter[0])dict_write_cstring(out,MESSAGE_KEY_CAMERA_ROOM,room_filter);
   if(cmd==2&&selected_photo[0])dict_write_cstring(out,117,selected_photo);
   app_message_outbox_send();
   if(cmd!=3)timeout=app_timer_register(cmd==5?55000:45000,timed_out,NULL);
@@ -214,7 +216,8 @@ static void camera_init(void){
 }
 void cameras_deinit(void){if(!main_window)return;if(age_timer){app_timer_cancel(age_timer);age_timer=NULL;}stop_pan();cancel_timer();free(pixels);layer_destroy(image_layer);menu_layer_destroy(menu);window_destroy(image_window);window_destroy(main_window);}
 bool cameras_inbox(DictionaryIterator *in){if(!dict_find(in,KIND))return false;if(main_window)inbox(in,NULL);return true;}
-void cameras_open(void){if(!main_window)camera_init();history_mode=false;loading=true;count=0;page=0;snprintf(message,sizeof(message),"Loading cameras…");window_stack_push(main_window,true);request(1,NULL);reload();}
+void cameras_open_room(const char *room){if(!main_window)camera_init();snprintf(room_filter,sizeof(room_filter),"%s",room?room:"");history_mode=false;loading=true;count=0;page=0;snprintf(message,sizeof(message),"Loading cameras…");window_stack_push(main_window,true);request(1,NULL);reload();}
+void cameras_open(void){cameras_open_room(NULL);}
 void cameras_capture(const char *id){
   if(!main_window)camera_init();
   history_mode=false;selected_photo[0]=0;
@@ -224,6 +227,7 @@ void cameras_capture(const char *id){
 #else
 bool cameras_inbox(DictionaryIterator *in){return dict_find(in,102)!=NULL;}
 void cameras_open(void){}
+void cameras_open_room(const char *room){}
 void cameras_capture(const char *id){}
 void cameras_update_shortcuts(void){}
 void cameras_deinit(void){}
